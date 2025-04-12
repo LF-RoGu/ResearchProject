@@ -97,3 +97,29 @@ class ClusterProcessor:
             cluster_range_azimuth.append((cluster_id, range_to_origin, azimuth_to_origin, cluster_points))
 
         return clusters, cluster_range_azimuth
+    
+
+def compress_cluster_to_point(cluster_dict):
+    """
+    Compress a structured cluster (from DBSCAN output) into a single point.
+    Expected input: a dictionary with keys 'points' (np.ndarray of shape Nx4)
+    Returns: a dict with x, y, z, doppler (averaged from the cluster)
+    """
+    if not isinstance(cluster_dict, dict):
+        return None
+
+    points = cluster_dict.get('points')
+    if points is None or len(points) == 0:
+        return None
+
+    # Each row in 'points' is [x, y, z, doppler]
+    centroid = np.mean(points[:, :3], axis=0)
+    avg_doppler = np.mean(points[:, 3])
+
+    return {
+        'x': centroid[0],
+        'y': centroid[1],
+        'z': centroid[2],
+        'doppler': avg_doppler
+    }
+

@@ -11,6 +11,7 @@ import selfSpeedEstimator
 from kalmanFilter import KalmanFilter
 import veSpeedFilter
 import dbCluster
+from dbCluster import compress_cluster_to_point
 import occupancyGrid
 from fileSearch import find_project_root
 
@@ -21,7 +22,7 @@ from fileSearch import find_project_root
 #Defining the number of how many frames from the past should be used in the frame aggregator
 # 0 = only current frame
 # n = current frame + n previous frames
-FRAME_AGGREGATOR_NUM_PAST_FRAMES = 9
+FRAME_AGGREGATOR_NUM_PAST_FRAMES = 5
 
 #Defining a minimum SNR for the filter stage
 FILTER_SNR_MIN = 12
@@ -52,10 +53,15 @@ grid_processor = occupancyGrid.OccupancyGridProcessor(grid_spacing=0.5)
 # -------------------------------
 self_speed_raw_history = []
 self_speed_filtered_history = []
+prev_point_cloud_clustered = []
+prev_clusters_compressed = []
+
 def update_sim(new_num_frame):
     global curr_num_frame
     global self_speed_raw_history
     global self_speed_filtered_history
+    global prev_point_cloud_clustered
+    global prev_clusters_compressed
     
     #Checking if new frame is earlier than the current processed frame (--> simulation needs to be rebuild until this particular frame)
     if new_num_frame < curr_num_frame:
@@ -73,6 +79,9 @@ def update_sim(new_num_frame):
 
             #Setting the current frame to -1 to start feeding at index 0
             curr_num_frame = -1
+            # Reset variable when the simulation gets updated.
+            prev_point_cloud_clustered = None
+            prev_clusters_compressed = []
     
     #Simulating the necessary frames
     for num_frame in range(curr_num_frame + 1, new_num_frame + 1, 1):
@@ -111,15 +120,53 @@ def update_sim(new_num_frame):
 
         # Final cluster step
         #point_cloud_clustered = pointFilter.extract_points(clusters_stage2)
-        point_cloud_clustered = clusters_stage2
+        curr_point_cloud_clustered = clusters_stage2
+        #Compress each cluster into a single representative point
+        curr_clusters_compressed = [
+                                    compress_cluster_to_point(cluster_data)
+                                    for cluster_data in curr_point_cloud_clustered.values()
+                                    ]
+        
+        if prev_clusters_compressed:
+            num_current = len(curr_clusters_compressed)
+            num_previous = len(prev_clusters_compressed)
+            print(f"Comparing clusters at t and t-1: {num_current} current vs {num_previous} previous")
+
+            # Loop through pairs of clusters (for now we assume 1:1 matching by index)
+            for idx in range(min(num_current, num_previous)):
+                current_cluster = curr_clusters_compressed[idx]
+                previous_cluster = prev_clusters_compressed[idx]
+
+                # Extract coordinates and doppler
+                x_curr = current_cluster['x']
+                y_curr = current_cluster['y']
+                doppler_curr = current_cluster['doppler']
+
+                x_prev = previous_cluster['x']
+                y_prev = previous_cluster['y']
+                doppler_prev = previous_cluster['doppler']
+
+                print(f"\nCluster {idx}")
+                print(f"  Previous: x={x_prev:.2f}, y={y_prev:.2f}, v_r={doppler_prev:.2f}")
+                print(f"  Current : x={x_curr:.2f}, y={y_curr:.2f}, v_r={doppler_curr:.2f}")
+
+                # TODO: Estimate motion or solve for vx, vy using radial velocity equations
+                # For example, compute angle (phi) of each cluster from origin (or radar)
+                # phi_prev = atan2(y_prev, x_prev)
+                # phi_curr = atan2(y_curr, x_curr)
+                # Build system of equations:
+                # doppler_prev = vx * cos(phi_prev) + vy * sin(phi_prev)
+                # doppler_curr = vx * cos(phi_curr) + vy * sin(phi_curr)
+
+        prev_point_cloud_clustered = curr_point_cloud_clustered
+        prev_clusters_compressed = curr_clusters_compressed
 
         ##Feeding the histories for the self speed
         self_speed_raw_history.append(self_speed_raw)
         self_speed_filtered_history.append(self_speed_filtered)
         
-
     #Updating the graphs
-    update_graphs(point_cloud, point_cloud_filtered, point_cloud_ve_filtered, self_speed_raw_history, self_speed_filtered_history, point_cloud_clustered)
+    update_graphs(self_speed_raw_history, self_speed_filtered_history, curr_point_cloud_clustered)
 
     #Updating the current frame number to the new last processed frame
     curr_num_frame = new_num_frame
@@ -129,55 +176,9 @@ def update_sim(new_num_frame):
 # -------------------------------
 # FUNCTION: Updating the simulation's graphs
 # -------------------------------
-def update_graphs(raw_points, point_cloud_points, filtered_points, self_speed_raw_history, self_speed_filtered_history, cluster_points):
+def update_graphs(self_speed_raw_history, self_speed_filtered_history, cluster_points):
     global frames
     point_cloud_clustered = pointFilter.extract_points(cluster_points)
-    
-    ##Plotting the points in the 3D plot
-    #Creating arrays of the x,y,z coordinates
-    points_x = np.array([point["x"] for point in raw_points])
-    points_y = np.array([point["y"] for point in raw_points])
-    points_z = np.array([point["z"] for point in raw_points])
-
-    plot_raw_data.clear()
-    plot_raw_data.set_title('Raw Point Cloud - Raw')
-    plot_raw_data.set_xlabel('X [m]')
-    plot_raw_data.set_ylabel('Y [m]')
-    plot_raw_data.set_zlabel('Z [m]')
-    plot_raw_data.set_xlim(-10, 10)
-    plot_raw_data.set_ylim(0, 15)
-    plot_raw_data.set_zlim(-0.30, 10)
-    plot_raw_data.scatter(points_x, points_y, points_z)
-
-    points_x = np.array([point["x"] for point in point_cloud_points])
-    points_y = np.array([point["y"] for point in point_cloud_points])
-    points_z = np.array([point["z"] for point in point_cloud_points])
-
-    plot_pointCloud_data.clear()
-    plot_pointCloud_data.set_title('Point Cloud Filters - Physical Filters')
-    plot_pointCloud_data.set_xlabel('X [m]')
-    plot_pointCloud_data.set_ylabel('Y [m]')
-    plot_pointCloud_data.set_zlabel('Z [m]')
-    plot_pointCloud_data.set_xlim(-10, 10)
-    plot_pointCloud_data.set_ylim(0, 15)
-    plot_pointCloud_data.set_zlim(-0.30, 10)
-    plot_pointCloud_data.scatter(points_x, points_y, points_z)
-
-    #Creating arrays of the x,y,z coordinates
-    points_x = np.array([point["x"] for point in filtered_points])
-    points_y = np.array([point["y"] for point in filtered_points])
-    points_z = np.array([point["z"] for point in filtered_points])
-
-    #Clearing the plot and plotting the points in the 3D plot
-    plot_filtered_data.clear()
-    plot_filtered_data.set_title('Point Cloud Filters - Ve Filters')
-    plot_filtered_data.set_xlabel('X [m]')
-    plot_filtered_data.set_ylabel('Y [m]')
-    plot_filtered_data.set_zlabel('Z [m]')
-    plot_filtered_data.set_xlim(-10, 10)
-    plot_filtered_data.set_ylim(0, 15)
-    plot_filtered_data.set_zlim(-0.30, 10)
-    plot_filtered_data.scatter(points_x, points_y, points_z)
 
     #Plotting the raw and filtered self-speed
     plot_Ve.clear()
@@ -261,18 +262,13 @@ self_speed_kf = KalmanFilter(process_variance=KALMAN_FILTER_PROCESS_VARIANCE, me
 fig = plt.figure(figsize=(10, 10))
 
 #Defining a 2x4 grid layout
-gs = GridSpec(2, 3, figure=fig)
-plot_raw_data =         fig.add_subplot(gs[0, 0], projection='3d')
-plot_pointCloud_data =  fig.add_subplot(gs[0, 1], projection='3d')
-plot_dbCluster =        fig.add_subplot(gs[0, 2], projection='3d')
-plot_filtered_data =    fig.add_subplot(gs[1, 0], projection='3d')
-plot_Ve =               fig.add_subplot(gs[1, 1])
-plot_occupancyGrid =    fig.add_subplot(gs[1, 2])
+gs = GridSpec(2, 2, figure=fig)
+plot_dbCluster =        fig.add_subplot(gs[0, 0], projection='3d')
+plot_occupancyGrid =    fig.add_subplot(gs[0, 1])
+plot_Ve =               fig.add_subplot(gs[1, 0])
+
 
 #Setting the initial view angle of the 3D-plot to top-down
-plot_raw_data.view_init(elev=90, azim=-90)
-plot_pointCloud_data.view_init(elev=90, azim=-90)
-plot_filtered_data.view_init(elev=90, azim=-90)
 plot_dbCluster.view_init(elev=90, azim=-90)
 
 #Variable to hold the number of the latest frame that was processed successfully
