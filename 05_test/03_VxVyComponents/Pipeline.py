@@ -140,7 +140,8 @@ def update_sim(new_num_frame):
                         'x': cluster['x'],
                         'y': cluster['y'],
                         'z': cluster['z'],
-                        'doppler': cluster['doppler']
+                        'doppler': cluster['doppler'],
+                        'frame': 't-1'
                     })
 
             # Add all current frame compressed clusters
@@ -150,7 +151,8 @@ def update_sim(new_num_frame):
                         'x': cluster['x'],
                         'y': cluster['y'],
                         'z': cluster['z'],
-                        'doppler': cluster['doppler']
+                        'doppler': cluster['doppler'],
+                        'frame': 't'
                     })
 
             # Loop through pairs of clusters (for now we assume 1:1 matching by index)
@@ -239,12 +241,26 @@ def update_graphs(self_speed_raw_history, self_speed_filtered_history, cluster_p
     # -------------------------------
     # PLOT: Compressed Point Cloud
     # -------------------------------
-    #Creating arrays of the x,y,z coordinates
-    points_x = np.array([point["x"] for point in compressed_cluster_points])
-    points_y = np.array([point["y"] for point in compressed_cluster_points])
-    points_z = np.array([point["z"] for point in compressed_cluster_points])
-
     plot_compressed_data.clear()
+    #Creating arrays of the x,y,z coordinates
+    # Separate points from t-1 and t
+    points_t_minus_1 = [p for p in compressed_cluster_points if p['frame'] == 't-1']
+    points_t = [p for p in compressed_cluster_points if p['frame'] == 't']
+
+    # Plot t-1 points in blue circles
+    if points_t_minus_1:
+        x1 = [p['x'] for p in points_t_minus_1]
+        y1 = [p['y'] for p in points_t_minus_1]
+        z1 = [p['z'] for p in points_t_minus_1]
+        plot_compressed_data.scatter(x1, y1, z1, c='blue', marker='o', label='t-1')
+
+    # Plot t points in red triangles
+    if points_t:
+        x2 = [p['x'] for p in points_t]
+        y2 = [p['y'] for p in points_t]
+        z2 = [p['z'] for p in points_t]
+        plot_compressed_data.scatter(x2, y2, z2, c='red', marker='^', label='t')
+
     plot_compressed_data.set_title('Compressed Point Cloud - Compressed')
     plot_compressed_data.set_xlabel('X [m]')
     plot_compressed_data.set_ylabel('Y [m]')
@@ -252,7 +268,6 @@ def update_graphs(self_speed_raw_history, self_speed_filtered_history, cluster_p
     plot_compressed_data.set_xlim(-10, 10)
     plot_compressed_data.set_ylim(0, 15)
     plot_compressed_data.set_zlim(-0.30, 10)
-    plot_compressed_data.scatter(points_x, points_y, points_z)
 
     # -------------------------------
     # PLOT: Occupancy Grid
