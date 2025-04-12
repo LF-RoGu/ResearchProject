@@ -39,7 +39,7 @@ def parse_tlv_header(raw_data):
 def parse_tlv_payload(tlv_header, raw_data):
     tlv_type = tlv_header["TLV Type"]
     tlv_length = tlv_header["TLV Length"]
-    payload_length = tlv_length
+    payload_length = tlv_length - 8
 
     if len(raw_data) < payload_length:
         raise ValueError(f"Insufficient data for TLV Payload: expected {payload_length} bytes, "
@@ -197,9 +197,12 @@ def dataToFrames(data):
                         decodedSNRandNoise = tlv_payload["SNRandNoise"]
             
             #Adding SNR and noise info to the decoded frames
-            for point in range(len(decodedFrame["detectedPoints"])):
-                decodedFrame["detectedPoints"][point]["snr"] = decodedSNRandNoise[point]["snr"]
-                decodedFrame["detectedPoints"][point]["noise"] = decodedSNRandNoise[point]["noise"]
+            if decodedFrame and decodedSNRandNoise:
+                for point in range(len(decodedFrame["detectedPoints"])):
+                    decodedFrame["detectedPoints"][point]["snr"] = decodedSNRandNoise[point]["snr"]
+                    decodedFrame["detectedPoints"][point]["noise"] = decodedSNRandNoise[point]["noise"]
+                decodedFrames.append(decodedFrame)
+
 
             #Adding the decoded frame to the list of decoded frames
             decodedFrames.append(decodedFrame)
