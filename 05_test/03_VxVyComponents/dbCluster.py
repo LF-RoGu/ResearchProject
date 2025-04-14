@@ -76,7 +76,7 @@ class ClusterProcessor:
             cluster_size = len(cluster_points)
 
             # STEP 5: Ignore small clusters
-            if cluster_size < 3:
+            if cluster_size < 2:
                 continue
 
             # STEP 6: Compute cluster properties

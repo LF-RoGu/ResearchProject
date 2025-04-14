@@ -42,6 +42,8 @@ KALMAN_FILTER_MEASUREMENT_VARIANCE = 0.1
 #Defining dbClustering stages
 cluster_processor_stage1 = dbCluster.ClusterProcessor(eps=2.0, min_samples=2)
 cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.0, min_samples=4)
+#VxVy Processing
+VxVy_processor_stage = dbCluster.ClusterProcessor(eps=0.5, min_samples=2)
 
 #Define grid
 grid_processor = occupancyGrid.OccupancyGridProcessor(grid_spacing=0.5)
@@ -121,13 +123,17 @@ def update_sim(new_num_frame):
         # Final cluster step
         #point_cloud_clustered = pointFilter.extract_points(clusters_stage2)
         curr_point_cloud_clustered = clusters_stage2
+
+        # -------------------------------
+        # Vx and Vy calculation
+        # -------------------------------
+        aggregated_compressed_cluster_points = []
+        cluster_aggregated_compressed_cluster_points = []
         #Compress each cluster into a single representative point
         curr_clusters_compressed = [
                                     compress_cluster_to_point(cluster_data)
                                     for cluster_data in curr_point_cloud_clustered.values()
                                     ]
-        
-        aggregated_compressed_cluster_points = []
 
         if prev_clusters_compressed:
             num_current = len(curr_clusters_compressed)
@@ -143,6 +149,12 @@ def update_sim(new_num_frame):
                         'doppler': cluster['doppler'],
                         'frame': 't-1'
                     })
+                    cluster_aggregated_compressed_cluster_points.append({
+                        'x': cluster['x'],
+                        'y': cluster['y'],
+                        'z': cluster['z'],
+                        'doppler': cluster['doppler'],
+                    })
 
             # Add all current frame compressed clusters
             for cluster in curr_clusters_compressed:
@@ -154,6 +166,15 @@ def update_sim(new_num_frame):
                         'doppler': cluster['doppler'],
                         'frame': 't'
                     })
+                    cluster_aggregated_compressed_cluster_points.append({
+                        'x': cluster['x'],
+                        'y': cluster['y'],
+                        'z': cluster['z'],
+                        'doppler': cluster['doppler'],
+                    })
+            # [!] Variable to indicate the end of calculation for compressed clusters
+            cluster_ac_points = pointFilter.extract_points(cluster_aggregated_compressed_cluster_points)
+            cluster_aggregated_compressed_cluster_points,_ = VxVy_processor_stage.cluster_points(cluster_ac_points)
 
             # Loop through pairs of clusters (for now we assume 1:1 matching by index)
             for idx in range(min(num_current, num_previous)):
@@ -185,7 +206,7 @@ def update_sim(new_num_frame):
         self_speed_filtered_history.append(self_speed_filtered)
         
     #Updating the graphs
-    update_graphs(self_speed_raw_history, self_speed_filtered_history, curr_point_cloud_clustered, aggregated_compressed_cluster_points)
+    update_graphs(self_speed_raw_history, self_speed_filtered_history, curr_point_cloud_clustered, aggregated_compressed_cluster_points, cluster_aggregated_compressed_cluster_points)
 
     #Updating the current frame number to the new last processed frame
     curr_num_frame = new_num_frame
@@ -195,7 +216,7 @@ def update_sim(new_num_frame):
 # -------------------------------
 # FUNCTION: Updating the simulation's graphs
 # -------------------------------
-def update_graphs(self_speed_raw_history, self_speed_filtered_history, cluster_points, compressed_cluster_points):
+def update_graphs(self_speed_raw_history, self_speed_filtered_history, cluster_points, compressed_cluster_points, aggregated_compressed_cluster_points):
     global frames
     point_cloud_clustered = pointFilter.extract_points(cluster_points)
 
@@ -237,6 +258,36 @@ def update_graphs(self_speed_raw_history, self_speed_filtered_history, cluster_p
             plot_dbCluster.text(centroid[0] + 0.2, centroid[1] + 0.2, centroid[2] + 0.2, f"{doppler_avg:.2f} m/s", color='purple')
     else:
         plot_dbCluster.text(0, 0, 0, 'No Clusters Detected', fontsize=12, color='red')
+
+    # -------------------------------
+    # PLOT: Compressed Clustered Point Cloud
+    # -------------------------------
+    priority_colors = {1: 'red', 2: 'orange', 3: 'green'}
+
+    plot_compressedDB_data.clear()
+    plot_compressedDB_data.set_title('Compressed Clustered Point Cloud')
+    plot_compressedDB_data.set_xlabel('X [m]')
+    plot_compressedDB_data.set_ylabel('Y [m]')
+    plot_compressedDB_data.set_zlabel('Z [m]')
+    plot_compressedDB_data.set_xlim(-10, 10)
+    plot_compressedDB_data.set_ylim(0, 15)
+    plot_compressedDB_data.set_zlim(-0.30, 10)
+    if aggregated_compressed_cluster_points:
+        for _, cluster_data in aggregated_compressed_cluster_points.items():
+            centroid = cluster_data['centroid']
+            priority = cluster_data['priority']
+            points = cluster_data['points']
+            doppler_avg = cluster_data['doppler_avg']  # Access average Doppler
+            
+            color = priority_colors.get(priority, 'gray')  # Default to gray if priority not in the dictionary
+
+            # Plot the cluster points
+            plot_compressedDB_data.scatter(points[:, 0], points[:, 1], points[:, 2], c=color, s=8, alpha=0.7, label=f'Priority {priority}')
+
+            # Add Doppler and Priority labels at the centroid
+            plot_compressedDB_data.text(centroid[0] + 0.2, centroid[1] + 0.2, centroid[2] + 0.2, f"{doppler_avg:.2f} m/s", color='purple')
+    else:
+        plot_compressedDB_data.text(0, 0, 0, 'No Clusters Detected', fontsize=12, color='red')
 
     # -------------------------------
     # PLOT: Compressed Point Cloud
@@ -312,16 +363,18 @@ self_speed_kf = KalmanFilter(process_variance=KALMAN_FILTER_PROCESS_VARIANCE, me
 fig = plt.figure(figsize=(10, 10))
 
 #Defining a 2x4 grid layout
-gs = GridSpec(2, 2, figure=fig)
+gs = GridSpec(2, 3, figure=fig)
 plot_dbCluster =        fig.add_subplot(gs[0, 0], projection='3d')
 plot_compressed_data =  fig.add_subplot(gs[1, 1], projection='3d') # Temporal Plot
+plot_compressedDB_data =  fig.add_subplot(gs[1, 2], projection='3d') # Temporal Plot
 plot_occupancyGrid =    fig.add_subplot(gs[0, 1])
 plot_Ve =               fig.add_subplot(gs[1, 0])
 
 
 #Setting the initial view angle of the 3D-plot to top-down
 plot_dbCluster.view_init(elev=90, azim=-90)
-plot_compressed_data.view_init(elev=90, azim=-90)
+plot_compressed_data.view_init(elev=90, azim=-90) # Temporal Plot
+plot_compressedDB_data.view_init(elev=90, azim=-90) # Temporal Plot
 
 #Variable to hold the number of the latest frame that was processed successfully
 curr_num_frame = -1
