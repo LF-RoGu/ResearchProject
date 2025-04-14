@@ -1,4 +1,6 @@
+from cmath import sin
 import os
+from matplotlib.pylab import cos
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
@@ -43,7 +45,7 @@ KALMAN_FILTER_MEASUREMENT_VARIANCE = 0.1
 cluster_processor_stage1 = dbCluster.ClusterProcessor(eps=2.0, min_samples=2)
 cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.0, min_samples=4)
 #VxVy Processing
-VxVy_processor_stage = dbCluster.ClusterProcessor(eps=0.5, min_samples=2)
+VxVy_processor_stage = dbCluster.ClusterProcessor(eps=0.2, min_samples=2)
 
 #Define grid
 grid_processor = occupancyGrid.OccupancyGridProcessor(grid_spacing=0.5)
@@ -176,6 +178,13 @@ def update_sim(new_num_frame):
             cluster_ac_points = pointFilter.extract_points(cluster_aggregated_compressed_cluster_points)
             cluster_aggregated_compressed_cluster_points,_ = VxVy_processor_stage.cluster_points(cluster_ac_points)
 
+            print("\n=== Aggregated Cluster Results ===")
+            for cluster_id, cluster_data in cluster_aggregated_compressed_cluster_points.items():
+                print(f"\nCluster {cluster_id}:")
+                for point in cluster_data['points']:
+                    print(f"  (x={point[0]:.2f}, y={point[1]:.2f}, z={point[2]:.2f}, doppler={point[3]:.2f})")
+
+
             # Loop through pairs of clusters (for now we assume 1:1 matching by index)
             for idx in range(min(num_current, num_previous)):
                 current_cluster = curr_clusters_compressed[idx]
@@ -192,11 +201,11 @@ def update_sim(new_num_frame):
 
                 # TODO: Estimate motion or solve for vx, vy using radial velocity equations
                 # For example, compute angle (phi) of each cluster from origin (or radar)
-                # phi_prev = atan2(y_prev, x_prev)
-                # phi_curr = atan2(y_curr, x_curr)
+                phi_prev = np.atan2(y_prev, x_prev)
+                phi_curr = np.atan2(y_curr, x_curr)
                 # Build system of equations:
-                # doppler_prev = vx * cos(phi_prev) + vy * sin(phi_prev)
-                # doppler_curr = vx * cos(phi_curr) + vy * sin(phi_curr)
+                #doppler_prev = vx * cos(phi_prev) + vy * sin(phi_prev)
+                #doppler_curr = vx * cos(phi_curr) + vy * sin(phi_curr)
 
         prev_point_cloud_clustered = curr_point_cloud_clustered
         prev_clusters_compressed = curr_clusters_compressed
