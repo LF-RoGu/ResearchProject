@@ -89,6 +89,7 @@ def update_sim(new_num_frame):
     
     #Simulating the necessary frames
     for num_frame in range(curr_num_frame + 1, new_num_frame + 1, 1):
+        cluster_results_vxvy = None
         ##Feeding the pipeline
         #Getting the current frame
         frame = frames[num_frame]
@@ -178,6 +179,7 @@ def update_sim(new_num_frame):
             cluster_ac_points = pointFilter.extract_points(cluster_aggregated_compressed_cluster_points)
             cluster_aggregated_compressed_cluster_points, _ = VxVy_processor_stage.cluster_points(cluster_ac_points)
 
+            cluster_results_vxvy = {}
             for cluster_id, cluster_data in cluster_aggregated_compressed_cluster_points.items():
 
                 points = cluster_data['points']
@@ -212,9 +214,19 @@ def update_sim(new_num_frame):
                     if np.allclose(p1, p2, atol=1e-4):
                         print(f"Cluster {cluster_id}: skipped because both points are identical.")
                         continue
+
                     vx, vy = np.linalg.solve(A, b)
+                    cluster_results_vxvy[cluster_id] = {
+                        'points': points,
+                        'centroid': cluster_data['centroid'],
+                        'priority': cluster_data['priority'],
+                        'doppler_avg': cluster_data['doppler_avg'],
+                        'vx': vx,
+                        'vy': vy
+                    }
+
                     print(f"\nCluster {cluster_id}:")
-                    for point in cluster_data['points']:
+                    for point in points:
                         print(f"  (x={point[0]:.2f}, y={point[1]:.2f}, z={point[2]:.2f}, doppler={point[3]:.2f})")
                     print(f"  vx = {vx:.2f} m/s, vy = {vy:.2f} m/s")
                 except np.linalg.LinAlgError:
@@ -222,11 +234,6 @@ def update_sim(new_num_frame):
                     print("  Points used for this cluster:")
                     for point in cluster_data['points']:
                         print(f"    (x={point[0]:.2f}, y={point[1]:.2f}, z={point[2]:.2f}, doppler={point[3]:.2f})")
-
-                    print("  Matrix A:")
-                    print(A)
-                    print("  Vector b:")
-                    print(b)
     
 
 
@@ -238,7 +245,7 @@ def update_sim(new_num_frame):
         self_speed_filtered_history.append(self_speed_filtered)
         
     #Updating the graphs
-    update_graphs(self_speed_raw_history, self_speed_filtered_history, curr_point_cloud_clustered, aggregated_compressed_cluster_points, cluster_aggregated_compressed_cluster_points)
+    update_graphs(self_speed_raw_history, self_speed_filtered_history, curr_point_cloud_clustered, aggregated_compressed_cluster_points, cluster_aggregated_compressed_cluster_points, cluster_results_vxvy)
 
     #Updating the current frame number to the new last processed frame
     curr_num_frame = new_num_frame
@@ -248,7 +255,7 @@ def update_sim(new_num_frame):
 # -------------------------------
 # FUNCTION: Updating the simulation's graphs
 # -------------------------------
-def update_graphs(self_speed_raw_history, self_speed_filtered_history, cluster_points, compressed_cluster_points, aggregated_compressed_cluster_points):
+def update_graphs(self_speed_raw_history, self_speed_filtered_history, cluster_points, compressed_cluster_points, aggregated_compressed_cluster_points, cluster_results_vxvy):
     global frames
     point_cloud_clustered = pointFilter.extract_points(cluster_points)
 
@@ -320,6 +327,49 @@ def update_graphs(self_speed_raw_history, self_speed_filtered_history, cluster_p
             plot_compressedDB_data.text(centroid[0] + 0.2, centroid[1] + 0.2, centroid[2] + 0.2, f"{doppler_avg:.2f} m/s", color='purple')
     else:
         plot_compressedDB_data.text(0, 0, 0, 'No Clusters Detected', fontsize=12, color='red')
+
+    # -------------------------------
+    # PLOT: Compressed Clustered Point Cloud Vx and Vy
+    # -------------------------------
+    priority_colors = {1: 'red', 2: 'orange', 3: 'green'}
+
+    plot_vxvy_data.clear()
+    plot_vxvy_data.set_title('Compressed Clustered Point Cloud')
+    plot_vxvy_data.set_xlabel('X [m]')
+    plot_vxvy_data.set_ylabel('Y [m]')
+    plot_vxvy_data.set_zlabel('Z [m]')
+    plot_vxvy_data.set_xlim(-10, 10)
+    plot_vxvy_data.set_ylim(0, 15)
+    plot_vxvy_data.set_zlim(-0.30, 10)
+
+    if cluster_results_vxvy:
+        for cluster_id, cluster_data in cluster_results_vxvy.items():
+            centroid = cluster_data['centroid']
+            priority = cluster_data['priority']
+            points = cluster_data['points']
+            doppler_avg = cluster_data['doppler_avg']
+            vx = cluster_data['vx']
+            vy = cluster_data['vy']
+
+            # Choose color based on priority
+            color = priority_colors.get(priority, 'gray')
+
+            # Plot the cluster points
+            plot_vxvy_data.scatter(points[:, 0], points[:, 1], points[:, 2],
+                                c=color, s=8, alpha=0.7, label=f'Priority {priority}')
+
+            # Add velocity vector as an arrow from the centroid
+            plot_vxvy_data.quiver(
+                centroid[0], centroid[1], centroid[2],  # Origin of arrow
+                vx, vy, 0,                              # Vx/Vy only in XY plane
+                length=1.0, color='blue', normalize=True
+            )
+
+            # Label with Doppler average
+            plot_vxvy_data.text(centroid[0] + 0.2, centroid[1] + 0.2, centroid[2] + 0.2,
+                                f"{doppler_avg:.2f} m/s", color='purple')
+    else:
+        plot_vxvy_data.text(0, 0, 0, 'No Clusters Detected', fontsize=12, color='red')
 
     # -------------------------------
     # PLOT: Compressed Point Cloud
@@ -399,6 +449,7 @@ gs = GridSpec(2, 3, figure=fig)
 plot_dbCluster =        fig.add_subplot(gs[0, 0], projection='3d')
 plot_compressed_data =  fig.add_subplot(gs[1, 1], projection='3d') # Temporal Plot
 plot_compressedDB_data =  fig.add_subplot(gs[1, 2], projection='3d') # Temporal Plot
+plot_vxvy_data =  fig.add_subplot(gs[0, 2], projection='3d') # Temporal Plot
 plot_occupancyGrid =    fig.add_subplot(gs[0, 1])
 plot_Ve =               fig.add_subplot(gs[1, 0])
 
@@ -407,6 +458,7 @@ plot_Ve =               fig.add_subplot(gs[1, 0])
 plot_dbCluster.view_init(elev=90, azim=-90)
 plot_compressed_data.view_init(elev=90, azim=-90) # Temporal Plot
 plot_compressedDB_data.view_init(elev=90, azim=-90) # Temporal Plot
+plot_vxvy_data.view_init(elev=90, azim=-90) # Temporal Plot
 
 #Variable to hold the number of the latest frame that was processed successfully
 curr_num_frame = -1
