@@ -176,36 +176,59 @@ def update_sim(new_num_frame):
                     })
             # [!] Variable to indicate the end of calculation for compressed clusters
             cluster_ac_points = pointFilter.extract_points(cluster_aggregated_compressed_cluster_points)
-            cluster_aggregated_compressed_cluster_points,_ = VxVy_processor_stage.cluster_points(cluster_ac_points)
+            cluster_aggregated_compressed_cluster_points, _ = VxVy_processor_stage.cluster_points(cluster_ac_points)
 
-            print("\n=== Aggregated Cluster Results ===")
             for cluster_id, cluster_data in cluster_aggregated_compressed_cluster_points.items():
-                print(f"\nCluster {cluster_id}:")
-                for point in cluster_data['points']:
-                    print(f"  (x={point[0]:.2f}, y={point[1]:.2f}, z={point[2]:.2f}, doppler={point[3]:.2f})")
 
+                points = cluster_data['points']
+                if len(points) != 2:
+                    print(f"Skipping cluster {cluster_id}: requires exactly 2 points (found {len(points)})")
+                    continue
 
-            # Loop through pairs of clusters (for now we assume 1:1 matching by index)
-            for idx in range(min(num_current, num_previous)):
-                current_cluster = curr_clusters_compressed[idx]
-                previous_cluster = prev_clusters_compressed[idx]
+                # Extract points (assumed one from t-1, one from t)
+                p1, p2 = points[0], points[1]
+                x1, y1, _, doppler1 = p1
+                x2, y2, _, doppler2 = p2
 
-                # Extract coordinates and doppler
-                x_curr = current_cluster['x']
-                y_curr = current_cluster['y']
-                doppler_curr = current_cluster['doppler']
+                # Calculate angles from radar origin
+                phi1 = np.arctan2(y1, x1)
+                phi2 = np.arctan2(y2, x2)
 
-                x_prev = previous_cluster['x']
-                y_prev = previous_cluster['y']
-                doppler_prev = previous_cluster['doppler']
-
-                # TODO: Estimate motion or solve for vx, vy using radial velocity equations
-                # For example, compute angle (phi) of each cluster from origin (or radar)
-                phi_prev = np.atan2(y_prev, x_prev)
-                phi_curr = np.atan2(y_curr, x_curr)
                 # Build system of equations:
-                #doppler_prev = vx * cos(phi_prev) + vy * sin(phi_prev)
-                #doppler_curr = vx * cos(phi_curr) + vy * sin(phi_curr)
+                # doppler = vx * cos(phi) + vy * sin(phi)
+                A = np.array([
+                    [np.cos(phi1), np.sin(phi1)],
+                    [np.cos(phi2), np.sin(phi2)]
+                ])
+                b = np.array([doppler1, doppler2])
+
+                try:
+                    """
+                    Detect identical points and skip them.
+                    Both rows are identical.
+                    It's underdetermined.
+                    This means your matrix A is rank 1 (not invertible).
+                    """
+                    if np.allclose(p1, p2, atol=1e-4):
+                        print(f"Cluster {cluster_id}: skipped because both points are identical.")
+                        continue
+                    vx, vy = np.linalg.solve(A, b)
+                    print(f"\nCluster {cluster_id}:")
+                    for point in cluster_data['points']:
+                        print(f"  (x={point[0]:.2f}, y={point[1]:.2f}, z={point[2]:.2f}, doppler={point[3]:.2f})")
+                    print(f"  vx = {vx:.2f} m/s, vy = {vy:.2f} m/s")
+                except np.linalg.LinAlgError:
+                    print(f"\nCluster {cluster_id}: Cannot solve, matrix is singular or ill-conditioned.")
+                    print("  Points used for this cluster:")
+                    for point in cluster_data['points']:
+                        print(f"    (x={point[0]:.2f}, y={point[1]:.2f}, z={point[2]:.2f}, doppler={point[3]:.2f})")
+
+                    print("  Matrix A:")
+                    print(A)
+                    print("  Vector b:")
+                    print(b)
+    
+
 
         prev_point_cloud_clustered = curr_point_cloud_clustered
         prev_clusters_compressed = curr_clusters_compressed
