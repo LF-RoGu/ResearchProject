@@ -4,12 +4,12 @@ import time
 import numpy as np
 import threading
 
-import libs.parser_mmw_demo as pmd
+import parser_mmw_demo
 
 __location__ = os.path.realpath(
     os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
-class DataDecoderTI:
+class IWR6843AoP:
     def __init__(self, maximumDataBuffer=4096, maximumNumDecodedFrames=4096):
         self.maximumNumDecodedFrames = maximumNumDecodedFrames
         self.maximumDataBuffer = maximumDataBuffer
@@ -44,7 +44,7 @@ class DataDecoderTI:
             self.dataBuffer = np.delete(self.dataBuffer, 1, 0)
 
         try:
-            startIndex, _, _, _, _ = pmd.parser_helper(self.dataBuffer, len(self.dataBuffer), False)
+            startIndex, _, _, _, _ = parser_mmw_demo.parser_helper(self.dataBuffer, len(self.dataBuffer), False)
         except:
             return 0
 
@@ -68,7 +68,7 @@ class DataDecoderTI:
                 detectedAzimuth_array,  \
                 detectedElevation_array,  \
                 detectedSNR_array,  \
-                detectedNoise_array = pmd.parser_one_mmw_demo_output_packet(self.dataBuffer, len(self.dataBuffer), False)
+                detectedNoise_array = parser_mmw_demo.parser_one_mmw_demo_output_packet(self.dataBuffer, len(self.dataBuffer), False)
 
                 if parser_result != 0:
                     break
