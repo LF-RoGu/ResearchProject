@@ -26,21 +26,11 @@ from frameAggregator import FrameAggregator
 PLATFORM_EMBEDDED = False
 LOGGING_LEVEL = logging.DEBUG
 
-EMERGENCY_BRAKE_RANGE = 3
-EMERGENCY_BRAKE_PHI = 10
-EMERGENCY_BRAKE_MIN_SELFSPEED = -0.75
-EMERGENCY_BRAKE_TIMEOUT = 5
-
 SENSOR_CONFIG_FILE = "profile_azim60_elev30_optimized.cfg"
-SENSOR_CONFIG_PORT_EMBEDDED = "/dev/ttyUSB0"
-SENSOR_DATA_PORT_EMBEDDED = "/dev/ttyUSB1"
 SENSOR_CONFIG_PORT_PC = "COM6"
 SENSOR_DATA_PORT_PC = "COM5"
 
-FRAME_AGGREGATOR_NUM_PAST_FRAMES = 4
-
-KALMAN_FILTER_PROCESS_VARIANCE = 0.01
-KALMAN_FILTER_MEASUREMENT_VARIANCE = 0.1
+FRAME_AGGREGATOR_NUM_PAST_FRAMES = 0
 ## @}
 
 ## @defgroup Pipeline Constructors
@@ -153,10 +143,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=LOGGING_LEVEL)
 
     # Sending the configuration commands to the radar sensor before starting the threads
-    if PLATFORM_EMBEDDED:
-        radarSensor.initIWR6843(SENSOR_CONFIG_PORT_EMBEDDED, SENSOR_DATA_PORT_EMBEDDED, SENSOR_CONFIG_FILE)
-    else:
-        radarSensor.initIWR6843(SENSOR_CONFIG_PORT_PC, SENSOR_DATA_PORT_PC, SENSOR_CONFIG_FILE)
+    radarSensor.initIWR6843(SENSOR_CONFIG_PORT_PC, SENSOR_DATA_PORT_PC, SENSOR_CONFIG_FILE)
 
     # Starting all background threads
     threading.Thread(target=sensor_thread, daemon=True).start()
