@@ -31,9 +31,9 @@ class MTi_G_710:
         print("Creating XsControl object...")
         self.control = xda.XsControl_construct()
         assert self.control != 0, "Failed to construct XsControl"
-        self.callback = XdaCallback(max_buffer_size)
+        self.callback = None
         self.device = None
-        self.port = None
+        self.mtPort = None
 
     def initialize(self):
         # Show XDA version
@@ -41,32 +41,49 @@ class MTi_G_710:
         xda.xdaVersion(version)
         print("Using XDA version %s" % version.toXsString())
 
-        # Scan ports
-        print("Scanning for devices...")
-        ports = xda.XsScanner_scanPorts()
-        for i in range(ports.size()):
-            if ports[i].deviceId().isMti() or ports[i].deviceId().isMtig():
-                self.port = ports[i]
-                break
+        try:
+            
+            print("Scanning for devices...")
+            portInfoArray = xda.XsScanner_scanPorts()
+            # Find an MTi device
+            self.mtPort = xda.XsPortInfo()
+            for i in range(portInfoArray.size()):
+                if portInfoArray[i].deviceId().isMti() or portInfoArray[i].deviceId().isMtig():
+                    self.mtPort = portInfoArray[i]
+                    break
 
-        if not self.port or self.port.empty():
-            raise RuntimeError("No MTi device found. Aborting.")
+            if self.mtPort.empty():
+                raise RuntimeError("No MTi device found. Aborting.")
 
-        did = self.port.deviceId()
-        print("Found a device with:")
-        print(" Device ID: %s" % did.toXsString())
-        print(" Port name: %s" % self.port.portName())
+            did = self.mtPort.deviceId()
+            print("Found a device with:")
+            print(" Device ID: %s" % did.toXsString())
+            print(" Port name: %s" % self.mtPort.portName())
 
-        # Open port
-        print("Opening port...")
-        if not self.control.openPort(self.port.portName(), self.port.baudrate()):
-            raise RuntimeError("Could not open port. Aborting.")
+            # Open port
+            print("Opening port...")
+            if not self.control.openPort(self.mtPort.portName(), self.mtPort.baudrate()):
+                raise RuntimeError("Could not open port. Aborting.")
 
-        self.device = self.control.device(did)
-        assert self.device != 0, "Could not construct device object"
-        print("Device: %s, with ID: %s opened." % (self.device.productCode(), self.device.deviceId().toXsString()))
+            self.device = self.control.device(did)
+            assert self.device != 0, "Could not construct device object"
 
-        self.device.addCallbackHandler(self.callback)
+            print("Device: %s, with ID: %s opened." % (self.device.productCode(), self.device.deviceId().toXsString()))
+            
+            self.callback = XdaCallback()
+            self.device.addCallbackHandler(self.callback)
+            # Call for the configuration of the same class
+            self.configure()
+            # Start the device in measurement mode
+            self.start()
+        except RuntimeError as error:
+            print(error)
+            sys.exit(1)
+        except:
+            print("An unknown fatal error has occurred. Aborting.")
+            sys.exit(1)
+        else:
+            print("Successful exit.")
 
     def configure(self):
         print("Putting device into configuration mode...")
@@ -74,26 +91,26 @@ class MTi_G_710:
             raise RuntimeError("Could not put device into configuration mode. Aborting.")
 
         print("Configuring the device...")
-        cfg = xda.XsOutputConfigurationArray()
-        cfg.push_back(xda.XsOutputConfiguration(xda.XDI_PacketCounter, 0))
-        cfg.push_back(xda.XsOutputConfiguration(xda.XDI_SampleTimeFine, 0))
+        configArray = xda.XsOutputConfigurationArray()
+        configArray.push_back(xda.XsOutputConfiguration(xda.XDI_PacketCounter, 0))
+        configArray.push_back(xda.XsOutputConfiguration(xda.XDI_SampleTimeFine, 0))
 
-        did = self.device.deviceId()
-        if did.isImu():
-            cfg.push_back(xda.XsOutputConfiguration(xda.XDI_Acceleration, 100))
-            cfg.push_back(xda.XsOutputConfiguration(xda.XDI_RateOfTurn, 100))
-            cfg.push_back(xda.XsOutputConfiguration(xda.XDI_MagneticField, 100))
-        elif did.isVru() or did.isAhrs():
-            cfg.push_back(xda.XsOutputConfiguration(xda.XDI_Quaternion, 100))
-        elif did.isGnss():
-            cfg.push_back(xda.XsOutputConfiguration(xda.XDI_Quaternion, 100))
-            cfg.push_back(xda.XsOutputConfiguration(xda.XDI_LatLon, 100))
-            cfg.push_back(xda.XsOutputConfiguration(xda.XDI_AltitudeEllipsoid, 100))
-            cfg.push_back(xda.XsOutputConfiguration(xda.XDI_VelocityXYZ, 100))
+        sddid = self.device.deviceId()
+        if sddid.isImu():
+            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_Acceleration, 100))
+            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_RateOfTurn, 100))
+            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_MagneticField, 100))
+        elif sddid.isVru() or sddid.isAhrs():
+            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_Quaternion, 100))
+        elif sddid.isGnss():
+            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_Quaternion, 100))
+            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_LatLon, 100))
+            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_AltitudeEllipsoid, 100))
+            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_VelocityXYZ, 100))
         else:
             raise RuntimeError("Unknown device while configuring. Aborting.")
 
-        if not self.device.setOutputConfiguration(cfg):
+        if not self.device.setOutputConfiguration(configArray):
             raise RuntimeError("Could not configure the device. Aborting.")
 
     def start(self):
@@ -104,36 +121,35 @@ class MTi_G_710:
 
     def read_loop(self):
         try:
-            while True:
-                if self.callback.packetAvailable():
-                    packet = self.callback.getNextPacket()
-                    s = ""
-                    if packet.containsCalibratedData():
-                        acc = packet.calibratedAcceleration()
-                        s += f"Acc X: {acc[0]:.2f}, Y: {acc[1]:.2f}, Z: {acc[2]:.2f}"
-                        gyr = packet.calibratedGyroscopeData()
-                        s += f" |Gyr X: {gyr[0]:.2f}, Y: {gyr[1]:.2f}, Z: {gyr[2]:.2f}"
-                        mag = packet.calibratedMagneticField()
-                        s += f" |Mag X: {mag[0]:.2f}, Y: {mag[1]:.2f}, Z: {mag[2]:.2f}"
+            if self.callback.packetAvailable():
+                packet = self.callback.getNextPacket()
+                s = ""
+                if packet.containsCalibratedData():
+                    acc = packet.calibratedAcceleration()
+                    s += f"Acc X: {acc[0]:.2f}, Y: {acc[1]:.2f}, Z: {acc[2]:.2f}"
+                    gyr = packet.calibratedGyroscopeData()
+                    s += f" |Gyr X: {gyr[0]:.2f}, Y: {gyr[1]:.2f}, Z: {gyr[2]:.2f}"
+                    mag = packet.calibratedMagneticField()
+                    s += f" |Mag X: {mag[0]:.2f}, Y: {mag[1]:.2f}, Z: {mag[2]:.2f}"
 
-                    if packet.containsOrientation():
-                        q = packet.orientationQuaternion()
-                        s = f"q0: {q[0]:.2f}, q1: {q[1]:.2f}, q2: {q[2]:.2f}, q3: {q[3]:.2f}"
-                        e = packet.orientationEuler()
-                        s += f" |Roll: {e.x():.2f}, Pitch: {e.y():.2f}, Yaw: {e.z():.2f}"
+                if packet.containsOrientation():
+                    quaternion = packet.orientationQuaternion()
+                    s = f"q0: {quaternion[0]:.2f}, q1: {quaternion[1]:.2f}, q2: {quaternion[2]:.2f}, q3: {quaternion[3]:.2f}"
+                    euler = packet.orientationEuler()
+                    s += f" |Roll: {euler.x():.2f}, Pitch: {euler.y():.2f}, Yaw: {euler.z():.2f}"
 
-                    if packet.containsLatitudeLongitude():
-                        latlon = packet.latitudeLongitude()
-                        s += f" |Lat: {latlon[0]:7.2f}, Lon: {latlon[1]:7.2f}"
+                if packet.containsLatitudeLongitude():
+                    latlon = packet.latitudeLongitude()
+                    s += f" |Lat: {latlon[0]:7.2f}, Lon: {latlon[1]:7.2f}"
 
-                    if packet.containsAltitude():
-                        s += f" |Alt: {packet.altitude():7.2f}"
+                if packet.containsAltitude():
+                    s += f" |Alt: {packet.altitude():7.2f}"
 
-                    if packet.containsVelocity():
-                        vel = packet.velocity(xda.XDI_CoordSysEnu)
-                        s += f" |E: {vel[0]:7.2f}, N: {vel[1]:7.2f}, U: {vel[2]:7.2f}"
+                if packet.containsVelocity():
+                    vel = packet.velocity(xda.XDI_CoordSysEnu)
+                    s += f" |E: {vel[0]:7.2f}, N: {vel[1]:7.2f}, U: {vel[2]:7.2f}"
 
-                    print(f"{s}\r", end="", flush=True)
+                print(f"{s}\r", end="", flush=True)
         except KeyboardInterrupt:
             print("\nStopped by user.")
 
@@ -142,8 +158,8 @@ class MTi_G_710:
         if self.device:
             self.device.removeCallbackHandler(self.callback)
         print("Closing port...")
-        if self.port:
-            self.control.closePort(self.port.portName())
+        if self.mtPort:
+            self.control.closePort(self.mtPort.portName())
         print("Closing XsControl object...")
         if self.control:
             self.control.close()

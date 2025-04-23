@@ -172,7 +172,7 @@ if __name__ == "__main__":
 
     # Sending the configuration commands to the radar sensor before starting the threads
     radarSensor_g.initIWR6843(SENSOR_CONFIG_PORT_PC, SENSOR_DATA_PORT_PC, SENSOR_CONFIG_FILE)
-
+    imuSensor_g.initialize()
     # Starting all background threads
     threading.Thread(target=IWR6843AoP_thread, daemon=True).start()
     threading.Thread(target=processing_thread, daemon=True).start()
