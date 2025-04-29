@@ -32,6 +32,7 @@ SENSOR_CONFIG_PORT_PC = "COM6"
 SENSOR_DATA_PORT_PC = "COM5"
 
 FRAME_AGGREGATOR_NUM_PAST_FRAMES = 0
+IWR6843AoP_FPS = 30
 ## @}
 
 ## @defgroup Pipeline Constructors
@@ -93,11 +94,11 @@ def MTi_G_710_thread():
     global MTi_G_710_lock
 
     while True:
-        packet = imuSensor_g.read_loop()
-        if packet:
+        MTi_data = imuSensor_g.read_loop()
+        if MTi_data:
             with MTi_G_710_lock:
-                MTi_G_710_list.append(packet)
-        MTi_G_710_ready.set()
+                MTi_G_710_list.extend(MTi_data)
+            MTi_G_710_ready.set()
 
 def processing_thread():
     """!
@@ -122,17 +123,17 @@ def processing_thread():
             IWR6843AoP_list.clear()
             IWR6843AoP_ready.clear()
 
-        with MTi_G_710_lock:
-            MTi_G_710_data = list(MTi_G_710_list)
-            MTi_G_710_list.clear()
-            MTi_G_710_ready.clear()
+        while len(MTi_G_710_list) >= IWR6843AoP_FPS:
+            with MTi_G_710_lock:
+                MTi_G_710_data = list(MTi_G_710_list)
+                MTi_G_710_list.clear()
+                MTi_G_710_ready.clear()
 
         try:
+            os.system('cls' if os.name == 'nt' else 'clear')  # Clear terminal for live effect
             # Processing each frame
-            for frame in IWR6843AoP_data:
-                os.system('cls' if os.name == 'nt' else 'clear')  # Clear terminal for live effect
-                print(f"\n--- Processing Frame {frame.get('subFrameNumber', 'N/A')} ---", flush=True)
-                
+            for frame in IWR6843AoP_data:   
+                print(f"\n--- Processing Frame {frame.get('subFrameNumber', 'N/A')} ---", flush=True)               
                 # Print mmWave point-cloud data
                 for idx, point in enumerate(frame.get("detectedPoints", [])):
                     print(
@@ -145,10 +146,41 @@ def processing_thread():
                         flush=True
                     )
                 if MTi_G_710_data:
-                    acc = MTi_G_710_data.calibratedAcceleration()
-                    print(f"IMU Acc: x={acc[0]:.2f}, y={acc[1]:.2f}, z={acc[2]:.2f}", flush=True)
-                # Optional: store the frame if needed
-                frame_aggregator.updateBuffer(frame)
+                        latest_imu = MTi_G_710_data[-1]  # Get the most recent IMU packet
+                        print("\n--- IMU Data ---", flush=True)
+
+                        if "acceleration" in latest_imu:
+                            acc = latest_imu["acceleration"]
+                            print(f"Acceleration -> x: {acc['x']:.2f}, y: {acc['y']:.2f}, z: {acc['z']:.2f}", flush=True)
+
+                        if "gyroscope" in latest_imu:
+                            gyr = latest_imu["gyroscope"]
+                            print(f"Gyroscope    -> x: {gyr['x']:.2f}, y: {gyr['y']:.2f}, z: {gyr['z']:.2f}", flush=True)
+
+                        if "magnetometer" in latest_imu:
+                            mag = latest_imu["magnetometer"]
+                            print(f"Magnetometer -> x: {mag['x']:.2f}, y: {mag['y']:.2f}, z: {mag['z']:.2f}", flush=True)
+
+                        if "quaternion" in latest_imu:
+                            quat = latest_imu["quaternion"]
+                            print(f"Quaternion   -> q0: {quat['q0']:.2f}, q1: {quat['q1']:.2f}, q2: {quat['q2']:.2f}, q3: {quat['q3']:.2f}", flush=True)
+
+                        if "euler" in latest_imu:
+                            eul = latest_imu["euler"]
+                            print(f"Euler angles -> Roll: {eul['roll']:.2f}, Pitch: {eul['pitch']:.2f}, Yaw: {eul['yaw']:.2f}", flush=True)
+
+                        if "position" in latest_imu:
+                            pos = latest_imu["position"]
+                            print(f"Position     -> Latitude: {pos['latitude']:.6f}, Longitude: {pos['longitude']:.6f}", flush=True)
+
+                        if "altitude" in latest_imu:
+                            alt = latest_imu["altitude"]
+                            print(f"Altitude     -> {alt:.2f} meters", flush=True)
+
+                        if "velocity" in latest_imu:
+                            vel = latest_imu["velocity"]
+                            print(f"Velocity     -> East: {vel['east']:.2f}, North: {vel['north']:.2f}, Up: {vel['up']:.2f}", flush=True)
+
 
         except Exception as e:
             logging.error(f"Error decoding frame: {e}")
@@ -176,6 +208,7 @@ if __name__ == "__main__":
     # Starting all background threads
     threading.Thread(target=IWR6843AoP_thread, daemon=True).start()
     threading.Thread(target=processing_thread, daemon=True).start()
+    threading.Thread(target=MTi_G_710_thread, daemon=True).start()
 
     # Keep the main thread alive
     while True:

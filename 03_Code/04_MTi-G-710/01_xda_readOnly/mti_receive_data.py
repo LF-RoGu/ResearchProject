@@ -31,6 +31,7 @@
 import sys
 import xsensdeviceapi as xda
 from threading import Lock
+import os
 
 
 class XdaCallback(xda.XsCallback):
@@ -117,11 +118,17 @@ if __name__ == '__main__':
             configArray.push_back(xda.XsOutputConfiguration(xda.XDI_MagneticField, 100))
         elif device.deviceId().isVru() or device.deviceId().isAhrs():
             configArray.push_back(xda.XsOutputConfiguration(xda.XDI_Quaternion, 100))
+            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_Acceleration, 100))
+            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_RateOfTurn, 100))
+            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_MagneticField, 100))
         elif device.deviceId().isGnss():
             configArray.push_back(xda.XsOutputConfiguration(xda.XDI_Quaternion, 100))
             configArray.push_back(xda.XsOutputConfiguration(xda.XDI_LatLon, 100))
             configArray.push_back(xda.XsOutputConfiguration(xda.XDI_AltitudeEllipsoid, 100))
             configArray.push_back(xda.XsOutputConfiguration(xda.XDI_VelocityXYZ, 100))
+            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_Acceleration, 100))
+            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_RateOfTurn, 100))
+            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_MagneticField, 100))
         else:
             raise RuntimeError("Unknown device while configuring. Aborting.")
 
@@ -142,7 +149,7 @@ if __name__ == '__main__':
 
                     if packet.containsCalibratedData():
                         acc = packet.calibratedAcceleration()
-                        s = "Acc X: %.2f" % acc[0] + ", Acc Y: %.2f" % acc[1] + ", Acc Z: %.2f" % acc[2]
+                        s += "Acc X: %.2f" % acc[0] + ", Acc Y: %.2f" % acc[1] + ", Acc Z: %.2f" % acc[2]
 
                         gyr = packet.calibratedGyroscopeData()
                         s += " |Gyr X: %.2f" % gyr[0] + ", Gyr Y: %.2f" % gyr[1] + ", Gyr Z: %.2f" % gyr[2]
@@ -152,7 +159,7 @@ if __name__ == '__main__':
 
                     if packet.containsOrientation():
                         quaternion = packet.orientationQuaternion()
-                        s = "q0: %.2f" % quaternion[0] + ", q1: %.2f" % quaternion[1] + ", q2: %.2f" % quaternion[2] + ", q3: %.2f " % quaternion[3]
+                        s += "q0: %.2f" % quaternion[0] + ", q1: %.2f" % quaternion[1] + ", q2: %.2f" % quaternion[2] + ", q3: %.2f " % quaternion[3]
 
                         euler = packet.orientationEuler()
                         s += " |Roll: %.2f" % euler.x() + ", Pitch: %.2f" % euler.y() + ", Yaw: %.2f " % euler.z()
@@ -168,7 +175,14 @@ if __name__ == '__main__':
                         vel = packet.velocity(xda.XDI_CoordSysEnu)
                         s += " |E: %7.2f" % vel[0] + ", N: %7.2f" % vel[1] + ", U: %7.2f " % vel[2]
 
-                    print("%s\r" % s, end="", flush=True)
+                    # before your loop, track max length
+                    prev_len = 0
+
+                    # inside your loop, after building `s`:
+                    pad = max(prev_len - len(s), 0)
+                    print("\r" + s + " " * pad, end="", flush=True)
+                    prev_len = len(s)
+
 
         except KeyboardInterrupt:
             print("\nStopped by user.")
