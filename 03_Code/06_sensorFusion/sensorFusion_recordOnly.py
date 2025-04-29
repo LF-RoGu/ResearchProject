@@ -16,6 +16,7 @@ import warnings
 import logging
 import numpy as np
 import os
+import csv
 
 # Local Imports
 from dataDecoderTI import IWR6843AoP
@@ -33,6 +34,8 @@ SENSOR_DATA_PORT_PC = "COM5"
 
 FRAME_AGGREGATOR_NUM_PAST_FRAMES = 0
 IWR6843AoP_FPS = 30
+
+LOGGING_SUFIX = "_addSufix"
 ## @}
 
 ## @defgroup Pipeline Constructors
@@ -184,6 +187,77 @@ def processing_thread():
         except Exception as e:
             logging.error(f"Error decoding frame: {e}")
 
+def storage_thread():
+    global IWR6843AoP_list, IWR6843AoP_lock, IWR6843AoP_ready
+    global MTi_G_710_list, MTi_G_710_lock, MTi_G_710_ready
+    global imu_writer, radar_writer, imu_csv_file, radar_csv_file
+
+    while True:
+        # 1) wait until both a radar batch and an IMU packet are available
+        IWR6843AoP_ready.wait()
+        MTi_G_710_ready.wait()
+
+        # 2) pull exactly one radar batch
+        with IWR6843AoP_lock:
+            radar_batches = IWR6843AoP_list.pop(0)
+            if not IWR6843AoP_list:
+                IWR6843AoP_ready.clear()
+
+        # 3) pull exactly one IMU frame
+        with MTi_G_710_lock:
+            imu_frame = MTi_G_710_list.pop(0)
+            if not MTi_G_710_list:
+                MTi_G_710_ready.clear()
+
+        # 4) for each frame in that radar batch, assign a shared frame_id and write both IMU and radar
+        for frame in radar_batches:
+            fid = radarSensor_g.radar_frame_counter
+            radarSensor_g.radar_frame_counter += 1
+
+            # attach the same ID to IMU
+            imu_frame["frame_id"] = fid
+
+            # write IMU row
+            imu_writer.writerow([
+                imu_frame.get("frame_id", -1),
+                imu_frame.get("acceleration", {}).get("x", ""),
+                imu_frame.get("acceleration", {}).get("y", ""),
+                imu_frame.get("acceleration", {}).get("z", ""),
+                imu_frame.get("gyroscope", {}).get("x", ""),
+                imu_frame.get("gyroscope", {}).get("y", ""),
+                imu_frame.get("gyroscope", {}).get("z", ""),
+                imu_frame.get("magnetometer", {}).get("x", ""),
+                imu_frame.get("magnetometer", {}).get("y", ""),
+                imu_frame.get("magnetometer", {}).get("z", ""),
+                imu_frame.get("euler", {}).get("roll", ""),
+                imu_frame.get("euler", {}).get("pitch", ""),
+                imu_frame.get("euler", {}).get("yaw", ""),
+                imu_frame.get("position", {}).get("latitude", ""),
+                imu_frame.get("position", {}).get("longitude", ""),
+                imu_frame.get("altitude", ""),
+                imu_frame.get("velocity", {}).get("east", ""),
+                imu_frame.get("velocity", {}).get("north", ""),
+                imu_frame.get("velocity", {}).get("up", ""),
+            ])
+
+            # write radar rows
+            points = frame.get("detectedPoints", [])
+            for idx, pt in enumerate(points):
+                radar_writer.writerow([
+                    fid,
+                    idx + 1,
+                    pt.get("x", ""),
+                    pt.get("y", ""),
+                    pt.get("z", ""),
+                    pt.get("doppler", ""),
+                    pt.get("snr", ""),
+                    pt.get("noise", "")
+                ])
+
+        # 5) flush to disk
+        imu_csv_file.flush()
+        radar_csv_file.flush()
+
 ## @}
 
 # Main program entry point
@@ -201,13 +275,31 @@ if __name__ == "__main__":
     warnings.filterwarnings('ignore')
     logging.basicConfig(level=LOGGING_LEVEL)
 
+    # Open CSV files and write headers
+    imu_csv_file = open(f'imu_data{LOGGING_SUFIX}.csv', mode='w', newline='')
+    imu_writer = csv.writer(imu_csv_file)
+    imu_writer.writerow([
+        "frame_id", "acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z",
+        "mag_x", "mag_y", "mag_z", "roll", "pitch", "yaw",
+        "latitude", "longitude", "altitude", "vel_east", "vel_north", "vel_up"
+    ])
+
+    radar_csv_file = open(f'radar_data{LOGGING_SUFIX}.csv', mode='w', newline='')
+    radar_writer = csv.writer(radar_csv_file)
+    radar_writer.writerow([
+        "frame_id", "point_id", "x", "y", "z", "doppler", "snr", "noise"
+    ])
+
+
+
     # Sending the configuration commands to the radar sensor before starting the threads
     radarSensor_g.initIWR6843(SENSOR_CONFIG_PORT_PC, SENSOR_DATA_PORT_PC, SENSOR_CONFIG_FILE)
     imuSensor_g.initialize()
     # Starting all background threads
     threading.Thread(target=IWR6843AoP_thread, daemon=True).start()
-    threading.Thread(target=processing_thread, daemon=True).start()
     threading.Thread(target=MTi_G_710_thread, daemon=True).start()
+    #threading.Thread(target=processing_thread, daemon=True).start()
+    threading.Thread(target=storage_thread, daemon=True).start() 
 
     # Keep the main thread alive
     while True:
