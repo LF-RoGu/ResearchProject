@@ -80,7 +80,7 @@ def IWR6843AoP_thread():
 
         # Appending the new frames to the global list of decoded frames in a thread-safe way
         with IWR6843AoP_lock:
-            IWR6843AoP_list.extend(newFrames)
+            IWR6843AoP_list.append(newFrames)
         # Set a lock that the processing was done, and the information is ready to go
         IWR6843AoP_ready.set()
 
@@ -97,7 +97,7 @@ def MTi_G_710_thread():
         MTi_data = imuSensor_g.read_loop()
         if MTi_data:
             with MTi_G_710_lock:
-                MTi_G_710_list.extend(MTi_data)
+                MTi_G_710_list.append(MTi_data)
             MTi_G_710_ready.set()
 
 def processing_thread():
@@ -123,11 +123,10 @@ def processing_thread():
             IWR6843AoP_list.clear()
             IWR6843AoP_ready.clear()
 
-        while len(MTi_G_710_list) >= IWR6843AoP_FPS:
-            with MTi_G_710_lock:
-                MTi_G_710_data = list(MTi_G_710_list)
-                MTi_G_710_list.clear()
-                MTi_G_710_ready.clear()
+        with MTi_G_710_lock:
+            MTi_G_710_data = list(MTi_G_710_list)
+            MTi_G_710_list.clear()
+            MTi_G_710_ready.clear()
 
         try:
             os.system('cls' if os.name == 'nt' else 'clear')  # Clear terminal for live effect

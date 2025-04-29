@@ -34,6 +34,7 @@ class MTi_G_710:
         self.callback = None
         self.device = None
         self.mtPort = None
+        self.frame_counter = 0
 
     def initialize(self):
         # Show XDA version
@@ -132,6 +133,9 @@ class MTi_G_710:
         try:
             if self.callback.packetAvailable():
                 packet = self.callback.getNextPacket()
+
+                MTi_data["frame_id"] = self.frame_counter
+
                 if packet.containsCalibratedData():
                     acc = packet.calibratedAcceleration()
                     gyr = packet.calibratedGyroscopeData()
@@ -158,6 +162,9 @@ class MTi_G_710:
                 if packet.containsVelocity():
                     vel = packet.velocity(xda.XDI_CoordSysEnu)
                     MTi_data["velocity"] = {"east": vel[0], "north": vel[1], "up": vel[2]}
+
+                self.frame_counter += 1
+
                 return MTi_data
             else:
                 return MTi_data
