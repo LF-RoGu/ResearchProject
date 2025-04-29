@@ -97,7 +97,7 @@ def MTi_G_710_thread():
     global MTi_G_710_lock
 
     while True:
-        MTi_data = imuSensor_g.read_loop()
+        MTi_data = imuSensor_g.read_loop(4)
         if MTi_data:
             with MTi_G_710_lock:
                 MTi_G_710_list.append(MTi_data)
@@ -214,31 +214,32 @@ def storage_thread():
             fid = radarSensor_g.radar_frame_counter
             radarSensor_g.radar_frame_counter += 1
 
-            # attach the same ID to IMU
-            imu_frame["frame_id"] = fid
+            for imu_data in imu_frame:
+                imu_data["frame_id"] = fid  # shared frame_id for all subframes
 
-            # write IMU row
-            imu_writer.writerow([
-                imu_frame.get("frame_id", -1),
-                imu_frame.get("acceleration", {}).get("x", ""),
-                imu_frame.get("acceleration", {}).get("y", ""),
-                imu_frame.get("acceleration", {}).get("z", ""),
-                imu_frame.get("gyroscope", {}).get("x", ""),
-                imu_frame.get("gyroscope", {}).get("y", ""),
-                imu_frame.get("gyroscope", {}).get("z", ""),
-                imu_frame.get("magnetometer", {}).get("x", ""),
-                imu_frame.get("magnetometer", {}).get("y", ""),
-                imu_frame.get("magnetometer", {}).get("z", ""),
-                imu_frame.get("euler", {}).get("roll", ""),
-                imu_frame.get("euler", {}).get("pitch", ""),
-                imu_frame.get("euler", {}).get("yaw", ""),
-                imu_frame.get("position", {}).get("latitude", ""),
-                imu_frame.get("position", {}).get("longitude", ""),
-                imu_frame.get("altitude", ""),
-                imu_frame.get("velocity", {}).get("east", ""),
-                imu_frame.get("velocity", {}).get("north", ""),
-                imu_frame.get("velocity", {}).get("up", ""),
-            ])
+                imu_writer.writerow([
+                    imu_data.get("frame_id", -1),
+                    imu_data.get("subframe_id", -1),
+                    imu_data.get("acceleration", {}).get("x", ""),
+                    imu_data.get("acceleration", {}).get("y", ""),
+                    imu_data.get("acceleration", {}).get("z", ""),
+                    imu_data.get("gyroscope", {}).get("x", ""),
+                    imu_data.get("gyroscope", {}).get("y", ""),
+                    imu_data.get("gyroscope", {}).get("z", ""),
+                    imu_data.get("magnetometer", {}).get("x", ""),
+                    imu_data.get("magnetometer", {}).get("y", ""),
+                    imu_data.get("magnetometer", {}).get("z", ""),
+                    imu_data.get("euler", {}).get("roll", ""),
+                    imu_data.get("euler", {}).get("pitch", ""),
+                    imu_data.get("euler", {}).get("yaw", ""),
+                    imu_data.get("position", {}).get("latitude", ""),
+                    imu_data.get("position", {}).get("longitude", ""),
+                    imu_data.get("altitude", ""),
+                    imu_data.get("velocity", {}).get("east", ""),
+                    imu_data.get("velocity", {}).get("north", ""),
+                    imu_data.get("velocity", {}).get("up", "")
+                ])
+
 
             # write radar rows
             points = frame.get("detectedPoints", [])
@@ -279,9 +280,8 @@ if __name__ == "__main__":
     imu_csv_file = open(f'imu_data{LOGGING_SUFIX}.csv', mode='w', newline='')
     imu_writer = csv.writer(imu_csv_file)
     imu_writer.writerow([
-        "frame_id", "acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z",
-        "mag_x", "mag_y", "mag_z", "roll", "pitch", "yaw",
-        "latitude", "longitude", "altitude", "vel_east", "vel_north", "vel_up"
+        "frame_id", "subframe_id", "acc_x", "acc_y", "acc_z", "gyro_x", "gyro_y", "gyro_z",
+        "mag_x", "mag_y", "mag_z", "roll", "pitch", "yaw"
     ])
 
     radar_csv_file = open(f'radar_data{LOGGING_SUFIX}.csv', mode='w', newline='')
@@ -295,6 +295,10 @@ if __name__ == "__main__":
     # Sending the configuration commands to the radar sensor before starting the threads
     radarSensor_g.initIWR6843(SENSOR_CONFIG_PORT_PC, SENSOR_DATA_PORT_PC, SENSOR_CONFIG_FILE)
     imuSensor_g.initialize()
+
+    # Sleep to give the sensor time to calibrate
+    time.sleep(1.0)
+
     # Starting all background threads
     threading.Thread(target=IWR6843AoP_thread, daemon=True).start()
     threading.Thread(target=MTi_G_710_thread, daemon=True).start()

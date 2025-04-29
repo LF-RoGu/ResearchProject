@@ -35,6 +35,7 @@ class MTi_G_710:
         self.device = None
         self.mtPort = None
         self.frame_counter = 0
+        self.subframe_counter = 0
 
     def initialize(self):
         # Show XDA version
@@ -128,46 +129,52 @@ class MTi_G_710:
             raise RuntimeError("Could not put device into measurement mode. Aborting.")
         print("Started. Press Ctrl+C to stop.\n")
 
-    def read_loop(self):
+    def read_loop(self, num_subframes):
         MTi_data = {}
+        self.subframe_counter = 0
+        subframes = []
         try:
-            if self.callback.packetAvailable():
-                packet = self.callback.getNextPacket()
+            while self.subframe_counter <= num_subframes:
+                if self.callback.packetAvailable():
+                    packet = self.callback.getNextPacket()  
 
-                MTi_data["frame_id"] = self.frame_counter
+                    MTi_data = {
+                        "frame_id": self.frame_counter,
+                        "subframe_id": self.subframe_counter
+                    }
 
-                if packet.containsCalibratedData():
-                    acc = packet.calibratedAcceleration()
-                    gyr = packet.calibratedGyroscopeData()
-                    mag = packet.calibratedMagneticField()
+                    if packet.containsCalibratedData():
+                        acc = packet.calibratedAcceleration()
+                        gyr = packet.calibratedGyroscopeData()
+                        mag = packet.calibratedMagneticField()
 
-                    MTi_data["acceleration"] = {"x": acc[0], "y": acc[1], "z": acc[2]}
-                    MTi_data["gyroscope"] = {"x": gyr[0], "y": gyr[1], "z": gyr[2]}
-                    MTi_data["magnetometer"] = {"x": mag[0], "y": mag[1], "z": mag[2]}
+                        MTi_data["acceleration"] = {"x": acc[0], "y": acc[1], "z": acc[2]}
+                        MTi_data["gyroscope"] = {"x": gyr[0], "y": gyr[1], "z": gyr[2]}
+                        MTi_data["magnetometer"] = {"x": mag[0], "y": mag[1], "z": mag[2]}
 
-                if packet.containsOrientation():
-                    quaternion = packet.orientationQuaternion()
-                    euler = packet.orientationEuler()
+                    if packet.containsOrientation():
+                        quaternion = packet.orientationQuaternion()
+                        euler = packet.orientationEuler()
 
-                    MTi_data["quaternion"] = {"q0": quaternion[0], "q1": quaternion[1], "q2": quaternion[2], "q3": quaternion[3]}
-                    MTi_data["euler"] = {"roll": euler.x(), "pitch": euler.y(), "yaw": euler.z()}
+                        MTi_data["quaternion"] = {"q0": quaternion[0], "q1": quaternion[1], "q2": quaternion[2], "q3": quaternion[3]}
+                        MTi_data["euler"] = {"roll": euler.x(), "pitch": euler.y(), "yaw": euler.z()}
 
-                if packet.containsLatitudeLongitude():
-                    latlon = packet.latitudeLongitude()
-                    MTi_data["position"] = {"latitude": latlon[0], "longitude": latlon[1]}
+                    if packet.containsLatitudeLongitude():
+                        latlon = packet.latitudeLongitude()
+                        MTi_data["position"] = {"latitude": latlon[0], "longitude": latlon[1]}
 
-                if packet.containsAltitude():
-                    MTi_data["altitude"] = packet.altitude()
+                    if packet.containsAltitude():
+                        MTi_data["altitude"] = packet.altitude()
 
-                if packet.containsVelocity():
-                    vel = packet.velocity(xda.XDI_CoordSysEnu)
-                    MTi_data["velocity"] = {"east": vel[0], "north": vel[1], "up": vel[2]}
+                    if packet.containsVelocity():
+                        vel = packet.velocity(xda.XDI_CoordSysEnu)
+                        MTi_data["velocity"] = {"east": vel[0], "north": vel[1], "up": vel[2]}
 
-                self.frame_counter += 1
+                    subframes.append(MTi_data)
+                    self.subframe_counter += 1
+            self.frame_counter +=1
+            return subframes
 
-                return MTi_data
-            else:
-                return MTi_data
         except:
             return 0
 
