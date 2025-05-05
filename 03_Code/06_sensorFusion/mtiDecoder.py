@@ -34,6 +34,8 @@ class MTi_G_710:
         self.callback = None
         self.device = None
         self.mtPort = None
+        self.frame_counter = 0
+        self.subframe_counter = 0
 
     def initialize(self):
         # Show XDA version
@@ -92,6 +94,7 @@ class MTi_G_710:
 
         print("Configuring the device...")
         configArray = xda.XsOutputConfigurationArray()
+        # 1) Timestamps
         configArray.push_back(xda.XsOutputConfiguration(xda.XDI_PacketCounter, 0))
         configArray.push_back(xda.XsOutputConfiguration(xda.XDI_SampleTimeFine, 0))
 
@@ -103,10 +106,17 @@ class MTi_G_710:
         elif sddid.isVru() or sddid.isAhrs():
             configArray.push_back(xda.XsOutputConfiguration(xda.XDI_Quaternion, 100))
         elif sddid.isGnss():
+            # 2) Orientation (device’s built-in filter)
             configArray.push_back(xda.XsOutputConfiguration(xda.XDI_Quaternion, 100))
-            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_LatLon, 100))
-            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_AltitudeEllipsoid, 100))
-            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_VelocityXYZ, 100))
+            # 3) Inertial data for dead-reckoning
+            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_Acceleration, 100))
+            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_RateOfTurn, 100))
+            # 4) (Optional) Magnetometer for heading correction
+            configArray.push_back(xda.XsOutputConfiguration(xda.XDI_MagneticField, 100))
+            # 5) (Optional) Fusion with GNSS
+            #configArray.push_back(xda.XsOutputConfiguration(xda.XDI_LatLon, 100))
+            #configArray.push_back(xda.XsOutputConfiguration(xda.XDI_VelocityXYZ, 100))
+            #configArray.push_back(xda.XsOutputConfiguration(xda.XDI_AltitudeEllipsoid, 100))
         else:
             raise RuntimeError("Unknown device while configuring. Aborting.")
 
@@ -119,39 +129,54 @@ class MTi_G_710:
             raise RuntimeError("Could not put device into measurement mode. Aborting.")
         print("Started. Press Ctrl+C to stop.\n")
 
-    def read_loop(self):
+    def read_loop(self, num_subframes):
+        MTi_data = {}
+        self.subframe_counter = 0
+        subframes = []
         try:
-            if self.callback.packetAvailable():
-                packet = self.callback.getNextPacket()
-                s = ""
-                if packet.containsCalibratedData():
-                    acc = packet.calibratedAcceleration()
-                    s += f"Acc X: {acc[0]:.2f}, Y: {acc[1]:.2f}, Z: {acc[2]:.2f}"
-                    gyr = packet.calibratedGyroscopeData()
-                    s += f" |Gyr X: {gyr[0]:.2f}, Y: {gyr[1]:.2f}, Z: {gyr[2]:.2f}"
-                    mag = packet.calibratedMagneticField()
-                    s += f" |Mag X: {mag[0]:.2f}, Y: {mag[1]:.2f}, Z: {mag[2]:.2f}"
+            while self.subframe_counter <= num_subframes:
+                if self.callback.packetAvailable():
+                    packet = self.callback.getNextPacket()  
 
-                if packet.containsOrientation():
-                    quaternion = packet.orientationQuaternion()
-                    s = f"q0: {quaternion[0]:.2f}, q1: {quaternion[1]:.2f}, q2: {quaternion[2]:.2f}, q3: {quaternion[3]:.2f}"
-                    euler = packet.orientationEuler()
-                    s += f" |Roll: {euler.x():.2f}, Pitch: {euler.y():.2f}, Yaw: {euler.z():.2f}"
+                    MTi_data = {
+                        "frame_id": self.frame_counter,
+                        "subframe_id": self.subframe_counter
+                    }
 
-                if packet.containsLatitudeLongitude():
-                    latlon = packet.latitudeLongitude()
-                    s += f" |Lat: {latlon[0]:7.2f}, Lon: {latlon[1]:7.2f}"
+                    if packet.containsCalibratedData():
+                        acc = packet.calibratedAcceleration()
+                        gyr = packet.calibratedGyroscopeData()
+                        mag = packet.calibratedMagneticField()
 
-                if packet.containsAltitude():
-                    s += f" |Alt: {packet.altitude():7.2f}"
+                        MTi_data["acceleration"] = {"x": acc[0], "y": acc[1], "z": acc[2]}
+                        MTi_data["gyroscope"] = {"x": gyr[0], "y": gyr[1], "z": gyr[2]}
+                        MTi_data["magnetometer"] = {"x": mag[0], "y": mag[1], "z": mag[2]}
 
-                if packet.containsVelocity():
-                    vel = packet.velocity(xda.XDI_CoordSysEnu)
-                    s += f" |E: {vel[0]:7.2f}, N: {vel[1]:7.2f}, U: {vel[2]:7.2f}"
+                    if packet.containsOrientation():
+                        quaternion = packet.orientationQuaternion()
+                        euler = packet.orientationEuler()
 
-                print(f"{s}\r", end="", flush=True)
-        except KeyboardInterrupt:
-            print("\nStopped by user.")
+                        MTi_data["quaternion"] = {"q0": quaternion[0], "q1": quaternion[1], "q2": quaternion[2], "q3": quaternion[3]}
+                        MTi_data["euler"] = {"roll": euler.x(), "pitch": euler.y(), "yaw": euler.z()}
+
+                    if packet.containsLatitudeLongitude():
+                        latlon = packet.latitudeLongitude()
+                        MTi_data["position"] = {"latitude": latlon[0], "longitude": latlon[1]}
+
+                    if packet.containsAltitude():
+                        MTi_data["altitude"] = packet.altitude()
+
+                    if packet.containsVelocity():
+                        vel = packet.velocity(xda.XDI_CoordSysEnu)
+                        MTi_data["velocity"] = {"east": vel[0], "north": vel[1], "up": vel[2]}
+
+                    subframes.append(MTi_data)
+                    self.subframe_counter += 1
+            self.frame_counter +=1
+            return subframes
+
+        except:
+            return 0
 
     def shutdown(self):
         print("Removing callback handler...")

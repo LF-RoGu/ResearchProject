@@ -18,6 +18,7 @@ class IWR6843AoP:
         self.dataBuffer = np.array([], dtype='uint8')
         self.decodedFrames = []
         self.lock = threading.Lock()
+        self.radar_frame_counter = 1
 
     def initIWR6843(self, configPort, dataPort, configFile, configPortBaudRate=115200, dataPortBaudRate=921600):
         #Setting up the serial port
