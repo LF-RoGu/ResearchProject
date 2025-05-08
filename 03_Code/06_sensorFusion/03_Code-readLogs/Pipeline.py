@@ -12,6 +12,8 @@ import veSpeedFilter
 import dbCluster
 import occupancyGrid
 from fileSearch import find_project_root
+from decodeFile import ImuCSVReader
+from decodeFile import RadarCSVReader
 
 # -------------------------------
 # Simulation parameters
@@ -162,23 +164,11 @@ def update_graphs(raw_points, point_cloud_points, filtered_points, self_speed_ra
 # -------------------------------
 # Program entry point
 # -------------------------------
-script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = find_project_root(script_dir, "ResearchProject")
-imu_logFile = os.path.join(
-    project_root, 
-    "04_Logs", 
-    "01_sensorFusion", 
-    "imu_data_30_04_2025.csv")
-radar_logFile = os.path.join(
-    project_root, 
-    "04_Logs", 
-    "01_sensorFusion", 
-    "radar_data_30_04_2025.csv")
-imu_logFile = os.path.abspath(os.path.normpath(imu_logFile))
-imu_frames = dataDecoderBrokenTimestamp.decodeData(imu_logFile)
+radarLoader = RadarCSVReader(file_name="radar_data_30_04_2025.csv")
+imuLoader = ImuCSVReader(file_name="imu_data_30_04_2025.csv")
 
-radar_logFile = os.path.abspath(os.path.normpath(radar_logFile))
-radar_frames = dataDecoderBrokenTimestamp.decodeData(radar_logFile)
+imu_frames = ImuCSVReader.load_all()
+radar_frames = RadarCSVReader.load_all()
 
 frame_aggregator = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 self_speed_kf = KalmanFilter(process_variance=KALMAN_FILTER_PROCESS_VARIANCE, measurement_variance=KALMAN_FILTER_MEASUREMENT_VARIANCE)
