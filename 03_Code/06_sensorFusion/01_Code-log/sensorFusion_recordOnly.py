@@ -35,7 +35,7 @@ SENSOR_DATA_PORT_PC = "COM5"
 FRAME_AGGREGATOR_NUM_PAST_FRAMES = 0
 IWR6843AoP_FPS = 30
 
-LOGGING_SUFIX = "_straightWall_v2"
+LOGGING_SUFIX = "_straightWall_v3"
 ## @}
 
 ## @defgroup Pipeline Constructors
