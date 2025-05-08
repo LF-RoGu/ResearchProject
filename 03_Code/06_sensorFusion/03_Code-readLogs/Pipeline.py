@@ -18,7 +18,7 @@ from decodeFile import RadarCSVReader
 # -------------------------------
 # Simulation parameters
 # -------------------------------
-FRAME_AGGREGATOR_NUM_PAST_FRAMES = 9
+FRAME_AGGREGATOR_NUM_PAST_FRAMES = 1
 FILTER_SNR_MIN = 12
 FILTER_Z_MIN = -0.3
 FILTER_Z_MAX = 2
@@ -65,7 +65,7 @@ def update_sim(new_num_frame):
         curr_num_frame = -1
 
     for num_frame in range(curr_num_frame + 1, new_num_frame + 1, 1):
-        frame = frames[num_frame]
+        frame = radar_frames[num_frame]
         frame_aggregator.updateBuffer(frame)
         point_cloud = frame_aggregator.getPoints()
 
@@ -95,7 +95,7 @@ def update_sim(new_num_frame):
 # Graph update logic
 # -------------------------------
 def update_graphs(raw_points, point_cloud_points, filtered_points, self_speed_raw_history, self_speed_filtered_history, cluster_points):
-    global axes, frames
+    global axes, radar_frames
     point_cloud_clustered = pointFilter.extract_points(cluster_points)
 
     def plot_3d_points(ax, title, points, color='b'):
@@ -121,7 +121,7 @@ def update_graphs(raw_points, point_cloud_points, filtered_points, self_speed_ra
 
     axes["ve"].clear()
     axes["ve"].set_title('Vehicle Ve')
-    axes["ve"].set_xlim(0, len(frames))
+    axes["ve"].set_xlim(0, len(radar_frames))
     axes["ve"].set_ylim(-3, 0)
     axes["ve"].plot(np.arange(len(self_speed_raw_history)), self_speed_raw_history, linestyle='--')
     axes["ve"].plot(np.arange(len(self_speed_filtered_history)), self_speed_filtered_history)
@@ -167,8 +167,8 @@ def update_graphs(raw_points, point_cloud_points, filtered_points, self_speed_ra
 radarLoader = RadarCSVReader(file_name="radar_data_30_04_2025.csv")
 imuLoader = ImuCSVReader(file_name="imu_data_30_04_2025.csv")
 
-imu_frames = ImuCSVReader.load_all()
-radar_frames = RadarCSVReader.load_all()
+imu_frames = imuLoader.load_all()
+radar_frames = radarLoader.load_all()
 
 frame_aggregator = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 self_speed_kf = KalmanFilter(process_variance=KALMAN_FILTER_PROCESS_VARIANCE, measurement_variance=KALMAN_FILTER_MEASUREMENT_VARIANCE)

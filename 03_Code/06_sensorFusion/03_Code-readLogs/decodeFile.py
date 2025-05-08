@@ -2,6 +2,7 @@ import os
 import csv
 from dataclasses import dataclass
 from fileSearch import find_project_root
+from collections import defaultdict
 
 @dataclass
 class RadarRecord:
@@ -71,13 +72,16 @@ class RadarCSVReader:
 
     def load_all(self) -> list[RadarRecord]:
         """Read the entire CSV into a list of RadarRecord."""
-        records = []
+        grouped_frames = defaultdict(list)
         with open(self.csv_path, newline="") as f:
             reader = csv.DictReader(f, fieldnames=self.FIELDNAMES)
             next(reader)  # skip header
             for row in reader:
-                records.append(self._row_to_record(row))
-        return records
+                record = self._row_to_record(row)
+                grouped_frames[record.frame_id].append(record)
+
+        # Return a list of frames ordered by frame_id
+        return [grouped_frames[frame_id] for frame_id in sorted(grouped_frames)]
 
     def __iter__(self):
         """Make the loader itself iterable."""
@@ -148,24 +152,4 @@ class ImuCSVReader:
             next(reader)
             for row in reader:
                 yield self._row_to_record(row)
-# --------------------
-# Example usage:
-# --------------------
-if __name__ == "__main__":
-    radarLoader = RadarCSVReader(file_name="radar_data_30_04_2025.csv")
-    imuLoader = ImuCSVReader(file_name="imu_data_30_04_2025.csv")
-
-    imuRecords = imuLoader.load_all()
-    for imu_rec in imuRecords:
-        print(f"{imu_rec.frame_id}.{imu_rec.subframe}")
-        print(f"→ Acceleration (X,Y,Z): ({imu_rec.acc_x:.3f}, {imu_rec.acc_y:.3f}, {imu_rec.acc_z:.3f})")
-        print(f"→ Gyroscope (X,Y,Z): ({imu_rec.gyro_x:.3f}, {imu_rec.gyro_y:.3f}, {imu_rec.gyro_z:.3f})")
-        print(f"→ Magnometer (X,Y,Z): ({imu_rec.mag_x:.3f}, {imu_rec.mag_y:.3f}, {imu_rec.mag_z:.3f})")
-        print(f"→ Motion (Yaw, Pitch, Roll): ({imu_rec.roll:.3f}, {imu_rec.pitch:.3f}, {imu_rec.roll:.3f})")
-    
-    all_records = radarLoader.load_all()
-    for radar_rec in all_records:
-        print(f"{radar_rec.frame_id}.{radar_rec.subframe}")
-        print(f"→ ({radar_rec.x:.3f}, {radar_rec.y:.3f}, {radar_rec.z:.3f})")
-        print(f"→ Doppler={radar_rec.doppler:.2f}, SNR={radar_rec.snr:.2f}, Noise={radar_rec.noise:.2f}")    
     

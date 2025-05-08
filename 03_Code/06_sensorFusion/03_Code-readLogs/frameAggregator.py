@@ -28,8 +28,16 @@ class FrameAggregator:
     def getPoints(self):
         #Preparing a list and adding the points of all frames that are in the buffer
         points = []
-        for frm in range(len(self.frames)):
-            points = points + self.frames[frm]["detectedPoints"]
+        for currentFrame in self.frames:
+            for record in currentFrame:
+                points.append({
+                    "x": record.x,
+                    "y": record.y,
+                    "z": record.z,
+                    "doppler": record.doppler,
+                    "snr": record.snr,
+                    "noise": record.noise
+                })
         
         #Returning the list
         return points
