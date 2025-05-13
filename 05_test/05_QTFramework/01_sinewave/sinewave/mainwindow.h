@@ -11,13 +11,13 @@ QT_END_NAMESPACE
 
 class MainWindow : public QMainWindow
 {
-    Q_OBJECT
+    Q_OBJECT // Enables Qt features like signals/slots
 
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
 private:
-    Ui::MainWindow *ui;
+    Ui::MainWindow *ui; // This gives access to widgets like ui->horizontalSlider
 };
 #endif // MAINWINDOW_H

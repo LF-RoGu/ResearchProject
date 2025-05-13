@@ -6,7 +6,7 @@
 
 int main(int argc, char *argv[])
 {
-    QApplication a(argc, argv);
+    QApplication a(argc, argv); // Starts the Qt application
 
     QTranslator translator;
     const QStringList uiLanguages = QLocale::system().uiLanguages();
@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
             break;
         }
     }
-    MainWindow w;
-    w.show();
-    return a.exec();
+    MainWindow w; // Creates your main window
+    w.show(); // Displays it on screen
+    return a.exec(); // Starts the event loop (waits for clicks, etc.)
 }
