@@ -20,7 +20,7 @@ from decodeFile import RadarCSVReader
 # -------------------------------
 FRAME_AGGREGATOR_NUM_PAST_FRAMES = 1
 FILTER_SNR_MIN = 12
-FILTER_Z_MIN = -0.3
+FILTER_Z_MIN = 0
 FILTER_Z_MAX = 2
 FILTER_PHI_MIN = -85
 FILTER_PHI_MAX = 85
@@ -69,21 +69,26 @@ def update_sim(new_num_frame):
         frame_aggregator.updateBuffer(frame)
         point_cloud = frame_aggregator.getPoints()
 
+        filtered_point_cloud = pointFilter.filterSNRmin(point_cloud, FILTER_SNR_MIN)
+        filtered_point_cloud = pointFilter.filterCartesianZ(filtered_point_cloud, FILTER_Z_MIN, FILTER_Z_MAX)
+        filtered_point_cloud = pointFilter.filterSphericalPhi(filtered_point_cloud, FILTER_PHI_MIN, FILTER_PHI_MAX)
+
         self_speed_raw = selfSpeedEstimator.estimate_self_speed(point_cloud)
         self_speed_filtered = self_speed_kf.update(self_speed_raw)
 
         self_speed_raw_history.append(self_speed_raw)
         self_speed_filtered_history.append(self_speed_filtered)
 
-    update_graphs(raw_points=point_cloud, raw_self_speed_history=self_speed_raw_history, filtered_self_speed_history=self_speed_filtered_history)
+    update_graphs(raw_points=point_cloud, filtered_points=filtered_point_cloud, raw_self_speed_history=self_speed_raw_history, filtered_self_speed_history=self_speed_filtered_history)
     curr_num_frame = new_num_frame
 
 # -------------------------------
 # Graph update logic
 # -------------------------------
-def update_graphs(raw_points, raw_self_speed_history, filtered_self_speed_history):
+def update_graphs(raw_points, filtered_points, raw_self_speed_history, filtered_self_speed_history):
     global axes, radar_frames
-    raw_points = pointFilter.extract_points(raw_points)
+    l_raw_points = pointFilter.extract_points(raw_points)
+    l_filtered_points = pointFilter.extract_points(filtered_points)
 
     def plot_3d_points(ax, title, points, color='b'):
         ax.clear()
@@ -103,7 +108,9 @@ def update_graphs(raw_points, raw_self_speed_history, filtered_self_speed_histor
             points = points.reshape(1, 3)
         ax.scatter(points[:, 0], points[:, 1], points[:, 2], c=color)
 
-    plot_3d_points(axes["raw point-cloud"], 'Point Cloud', np.array([[p[0], p[1], p[2]] for p in raw_points]).reshape(-1, 3))
+    plot_3d_points(axes["raw point-cloud"], 'Point Cloud', np.array([[p[0], p[1], p[2]] for p in l_raw_points]).reshape(-1, 3))
+    plot_3d_points(axes["filtered point-cloud"], 'Point Cloud', np.array([[p[0], p[1], p[2]] for p in l_filtered_points]).reshape(-1, 3))
+
 
     axes["ve"].clear()
     axes["ve"].set_title('Vehicle Ve')
@@ -115,7 +122,7 @@ def update_graphs(raw_points, raw_self_speed_history, filtered_self_speed_histor
 # -------------------------------
 # Program entry point
 # -------------------------------
-radarLoader = RadarCSVReader(file_name="radar_data_30_04_2025.csv")
+radarLoader = RadarCSVReader(file_name="radar_data_straightWall_v3.csv", folder_name="02_Logs-08052025")
 imuLoader = ImuCSVReader(file_name="imu_data_30_04_2025.csv")
 
 imu_frames = imuLoader.load_all()
@@ -128,8 +135,8 @@ fig = plt.figure(figsize=(10, 10))
 axes = create_named_subplots(
     fig,
     (2, 3),
-    names=["raw point-cloud", "ve"],
-    projections=["3d", None]
+    names=["raw point-cloud", "filtered point-cloud", "ve"],
+    projections=["3d", "3d", None]
 )
 
 curr_num_frame = -1
