@@ -69,34 +69,21 @@ def update_sim(new_num_frame):
         frame_aggregator.updateBuffer(frame)
         point_cloud = frame_aggregator.getPoints()
 
-        point_cloud_filtered = pointFilter.filterSNRmin(point_cloud, FILTER_SNR_MIN)
-        point_cloud_filtered = pointFilter.filterCartesianZ(point_cloud_filtered, FILTER_Z_MIN, FILTER_Z_MAX)
-        point_cloud_filtered = pointFilter.filterSphericalPhi(point_cloud_filtered, FILTER_PHI_MIN, FILTER_PHI_MAX)
-
-        self_speed_raw = selfSpeedEstimator.estimate_self_speed(point_cloud_filtered)
+        self_speed_raw = selfSpeedEstimator.estimate_self_speed(point_cloud)
         self_speed_filtered = self_speed_kf.update(self_speed_raw)
-
-        point_cloud_ve = veSpeedFilter.calculateVe(point_cloud_filtered)
-        point_cloud_ve_filtered = pointFilter.filter_by_speed(point_cloud_filtered, self_speed_filtered, 1.0)
-
-        pc_stage1 = pointFilter.extract_points(point_cloud_ve_filtered)
-        clusters_stage1, _ = cluster_processor_stage1.cluster_points(pc_stage1)
-        pc_stage2 = pointFilter.extract_points(clusters_stage1)
-        clusters_stage2, _ = cluster_processor_stage2.cluster_points(pc_stage2)
-        point_cloud_clustered = clusters_stage2
 
         self_speed_raw_history.append(self_speed_raw)
         self_speed_filtered_history.append(self_speed_filtered)
 
-    update_graphs(point_cloud, point_cloud_filtered, point_cloud_ve_filtered, self_speed_raw_history, self_speed_filtered_history, point_cloud_clustered)
+    update_graphs(raw_points=point_cloud, raw_self_speed_history=self_speed_raw_history, filtered_self_speed_history=self_speed_filtered_history)
     curr_num_frame = new_num_frame
 
 # -------------------------------
 # Graph update logic
 # -------------------------------
-def update_graphs(raw_points, point_cloud_points, filtered_points, self_speed_raw_history, self_speed_filtered_history, cluster_points):
+def update_graphs(raw_points, raw_self_speed_history, filtered_self_speed_history):
     global axes, radar_frames
-    point_cloud_clustered = pointFilter.extract_points(cluster_points)
+    raw_points = pointFilter.extract_points(raw_points)
 
     def plot_3d_points(ax, title, points, color='b'):
         ax.clear()
@@ -116,50 +103,14 @@ def update_graphs(raw_points, point_cloud_points, filtered_points, self_speed_ra
             points = points.reshape(1, 3)
         ax.scatter(points[:, 0], points[:, 1], points[:, 2], c=color)
 
-    plot_3d_points(axes["filtered"], 'Point Cloud Filters - Ve Filters', np.array([[p['x'], p['y'], p['z']] for p in filtered_points]).reshape(-1, 3)
-    )
+    plot_3d_points(axes["raw point-cloud"], 'Point Cloud', np.array([[p[0], p[1], p[2]] for p in raw_points]).reshape(-1, 3))
 
     axes["ve"].clear()
     axes["ve"].set_title('Vehicle Ve')
     axes["ve"].set_xlim(0, len(radar_frames))
     axes["ve"].set_ylim(-3, 0)
-    axes["ve"].plot(np.arange(len(self_speed_raw_history)), self_speed_raw_history, linestyle='--')
-    axes["ve"].plot(np.arange(len(self_speed_filtered_history)), self_speed_filtered_history)
-
-    ax_cluster = axes["dbCluster"]
-    ax_cluster.clear()
-    ax_cluster.set_title('Clustered Point Cloud')
-    ax_cluster.set_xlabel('X [m]')
-    ax_cluster.set_ylabel('Y [m]')
-    ax_cluster.set_zlabel('Z [m]')
-    ax_cluster.set_xlim(-10, 10)
-    ax_cluster.set_ylim(0, 15)
-    ax_cluster.set_zlim(-0.30, 10)
-    ax_cluster.view_init(elev=90, azim=-90)
-
-    priority_colors = {1: 'red', 2: 'orange', 3: 'green'}
-    if cluster_points:
-        for cluster_data in cluster_points.values():
-            centroid = cluster_data['centroid']
-            priority = cluster_data['priority']
-            points = cluster_data['points']
-            doppler_avg = cluster_data['doppler_avg']
-            color = priority_colors.get(priority, 'gray')
-            ax_cluster.scatter(points[:, 0], points[:, 1], points[:, 2], c=color, s=8, alpha=0.7)
-            ax_cluster.text(centroid[0] + 0.2, centroid[1] + 0.2, centroid[2] + 0.2, f"{doppler_avg:.2f} m/s", color='purple')
-    else:
-        ax_cluster.text(0, 0, 0, 'No Clusters Detected', fontsize=12, color='red')
-
-    ax_grid = axes["occupancyGrid"]
-    ax_grid.clear()
-    ax_grid.set_title('Occupancy Grid')
-    ax_grid.set_xlabel('X [m]')
-    ax_grid.set_ylabel('Y [m]')
-    if point_cloud_clustered.size > 0:
-        occupancy_grid = grid_processor.calculate_cartesian_grid(point_cloud_clustered[:, :2], x_limits=(-10, 10), y_limits=(0, 15))
-        ax_grid.imshow(occupancy_grid.T, cmap=grid_processor.cmap, norm=grid_processor.norm, origin='lower', extent=(-10, 10, 0, 15))
-    else:
-        ax_grid.set_title('Occupancy Grid (No Data)')
+    axes["ve"].plot(np.arange(len(raw_self_speed_history)), raw_self_speed_history, linestyle='--')
+    axes["ve"].plot(np.arange(len(filtered_self_speed_history)), filtered_self_speed_history)
 
 # -------------------------------
 # Program entry point
@@ -177,8 +128,8 @@ fig = plt.figure(figsize=(10, 10))
 axes = create_named_subplots(
     fig,
     (2, 3),
-    names=["dbCluster", "filtered", "ve", "occupancyGrid"],
-    projections=["3d", "3d", None, None]
+    names=["raw point-cloud", "ve"],
+    projections=["3d", None]
 )
 
 curr_num_frame = -1
