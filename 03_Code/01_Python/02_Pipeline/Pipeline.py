@@ -13,7 +13,7 @@ import veSpeedFilter
 import dbCluster
 import occupancyGrid
 from fileSearch import find_project_root
-
+from decodeFile import *
 # -------------------------------
 # Simulation parameters
 # -------------------------------
@@ -64,7 +64,7 @@ def update_sim(new_num_frame):
         curr_num_frame = -1
 
     for num_frame in range(curr_num_frame + 1, new_num_frame + 1, 1):
-        frame = frames[num_frame]
+        frame = frames_data[num_frame]
         frame_aggregator.updateBuffer(frame)
         point_cloud = frame_aggregator.getPoints()
 
@@ -94,7 +94,7 @@ def update_sim(new_num_frame):
 # Graph update logic
 # -------------------------------
 def update_graphs(raw_points, point_cloud_points, filtered_points, self_speed_raw_history, self_speed_filtered_history, cluster_points):
-    global axes, frames
+    global axes, frames_data
     point_cloud_clustered = pointFilter.extract_points(cluster_points)
 
     def plot_3d_points(ax, title, points, color='b'):
@@ -120,7 +120,7 @@ def update_graphs(raw_points, point_cloud_points, filtered_points, self_speed_ra
 
     axes["ve"].clear()
     axes["ve"].set_title('Vehicle Ve')
-    axes["ve"].set_xlim(0, len(frames))
+    axes["ve"].set_xlim(0, len(frames_data))
     axes["ve"].set_ylim(-3, 0)
     axes["ve"].plot(np.arange(len(self_speed_raw_history)), self_speed_raw_history, linestyle='--')
     axes["ve"].plot(np.arange(len(self_speed_filtered_history)), self_speed_filtered_history)
@@ -168,12 +168,16 @@ project_root = find_project_root(script_dir, "ResearchProject")
 log_file = os.path.join(
     project_root, 
     "04_Logs", 
+    "02_IWR6843-standAlone",
     "LogsPart3", 
     "DynamicMonitoring", 
     "30fps_straight_3x3_log_2024-12-16.csv")
 log_file = os.path.abspath(os.path.normpath(log_file))
-frames = dataDecoderBrokenTimestamp.decodeData(log_file)
-
+logs_data = dataDecoderBrokenTimestamp.decodeData(log_file)
+# ---------------------------------------------------------
+radarLoader = RadarCSVReader(file_name="radar_data_straightWall_v3.csv", folder_name="02_Logs-08052025")
+# ---------------------------------------------------------
+frames_data = radarLoader.load_all()
 frame_aggregator = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 self_speed_kf = KalmanFilter(process_variance=KALMAN_FILTER_PROCESS_VARIANCE, measurement_variance=KALMAN_FILTER_MEASUREMENT_VARIANCE)
 
@@ -187,7 +191,7 @@ axes = create_named_subplots(
 
 curr_num_frame = -1
 ax_slider = plt.axes([0.2, 0.01, 0.65, 0.03])
-slider = Slider(ax_slider, 'Frame', 0, len(frames) - 1, valinit=0, valstep=1)
+slider = Slider(ax_slider, 'Frame', 0, len(frames_data) - 1, valinit=0, valstep=1)
 slider.on_changed(update_sim)
 
 update_sim(0)

@@ -35,7 +35,7 @@ SENSOR_DATA_PORT_PC = "COM5"
 FRAME_AGGREGATOR_NUM_PAST_FRAMES = 0
 IWR6843AoP_FPS = 30
 
-LOGGING_SUFIX = "_straightWall_v3"
+LOGGING_SUFIX = "_test"
 ## @}
 
 ## @defgroup Pipeline Constructors
@@ -54,6 +54,8 @@ IWR6843AoP_ready = threading.Event()
 MTi_G_710_list = []
 MTi_G_710_lock = threading.Lock()
 MTi_G_710_ready = threading.Event()
+Sensor_read_lock = threading.Lock()
+Sensor_read_ready = threading.Event()
 ## @}
 
 
@@ -103,6 +105,36 @@ def MTi_G_710_thread():
                 MTi_G_710_list.append(MTi_data)
             MTi_G_710_ready.set()
 
+def sensor_read_thread():
+    """!
+    Reads data from the UART from the mmWave sensor, detects frames using a predefined MAGIC WORD,
+    and stores valid frames in a thread-safe list for further processing.
+
+    @ingroup threadFunctions
+    """
+    global IWR6843AoP_list
+    global MTi_G_710_list
+    global Sensor_read_lock
+
+    while True:
+        # Polling the IWR6843 sensor and getting the number of decoded frames
+        numFrames = radarSensor_g.pollIWR6843()
+        #
+        MTi_data = imuSensor_g.read_loop(4)
+
+        # Continuing if there are no new frames
+        if numFrames == 0:
+            continue
+
+        # Getting the new frames and deleting them from the sensor's internal buffer
+        newFrames = radarSensor_g.get_and_delete_decoded_frames(numFrames)
+
+        with Sensor_read_lock:
+            # Appending the new frames to the global list of decoded frames in a thread-safe way
+            IWR6843AoP_list.append(newFrames)
+            MTi_G_710_list.append(MTi_data)
+        Sensor_read_ready.set()
+
 def processing_thread():
     """!
     Continuously retrieves frames, processes them, and prints live information.
@@ -111,22 +143,18 @@ def processing_thread():
     @ingroup threadFunctions
     """
     global IWR6843AoP_list
-    global IWR6843AoP_lock
     global MTi_G_710_list
-    global MTi_G_710_lock
+    global Sensor_read_lock
 
     while True:
         # Wait for both sensors to have new data
-        IWR6843AoP_ready.wait()
-        MTi_G_710_ready.wait()
+        Sensor_read_ready.wait()
         
         # Lock and retrieve available frames
-        with IWR6843AoP_lock:
+        with Sensor_read_lock:
             IWR6843AoP_data = list(IWR6843AoP_list)
             IWR6843AoP_list.clear()
             IWR6843AoP_ready.clear()
-
-        with MTi_G_710_lock:
             MTi_G_710_data = list(MTi_G_710_list)
             MTi_G_710_list.clear()
             MTi_G_710_ready.clear()
@@ -188,26 +216,24 @@ def processing_thread():
             logging.error(f"Error decoding frame: {e}")
 
 def storage_thread():
-    global IWR6843AoP_list, IWR6843AoP_lock, IWR6843AoP_ready
-    global MTi_G_710_list, MTi_G_710_lock, MTi_G_710_ready
+    global IWR6843AoP_list
+    global MTi_G_710_list
+    global Sensor_read_lock
+    global Sensor_read_ready
     global imu_writer, radar_writer, imu_csv_file, radar_csv_file
 
     while True:
         # 1) wait until both a radar batch and an IMU packet are available
-        IWR6843AoP_ready.wait()
-        MTi_G_710_ready.wait()
+        Sensor_read_ready.wait()
 
-        # 2) pull exactly one radar batch
-        with IWR6843AoP_lock:
+        
+        with Sensor_read_lock:
+            # 2) pull exactly one radar batch
             radar_batches = IWR6843AoP_list.pop(0)
-            if not IWR6843AoP_list:
-                IWR6843AoP_ready.clear()
-
-        # 3) pull exactly one IMU frame
-        with MTi_G_710_lock:
+            # 3) pull exactly one IMU frame
             imu_frame = MTi_G_710_list.pop(0)
-            if not MTi_G_710_list:
-                MTi_G_710_ready.clear()
+            if not IWR6843AoP_list or not MTi_G_710_list:
+                Sensor_read_ready.clear()
 
         # 4) for each frame in that radar batch, assign a shared frame_id and write both IMU and radar
         for frame in radar_batches:
@@ -300,8 +326,7 @@ if __name__ == "__main__":
     time.sleep(1.0)
 
     # Starting all background threads
-    threading.Thread(target=IWR6843AoP_thread, daemon=True).start()
-    threading.Thread(target=MTi_G_710_thread, daemon=True).start()
+    threading.Thread(target=sensor_read_thread, daemon=True).start()
     #threading.Thread(target=processing_thread, daemon=True).start()
     threading.Thread(target=storage_thread, daemon=True).start() 
 

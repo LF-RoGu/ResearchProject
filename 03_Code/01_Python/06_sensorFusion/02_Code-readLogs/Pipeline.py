@@ -122,12 +122,12 @@ def update_graphs(raw_points, filtered_points, raw_self_speed_history, filtered_
 # -------------------------------
 # Program entry point
 # -------------------------------
-radarLoader = RadarCSVReader(file_name="radar_data_straightWall_v3.csv", folder_name="02_Logs-08052025")
+radarLoader = RadarCSVReader(file_name="radar_data_test.csv", folder_name="03_Logs-15052025")
 imuLoader = ImuCSVReader(file_name="imu_data_30_04_2025.csv")
 
 imu_frames = imuLoader.load_all()
 radar_frames = radarLoader.load_all()
-
+# ---------------------------------------------------------
 frame_aggregator = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 self_speed_kf = KalmanFilter(process_variance=KALMAN_FILTER_PROCESS_VARIANCE, measurement_variance=KALMAN_FILTER_MEASUREMENT_VARIANCE)
 
