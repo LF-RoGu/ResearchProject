@@ -41,7 +41,7 @@ class RadarCSVReader:
         "noise"
     ]
 
-    def __init__(self, file_name: str = "radar_data_30_04_2025.csv", folder_name: str = "01_Logs-30042025",csv_path: str = None):
+    def __init__(self, file_name: str = "radar_data_30_04_2025.csv", folder_name: str = "01_Logs-30042025", subfolder_name: str = None, csv_path: str = None):
         """
         If csv_path is provided, it will be used directly.
         Otherwise, the path will be resolved from the file_name and project structure.
@@ -53,7 +53,7 @@ class RadarCSVReader:
             project_root = find_project_root(script_dir, "ResearchProject")
             self.csv_path = os.path.join(
                 project_root,
-                "04_Logs", "01_sensorFusion", folder_name,
+                "04_Logs", "01_sensorFusion", folder_name, subfolder_name,
                 file_name
             )
 
@@ -101,7 +101,7 @@ class ImuCSVReader:
         "roll", "pitch", "yaw"
     ]
 
-    def __init__(self, file_name: str = "imu_data_30_04_2025.csv", folder_name: str = "01_Logs-30042025" ,csv_path: str = None):
+    def __init__(self, file_name: str = "imu_data_30_04_2025.csv", folder_name: str = "01_Logs-30042025" , subfolder_name: str = None, csv_path: str = None):
         """
         If csv_path is provided, it will be used directly.
         Otherwise, the path will be resolved from the file_name and project structure.
@@ -113,7 +113,7 @@ class ImuCSVReader:
             project_root = find_project_root(script_dir, "ResearchProject")
             self.csv_path = os.path.join(
                 project_root,
-                "04_Logs", "01_sensorFusion", folder_name ,
+                "04_Logs", "01_sensorFusion", folder_name , subfolder_name,
                 file_name
             )
     def _row_to_record(self, row: dict) -> ImuRecord:

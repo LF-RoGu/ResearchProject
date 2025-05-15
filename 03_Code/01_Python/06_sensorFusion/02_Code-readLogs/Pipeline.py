@@ -20,7 +20,7 @@ from decodeFile import RadarCSVReader
 # -------------------------------
 FRAME_AGGREGATOR_NUM_PAST_FRAMES = 1
 FILTER_SNR_MIN = 12
-FILTER_Z_MIN = 0
+FILTER_Z_MIN = -2
 FILTER_Z_MAX = 2
 FILTER_PHI_MIN = -85
 FILTER_PHI_MAX = 85
@@ -101,7 +101,7 @@ def update_graphs(raw_points, filtered_points, raw_self_speed_history, filtered_
         ax.set_zlabel('Z [m]')
         ax.set_xlim(-10, 10)
         ax.set_ylim(0, 15)
-        ax.set_zlim(-0.30, 10)
+        ax.set_zlim(-2, 10)
         ax.view_init(elev=90, azim=-90)
 
         points = np.asarray(points)
@@ -125,8 +125,8 @@ def update_graphs(raw_points, filtered_points, raw_self_speed_history, filtered_
 # -------------------------------
 # Program entry point
 # -------------------------------
-radarLoader = RadarCSVReader(file_name="radar_data_driveStraight_inclinedSensor_v2.csv", folder_name="03_Logs-15052025")
-imuLoader = ImuCSVReader(file_name="imu_data_driveStraight_inclinedSensor_v2.csv", folder_name="03_Logs-15052025")
+radarLoader = RadarCSVReader(file_name="radar_data_test.csv", folder_name="03_Logs-15052025", subfolder_name="01_115200Baud")
+imuLoader = ImuCSVReader(file_name="imu_data_driveStraight_v1.csv", folder_name="03_Logs-15052025", subfolder_name="01_115200Baud")
 
 imu_frames = imuLoader.load_all()
 radar_frames = radarLoader.load_all()

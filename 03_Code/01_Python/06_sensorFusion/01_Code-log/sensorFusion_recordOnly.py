@@ -35,7 +35,7 @@ SENSOR_DATA_PORT_PC = "COM5"
 FRAME_AGGREGATOR_NUM_PAST_FRAMES = 0
 IWR6843AoP_FPS = 30
 
-LOGGING_SUFIX = "_driveStraight_inclinedSensor_v2"
+LOGGING_SUFIX = "_driveAround_Fun"
 ## @}
 
 ## @defgroup Pipeline Constructors
@@ -47,7 +47,7 @@ frame_aggregator = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 ## @}
 
 ## @defgroup Thread locks
-## @{
+## @{   
 IWR6843AoP_list = []
 IWR6843AoP_lock = threading.Lock()
 IWR6843AoP_ready = threading.Event()
