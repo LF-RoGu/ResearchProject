@@ -55,7 +55,7 @@ def filterDoppler(inputPoints, doppler_min, doppler_max):
     try:
         for i in range(len(inputPoints)):
             point_doppler = inputPoints[i]["doppler"]
-            if point_doppler >= doppler_min and point_doppler <= doppler_max:
+            if abs(point_doppler) >= doppler_min and abs(point_doppler) <= doppler_max:
                 filteredPoints.append(inputPoints[i])
     except (ValueError, IndexError) as e:
         print(f"Error filtering points: {e}")

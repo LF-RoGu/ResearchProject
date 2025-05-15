@@ -24,6 +24,8 @@ FILTER_Z_MIN = 0
 FILTER_Z_MAX = 2
 FILTER_PHI_MIN = -85
 FILTER_PHI_MAX = 85
+FILTER_DOPPLER_MIN = 0.1
+FILTER_DOPPLER_MAX = 2.0
 KALMAN_FILTER_PROCESS_VARIANCE = 0.01
 KALMAN_FILTER_MEASUREMENT_VARIANCE = 0.1
 
@@ -72,6 +74,7 @@ def update_sim(new_num_frame):
         filtered_point_cloud = pointFilter.filterSNRmin(point_cloud, FILTER_SNR_MIN)
         filtered_point_cloud = pointFilter.filterCartesianZ(filtered_point_cloud, FILTER_Z_MIN, FILTER_Z_MAX)
         filtered_point_cloud = pointFilter.filterSphericalPhi(filtered_point_cloud, FILTER_PHI_MIN, FILTER_PHI_MAX)
+        filteredDoppler_point_cloud = pointFilter.filterDoppler(filtered_point_cloud, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
 
         self_speed_raw = selfSpeedEstimator.estimate_self_speed(point_cloud)
         self_speed_filtered = self_speed_kf.update(self_speed_raw)
@@ -79,7 +82,7 @@ def update_sim(new_num_frame):
         self_speed_raw_history.append(self_speed_raw)
         self_speed_filtered_history.append(self_speed_filtered)
 
-    update_graphs(raw_points=point_cloud, filtered_points=filtered_point_cloud, raw_self_speed_history=self_speed_raw_history, filtered_self_speed_history=self_speed_filtered_history)
+    update_graphs(raw_points=point_cloud, filtered_points=filteredDoppler_point_cloud, raw_self_speed_history=self_speed_raw_history, filtered_self_speed_history=self_speed_filtered_history)
     curr_num_frame = new_num_frame
 
 # -------------------------------
@@ -122,8 +125,8 @@ def update_graphs(raw_points, filtered_points, raw_self_speed_history, filtered_
 # -------------------------------
 # Program entry point
 # -------------------------------
-radarLoader = RadarCSVReader(file_name="radar_data_test.csv", folder_name="03_Logs-15052025")
-imuLoader = ImuCSVReader(file_name="imu_data_30_04_2025.csv")
+radarLoader = RadarCSVReader(file_name="radar_data_driveStraight_inclinedSensor_v2.csv", folder_name="03_Logs-15052025")
+imuLoader = ImuCSVReader(file_name="imu_data_driveStraight_inclinedSensor_v2.csv", folder_name="03_Logs-15052025")
 
 imu_frames = imuLoader.load_all()
 radar_frames = radarLoader.load_all()

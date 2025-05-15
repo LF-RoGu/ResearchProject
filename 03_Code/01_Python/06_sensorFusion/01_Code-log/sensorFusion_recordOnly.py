@@ -35,7 +35,7 @@ SENSOR_DATA_PORT_PC = "COM5"
 FRAME_AGGREGATOR_NUM_PAST_FRAMES = 0
 IWR6843AoP_FPS = 30
 
-LOGGING_SUFIX = "_test"
+LOGGING_SUFIX = "_driveStraight_inclinedSensor_v2"
 ## @}
 
 ## @defgroup Pipeline Constructors
@@ -119,15 +119,15 @@ def sensor_read_thread():
     while True:
         # Polling the IWR6843 sensor and getting the number of decoded frames
         numFrames = radarSensor_g.pollIWR6843()
-        #
-        MTi_data = imuSensor_g.read_loop(4)
-
+        
         # Continuing if there are no new frames
         if numFrames == 0:
             continue
 
         # Getting the new frames and deleting them from the sensor's internal buffer
         newFrames = radarSensor_g.get_and_delete_decoded_frames(numFrames)
+        #
+        MTi_data = imuSensor_g.read_loop(numFrames)
 
         with Sensor_read_lock:
             # Appending the new frames to the global list of decoded frames in a thread-safe way
