@@ -133,17 +133,22 @@ bool read_xbus_message_start(int fd, XbusMessage& msg) {
     if (read(fd, &msg.checksum, 1) != 1) return false;
     std::cout << "Read checksum: 0x" << std::hex << (int)msg.checksum << "\n";
 
-    // Checksum validation
-    uint16_t sum = msg.mid + msg.len;
+    // ✅ Correct Checksum Validation (sum all fields including checksum, must end in 0)
+    uint16_t sum = 0;
+    sum += msg.bid;
+    sum += msg.mid;
+    sum += msg.len;
+
     if (msg.len == 0xFF) {
         sum += (msg.ext_len >> 8) & 0xFF;
         sum += msg.ext_len & 0xFF;
     }
+
     for (auto b : msg.data) sum += b;
-    uint8_t expected_chk = (uint8_t)(-(sum & 0xFF));
-    if (expected_chk != msg.checksum) {
-        std::cerr << "Checksum mismatch. Expected: 0x" << std::hex << (int)expected_chk
-                  << ", Got: 0x" << (int)msg.checksum << "\n";
+    sum += msg.checksum;
+
+    if ((sum & 0xFF) != 0) {
+        std::cerr << "❌ Checksum invalid. Sum LSB: 0x" << std::hex << (sum & 0xFF) << "\n";
         return false;
     }
 
