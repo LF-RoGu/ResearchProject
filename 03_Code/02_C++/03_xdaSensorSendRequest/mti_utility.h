@@ -1,6 +1,9 @@
 #ifndef MTI_UTILITY_H
 #define MTI_UTILITY_H
 
+#include <cstring>
+#include <cstdint>
+
 typedef enum
 {
     OPEN_PORT_FAILURE = 100,
@@ -13,17 +16,23 @@ typedef enum
     DEVICE_FOUND_SUCCESS,
 } mtiDecode_enum;
 
-typedef struct
-{
-    uint8_t preamble;     // Should be 0xFA
-    uint8_t bid;          // Bus ID
-    uint8_t mid;          // Message ID
-    uint8_t len;          // Standard length or 0xFF for extended
-    uint16_t ext_len;     // Optional: if len == 0xFF
-    uint8_t ind_id;       // Optional: for indication messages
-    std::vector<uint8_t> data;     // Payload
-    uint8_t checksum;     // Checksum at end of message
-} XbusMessage;
+typedef struct {
+    float euler[3];             // roll, pitch, yaw
+    float quaternion[4];        // w, x, y, z
+    float acceleration[3];      // X, Y, Z
+    float free_acceleration[3]; // X, Y, Z
+    float angular_velocity[3];  // X, Y, Z
+    float magnetic[3];          // X, Y, Z
+    double latitude;            // deg
+    double longitude;           // deg
+    double altitude;            // m
+    float velocity[3];          // X, Y, Z in m/s
+    uint8_t status_byte;
+    uint16_t packet_counter;
+    float temperature;          // °C
+    uint32_t time_fine;         // ticks
+    uint32_t time_coarse;       // ms
+} MTiData;
 
 typedef enum {
     // Section 8.1 - Control Commands
@@ -137,5 +146,10 @@ typedef enum {
     MTData2                      = 0x36 // Main live data stream
 } MTiHostOutputMID_enum;
 
+/*
+
+*/
+void get_mti_data(MTiData latestMTiData);
+void set_mti_data(const MTiData& newData);
 
 #endif // MTI_UTILITY_H

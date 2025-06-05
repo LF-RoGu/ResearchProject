@@ -3,8 +3,6 @@
 #include <termios.h>
 #include <unistd.h>
 #include <libudev.h>
-#include <cstring>
-#include <cstdint>
 
 #include <iomanip>
 
@@ -14,11 +12,14 @@ extern "C" {
 #include "libs/xsens_mdata2.h"
 #include "libs/xsens_utility.h"
 }
+#include "mti_utility.h"
 
 #define XSENS_VID "2639"
 #define BAUDRATE B115200
 
 std::string xsens_device_path;
+
+MTiData mtiData_g;
 
 // 🔍 Device discovery
 bool find_xsens_device() {
@@ -102,6 +103,10 @@ void xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* data) {
     std::cout << std::fixed << std::setprecision(6);  // Float formatting
     
     if (flag & XSENS_EVT_EULER) {
+        mtiData_g.euler[0] = data->data.f4x3[0];
+        mtiData_g.euler[1] = data->data.f4x3[1];
+        mtiData_g.euler[2] = data->data.f4x3[2];
+
         std::cout << "Euler angles (rad): "
                   << "Roll=" << data->data.f4x3[0]
                   << ", Pitch=" << data->data.f4x3[1]
@@ -109,6 +114,11 @@ void xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* data) {
     }
 
     if (flag & XSENS_EVT_QUATERNION) {
+        mtiData_g.quaternion[0] = data->data.f4x4[0];
+        mtiData_g.quaternion[1] = data->data.f4x4[1];
+        mtiData_g.quaternion[2] = data->data.f4x4[2];
+        mtiData_g.quaternion[3] = data->data.f4x4[3];
+
         std::cout << "Quaternion: ["
                   << data->data.f4x4[0] << ", "
                   << data->data.f4x4[1] << ", "
@@ -117,6 +127,10 @@ void xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* data) {
     }
 
     if (flag & XSENS_EVT_ACCELERATION) {
+        mtiData_g.acceleration[0] = data->data.f4x3[0];
+        mtiData_g.acceleration[1] = data->data.f4x3[1];
+        mtiData_g.acceleration[2] = data->data.f4x3[2];
+
         std::cout << "Acceleration (m/s²): "
                   << "X=" << data->data.f4x3[0]
                   << ", Y=" << data->data.f4x3[1]
@@ -124,6 +138,10 @@ void xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* data) {
     }
 
     if (flag & XSENS_EVT_FREE_ACCELERATION) {
+        mtiData_g.free_acceleration[0] = data->data.f4x3[0];
+        mtiData_g.free_acceleration[1] = data->data.f4x3[1];
+        mtiData_g.free_acceleration[2] = data->data.f4x3[2];
+
         std::cout << "Free Acceleration (m/s²): "
                   << "X=" << data->data.f4x3[0]
                   << ", Y=" << data->data.f4x3[1]
@@ -131,6 +149,10 @@ void xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* data) {
     }
 
     if (flag & XSENS_EVT_RATE_OF_TURN) {
+        mtiData_g.angular_velocity[0] = data->data.f4x3[0];
+        mtiData_g.angular_velocity[1] = data->data.f4x3[1];
+        mtiData_g.angular_velocity[2] = data->data.f4x3[2];
+
         std::cout << "Angular Velocity (rad/s): "
                   << "X=" << data->data.f4x3[0]
                   << ", Y=" << data->data.f4x3[1]
@@ -138,6 +160,10 @@ void xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* data) {
     }
 
     if (flag & XSENS_EVT_MAGNETIC) {
+        mtiData_g.magnetic[0] = data->data.f4x3[0];
+        mtiData_g.magnetic[1] = data->data.f4x3[1];
+        mtiData_g.magnetic[2] = data->data.f4x3[2];
+
         std::cout << "Magnetic Field (µT): "
                   << "X=" << data->data.f4x3[0]
                   << ", Y=" << data->data.f4x3[1]
@@ -145,16 +171,25 @@ void xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* data) {
     }
 
     if (flag & XSENS_EVT_LAT_LON) {
+        mtiData_g.latitude = data->data.f8x2[0];
+        mtiData_g.longitude = data->data.f8x2[0];
+
         std::cout << "Latitude / Longitude: "
                   << "Lat=" << data->data.f8x2[0]
                   << ", Lon=" << data->data.f8x2[1] << "\n";
     }
 
     if (flag & XSENS_EVT_ALTITUDE_ELLIPSOID) {
+        mtiData_g.altitude = data->data.f8;
+
         std::cout << "🗻 Altitude (ellipsoidal): " << data->data.f8 << " m\n";
     }
 
     if (flag & XSENS_EVT_VELOCITY_XYZ) {
+        mtiData_g.velocity[0] = data->data.f4x3[0];
+        mtiData_g.velocity[1] = data->data.f4x3[1];
+        mtiData_g.velocity[2] = data->data.f4x3[2];
+
         std::cout << "Velocity (XYZ m/s): "
                   << "X=" << data->data.f4x3[0]
                   << ", Y=" << data->data.f4x3[1]
@@ -162,14 +197,20 @@ void xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* data) {
     }
 
     if (flag & XSENS_EVT_STATUS_BYTE) {
+        mtiData_g.status_byte = static_cast<int>(data->data.u1);
+
         std::cout << "Status Byte: 0x" << std::hex << static_cast<int>(data->data.u1) << std::dec << "\n";
     }
 
     if (flag & XSENS_EVT_PACKET_COUNT) {
+        mtiData_g.packet_counter = data->data.u2;
+
         std::cout << "Packet Counter: " << data->data.u2 << "\n";
     }
 
     if (flag & XSENS_EVT_TEMPERATURE) {
+        mtiData_g.temperature = data->data.f4;
+        
         std::cout << "Temperature: " << data->data.f4 << " °C\n";
     }
 
