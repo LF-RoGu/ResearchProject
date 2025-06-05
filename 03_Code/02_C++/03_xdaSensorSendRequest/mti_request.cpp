@@ -94,11 +94,6 @@ int open_xsens_port() {
 
 // 🎯 Event callback
 void xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* data) {
-    static int skip = 0;
-    if (++skip % 3 != 0) 
-    {
-        return;  // Only print 1 in every 3 updates
-    }
     std::cout << "\033[2J\033[H";  // Clear terminal screen
     std::cout << std::fixed << std::setprecision(6);  // Float formatting
     
@@ -182,7 +177,7 @@ void xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* data) {
     if (flag & XSENS_EVT_ALTITUDE_ELLIPSOID) {
         mtiData_g.altitude = data->data.f8;
 
-        std::cout << "🗻 Altitude (ellipsoidal): " << data->data.f8 << " m\n";
+        std::cout << "Altitude (ellipsoidal): " << data->data.f8 << " m\n";
     }
 
     if (flag & XSENS_EVT_VELOCITY_XYZ) {
