@@ -21,7 +21,7 @@ std::string xsens_device_path;
 
 MTiData mtiData_g;
 
-// 🔍 Device discovery
+// Device discovery
 bool find_xsens_device() {
     struct udev* udev = udev_new();
     if (!udev) return false;
@@ -57,7 +57,7 @@ bool find_xsens_device() {
     return false;
 }
 
-// 🔌 Open and configure port
+// Open and configure port
 int open_xsens_port() {
     int fd = open(xsens_device_path.c_str(), O_RDWR | O_NOCTTY);
     if (fd < 0) {
@@ -92,7 +92,7 @@ int open_xsens_port() {
     return fd;
 }
 
-// 🎯 Event callback
+// Event callback
 void xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* data) {
     std::cout << "\033[2J\033[H";  // Clear terminal screen
     std::cout << std::fixed << std::setprecision(6);  // Float formatting
