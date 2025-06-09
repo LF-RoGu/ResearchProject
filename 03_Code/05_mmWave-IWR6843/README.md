@@ -1,3 +1,7 @@
+# mmWave-IWR6843 Scripts
+
+Scripts for reading and processing TI mmWave radar data.
+
 # Pipeline
 
 This subsection contains multiple scripts to process radar sensor data stored in CSV files. The scripts facilitate data extraction, filtering, and visualization to differentiate between noise and valuable data.
