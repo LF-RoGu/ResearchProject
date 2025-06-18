@@ -33,10 +33,12 @@ class XsensMti710
 
         static void set_xsens_data(const MTiData& data);
         static MTiData get_xsens_data(); 
+        int get_fd() const;
 
     private:
         int xsensVid;
         int baudrate;
+        int xsens_fd = -1;
 
         static inline std::string xsens_device_path = "";
         static constexpr int BAUDRATE = B115200;

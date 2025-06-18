@@ -39,16 +39,16 @@ mtiDecode_enum XsensMti710::find_xsens_device() {
 
 mtiDecode_enum XsensMti710::open_xsens_port() 
 {
-    int fd = open(XsensMti710::xsens_device_path.c_str(), O_RDWR | O_NOCTTY);
-    if (fd < 0) {
+    XsensMti710::xsens_fd = open(XsensMti710::xsens_device_path.c_str(), O_RDWR | O_NOCTTY);
+    if (xsens_fd < 0) {
         std::perror("Failed to open port");
         return OPEN_PORT_FAILURE;
     }
 
     struct termios tty;
-    if (tcgetattr(fd, &tty) != 0) {
+    if (tcgetattr(xsens_fd, &tty) != 0) {
         std::perror("Failed to get port attributes");
-        close(fd);
+        close(xsens_fd);
         return PORT_GET_ATTR_FAILURE;
     }
 
@@ -61,10 +61,10 @@ mtiDecode_enum XsensMti710::open_xsens_port()
     tty.c_cc[VTIME] = 1;
     tty.c_cc[VMIN] = 1;
 
-    tcflush(fd, TCIFLUSH);
-    if (tcsetattr(fd, TCSANOW, &tty) != 0) {
+    tcflush(xsens_fd, TCIFLUSH);
+    if (tcsetattr(xsens_fd, TCSANOW, &tty) != 0) {
         std::perror("Failed to set port attributes");
-        close(fd);
+        close(xsens_fd);
         return PORT_SET_ATTR_FAILURE;
     }
 
@@ -227,4 +227,8 @@ void XsensMti710::set_xsens_data(const MTiData& data) {
 MTiData XsensMti710::get_xsens_data()
 {
     return xsensData;
+}
+
+int XsensMti710::get_fd() const {
+    return XsensMti710::xsens_fd;
 }
