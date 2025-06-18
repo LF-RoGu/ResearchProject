@@ -1,0 +1,1009 @@
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 9366
+Timestamp (Fine): 9366 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 14677
+Timestamp (Fine): 8468821 ticks
+Euler angles (rad): Roll=-0.299338, Pitch=0.400117, Yaw=111.669281
+Quaternion: [-0.299338, 0.400117, 111.669281, 0.000000]
+Acceleration (m/s²): X=-0.299338, Y=0.400117, Z=111.669281
+Free Acceleration (m/s²): X=-0.299338, Y=0.400117, Z=111.669281
+Angular Velocity (rad/s): X=-0.299338, Y=0.400117, Z=111.669281
+Magnetic Field (µT): X=-0.299338, Y=0.400117, Z=111.669281
+Altitude (ellipsoidal): 0.000003 m
+Velocity (XYZ m/s): X=-0.299338, Y=0.400117, Z=111.669281
+Status Byte: 0xd2
+Packet Counter: 17106
+Timestamp (Fine): 3197715154 ticks
+Timestamp (Coarse): 3197715154 ms
+Euler angles (rad): Roll=-0.016068, Pitch=-0.046607, Yaw=9.801702
+Quaternion: [-0.016068, -0.046607, 9.801702, 0.000000]
+Acceleration (m/s²): X=-0.016068, Y=-0.046607, Z=9.801702
+Free Acceleration (m/s²): X=-0.016068, Y=-0.046607, Z=9.801702
+Angular Velocity (rad/s): X=-0.016068, Y=-0.046607, Z=9.801702
+Magnetic Field (µT): X=-0.016068, Y=-0.046607, Z=9.801702
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.016068, Y=-0.046607, Z=9.801702
+Packet Counter: 41216
+Timestamp (Fine): 3162743040 ticks
+Quaternion: [-0.000040, -0.000117, 0.024504, 0.000000]
+Acceleration (m/s²): X=-0.000040, Y=-0.000117, Z=0.024504
+Free Acceleration (m/s²): X=-0.000040, Y=-0.000117, Z=0.024504
+Angular Velocity (rad/s): X=-0.000040, Y=-0.000117, Z=0.024504
+Magnetic Field (µT): X=-0.000040, Y=-0.000117, Z=0.024504
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.000040, Y=-0.000117, Z=0.024504
+Timestamp (Fine): 3089631920 ticks
+Euler angles (rad): Roll=-0.035368, Pitch=0.065693, Yaw=-0.010088
+Quaternion: [-0.035368, 0.065693, -0.010088, 0.000000]
+Acceleration (m/s²): X=-0.035368, Y=0.065693, Z=-0.010088
+Free Acceleration (m/s²): X=-0.035368, Y=0.065693, Z=-0.010088
+Angular Velocity (rad/s): X=-0.035368, Y=0.065693, Z=-0.010088
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=-0.035368, Y=0.065693, Z=-0.010088
+Status Byte: 0xc
+Timestamp (Coarse): 3171999244 ms
+Euler angles (rad): Roll=0.014453, Pitch=0.001721, Yaw=0.001214
+Quaternion: [0.014453, 0.001721, 0.001214, 0.000000]
+Acceleration (m/s²): X=0.014453, Y=0.001721, Z=0.001214
+Free Acceleration (m/s²): X=0.014453, Y=0.001721, Z=0.001214
+Angular Velocity (rad/s): X=0.014453, Y=0.001721, Z=0.001214
+Magnetic Field (µT): X=0.014453, Y=0.001721, Z=0.001214
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.014453, Y=0.001721, Z=0.001214
+Status Byte: 0x91
+Packet Counter: 52369
+Timestamp (Fine): 1013763217 ticks
+Timestamp (Coarse): 1013763217 ms
+Euler angles (rad): Roll=1.000000, Pitch=0.000018, Yaw=0.000002
+Acceleration (m/s²): X=1.000000, Y=0.000018, Z=0.000002
+Free Acceleration (m/s²): X=1.000000, Y=0.000018, Z=0.000002
+Angular Velocity (rad/s): X=1.000000, Y=0.000018, Z=0.000002
+Magnetic Field (µT): X=1.000000, Y=0.000018, Z=0.000002
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=1.000000, Y=0.000018, Z=0.000002
+Packet Counter: 0
+Timestamp (Fine): 1065353216 ticks
+Euler angles (rad): Roll=-0.024033, Pitch=0.150458, Yaw=-0.651922
+Quaternion: [-0.024033, 0.150458, -0.651922, 0.000000]
+Acceleration (m/s²): X=-0.024033, Y=0.150458, Z=-0.651922
+Angular Velocity (rad/s): X=-0.024033, Y=0.150458, Z=-0.651922
+Magnetic Field (µT): X=-0.024033, Y=0.150458, Z=-0.651922
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=-0.024033, Y=0.150458, Z=-0.651922
+Status Byte: 0xa6
+Packet Counter: 57766
+Timestamp (Fine): 3167019430 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Free Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Status Byte: 0x3
+Timestamp (Coarse): 3 ms
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 9367
+Timestamp (Fine): 9367 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 14702
+Timestamp (Fine): 8468846 ticks
+Euler angles (rad): Roll=-0.299136, Pitch=0.400675, Yaw=111.669609
+Quaternion: [-0.299136, 0.400675, 111.669609, 0.000000]
+Acceleration (m/s²): X=-0.299136, Y=0.400675, Z=111.669609
+Free Acceleration (m/s²): X=-0.299136, Y=0.400675, Z=111.669609
+Angular Velocity (rad/s): X=-0.299136, Y=0.400675, Z=111.669609
+Magnetic Field (µT): X=-0.299136, Y=0.400675, Z=111.669609
+Altitude (ellipsoidal): 0.000003 m
+Velocity (XYZ m/s): X=-0.299136, Y=0.400675, Z=111.669609
+Status Byte: 0x57
+Packet Counter: 10327
+Timestamp (Fine): 3197708375 ticks
+Timestamp (Coarse): 3197708375 ms
+Euler angles (rad): Roll=-0.029679, Pitch=-0.052375, Yaw=9.819044
+Quaternion: [-0.029679, -0.052375, 9.819044, 0.000000]
+Acceleration (m/s²): X=-0.029679, Y=-0.052375, Z=9.819044
+Free Acceleration (m/s²): X=-0.029679, Y=-0.052375, Z=9.819044
+Angular Velocity (rad/s): X=-0.029679, Y=-0.052375, Z=9.819044
+Magnetic Field (µT): X=-0.029679, Y=-0.052375, Z=9.819044
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.029679, Y=-0.052375, Z=9.819044
+Packet Counter: 8560
+Timestamp (Fine): 3170050416 ticks
+Quaternion: [-0.000074, -0.000132, 0.024548, 0.000000]
+Acceleration (m/s²): X=-0.000074, Y=-0.000132, Z=0.024548
+Free Acceleration (m/s²): X=-0.000074, Y=-0.000132, Z=0.024548
+Angular Velocity (rad/s): X=-0.000074, Y=-0.000132, Z=0.024548
+Magnetic Field (µT): X=-0.000074, Y=-0.000132, Z=0.024548
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.000074, Y=-0.000132, Z=0.024548
+Timestamp (Fine): 3097191488 ticks
+Euler angles (rad): Roll=-0.013368, Pitch=0.036744, Yaw=0.006465
+Quaternion: [-0.013368, 0.036744, 0.006465, 0.000000]
+Acceleration (m/s²): X=-0.013368, Y=0.036744, Z=0.006465
+Free Acceleration (m/s²): X=-0.013368, Y=0.036744, Z=0.006465
+Angular Velocity (rad/s): X=-0.013368, Y=0.036744, Z=0.006465
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=-0.013368, Y=0.036744, Z=0.006465
+Status Byte: 0xcc
+Timestamp (Coarse): 3160081612 ms
+Euler angles (rad): Roll=0.010601, Pitch=0.001629, Yaw=0.002481
+Quaternion: [0.010601, 0.001629, 0.002481, 0.000000]
+Acceleration (m/s²): X=0.010601, Y=0.001629, Z=0.002481
+Free Acceleration (m/s²): X=0.010601, Y=0.001629, Z=0.002481
+Angular Velocity (rad/s): X=0.010601, Y=0.001629, Z=0.002481
+Magnetic Field (µT): X=0.010601, Y=0.001629, Z=0.002481
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.010601, Y=0.001629, Z=0.002481
+Status Byte: 0x0
+Packet Counter: 45056
+Timestamp (Fine): 1009627136 ticks
+Timestamp (Coarse): 1009627136 ms
+Euler angles (rad): Roll=1.000000, Pitch=0.000013, Yaw=0.000002
+Acceleration (m/s²): X=1.000000, Y=0.000013, Z=0.000002
+Free Acceleration (m/s²): X=1.000000, Y=0.000013, Z=0.000002
+Angular Velocity (rad/s): X=1.000000, Y=0.000013, Z=0.000002
+Magnetic Field (µT): X=1.000000, Y=0.000013, Z=0.000002
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=1.000000, Y=0.000013, Z=0.000002
+Packet Counter: 1
+Timestamp (Fine): 1065353217 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Free Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Status Byte: 0x3
+Timestamp (Coarse): 3 ms
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 9368
+Timestamp (Fine): 9368 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 14727
+Timestamp (Fine): 8468871 ticks
+Euler angles (rad): Roll=-0.298420, Pitch=0.400463, Yaw=111.669502
+Quaternion: [-0.298420, 0.400463, 111.669502, 0.000000]
+Acceleration (m/s²): X=-0.298420, Y=0.400463, Z=111.669502
+Free Acceleration (m/s²): X=-0.298420, Y=0.400463, Z=111.669502
+Angular Velocity (rad/s): X=-0.298420, Y=0.400463, Z=111.669502
+Magnetic Field (µT): X=-0.298420, Y=0.400463, Z=111.669502
+Altitude (ellipsoidal): 0.000003 m
+Velocity (XYZ m/s): X=-0.298420, Y=0.400463, Z=111.669502
+Status Byte: 0x92
+Packet Counter: 51858
+Timestamp (Fine): 3197684370 ticks
+Timestamp (Coarse): 3197684370 ms
+Euler angles (rad): Roll=-0.036825, Pitch=-0.049589, Yaw=9.814163
+Quaternion: [-0.036825, -0.049589, 9.814163, 0.000000]
+Acceleration (m/s²): X=-0.036825, Y=-0.049589, Z=9.814163
+Free Acceleration (m/s²): X=-0.036825, Y=-0.049589, Z=9.814163
+Angular Velocity (rad/s): X=-0.036825, Y=-0.049589, Z=9.814163
+Magnetic Field (µT): X=-0.036825, Y=-0.049589, Z=9.814163
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.036825, Y=-0.049589, Z=9.814163
+Packet Counter: 54800
+Timestamp (Fine): 3172390416 ticks
+Quaternion: [-0.000092, -0.000125, 0.024535, 0.000000]
+Acceleration (m/s²): X=-0.000092, Y=-0.000125, Z=0.024535
+Free Acceleration (m/s²): X=-0.000092, Y=-0.000125, Z=0.024535
+Angular Velocity (rad/s): X=-0.000092, Y=-0.000125, Z=0.024535
+Magnetic Field (µT): X=-0.000092, Y=-0.000125, Z=0.024535
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.000092, Y=-0.000125, Z=0.024535
+Timestamp (Fine): 3099692160 ticks
+Euler angles (rad): Roll=-0.013024, Pitch=0.028973, Yaw=0.001619
+Quaternion: [-0.013024, 0.028973, 0.001619, 0.000000]
+Acceleration (m/s²): X=-0.013024, Y=0.028973, Z=0.001619
+Free Acceleration (m/s²): X=-0.013024, Y=0.028973, Z=0.001619
+Angular Velocity (rad/s): X=-0.013024, Y=0.028973, Z=0.001619
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=-0.013024, Y=0.028973, Z=0.001619
+Status Byte: 0x39
+Timestamp (Coarse): 3159712825 ms
+Euler angles (rad): Roll=0.014207, Pitch=-0.003716, Yaw=-0.000766
+Quaternion: [0.014207, -0.003716, -0.000766, 0.000000]
+Acceleration (m/s²): X=0.014207, Y=-0.003716, Z=-0.000766
+Free Acceleration (m/s²): X=0.014207, Y=-0.003716, Z=-0.000766
+Angular Velocity (rad/s): X=0.014207, Y=-0.003716, Z=-0.000766
+Magnetic Field (µT): X=0.014207, Y=-0.003716, Z=-0.000766
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=0.014207, Y=-0.003716, Z=-0.000766
+Status Byte: 0xbb
+Packet Counter: 50619
+Timestamp (Fine): 1013499323 ticks
+Timestamp (Coarse): 1013499323 ms
+Euler angles (rad): Roll=1.000000, Pitch=0.000018, Yaw=-0.000005
+Acceleration (m/s²): X=1.000000, Y=0.000018, Z=-0.000005
+Free Acceleration (m/s²): X=1.000000, Y=0.000018, Z=-0.000005
+Angular Velocity (rad/s): X=1.000000, Y=0.000018, Z=-0.000005
+Magnetic Field (µT): X=1.000000, Y=0.000018, Z=-0.000005
+Latitude / Longitude: Lat=0.000000, Lon=-0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=1.000000, Y=0.000018, Z=-0.000005
+Packet Counter: 0
+Timestamp (Fine): 1065353216 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Free Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Status Byte: 0x3
+Timestamp (Coarse): 3 ms
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 9369
+Timestamp (Fine): 9369 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 14752
+Timestamp (Fine): 8468896 ticks
+Euler angles (rad): Roll=-0.298318, Pitch=0.400964, Yaw=111.669807
+Quaternion: [-0.298318, 0.400964, 111.669807, 0.000000]
+Acceleration (m/s²): X=-0.298318, Y=0.400964, Z=111.669807
+Free Acceleration (m/s²): X=-0.298318, Y=0.400964, Z=111.669807
+Angular Velocity (rad/s): X=-0.298318, Y=0.400964, Z=111.669807
+Magnetic Field (µT): X=-0.298318, Y=0.400964, Z=111.669807
+Altitude (ellipsoidal): 0.000003 m
+Velocity (XYZ m/s): X=-0.298318, Y=0.400964, Z=111.669807
+Status Byte: 0x33
+Packet Counter: 48435
+Timestamp (Fine): 3197680947 ticks
+Timestamp (Coarse): 3197680947 ms
+Euler angles (rad): Roll=-0.057127, Pitch=-0.008832, Yaw=9.821404
+Quaternion: [-0.057127, -0.008832, 9.821404, 0.000000]
+Acceleration (m/s²): X=-0.057127, Y=-0.008832, Z=9.821404
+Free Acceleration (m/s²): X=-0.057127, Y=-0.008832, Z=9.821404
+Angular Velocity (rad/s): X=-0.057127, Y=-0.008832, Z=9.821404
+Magnetic Field (µT): X=-0.057127, Y=-0.008832, Z=9.821404
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.057127, Y=-0.008832, Z=9.821404
+Packet Counter: 64912
+Timestamp (Fine): 3177840016 ticks
+Quaternion: [-0.000143, -0.000023, 0.024554, 0.000000]
+Acceleration (m/s²): X=-0.000143, Y=-0.000023, Z=0.024554
+Free Acceleration (m/s²): X=-0.000143, Y=-0.000023, Z=0.024554
+Angular Velocity (rad/s): X=-0.000143, Y=-0.000023, Z=0.024554
+Magnetic Field (µT): X=-0.000143, Y=-0.000023, Z=0.024554
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.000143, Y=-0.000023, Z=0.024554
+Timestamp (Fine): 3105205368 ticks
+Euler angles (rad): Roll=-0.043616, Pitch=-0.004750, Yaw=0.008791
+Quaternion: [-0.043616, -0.004750, 0.008791, 0.000000]
+Acceleration (m/s²): X=-0.043616, Y=-0.004750, Z=0.008791
+Free Acceleration (m/s²): X=-0.043616, Y=-0.004750, Z=0.008791
+Angular Velocity (rad/s): X=-0.043616, Y=-0.004750, Z=0.008791
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.043616, Y=-0.004750, Z=0.008791
+Status Byte: 0x82
+Timestamp (Coarse): 3174213250 ms
+Euler angles (rad): Roll=0.009900, Pitch=0.001237, Yaw=0.002266
+Quaternion: [0.009900, 0.001237, 0.002266, 0.000000]
+Acceleration (m/s²): X=0.009900, Y=0.001237, Z=0.002266
+Free Acceleration (m/s²): X=0.009900, Y=0.001237, Z=0.002266
+Angular Velocity (rad/s): X=0.009900, Y=0.001237, Z=0.002266
+Magnetic Field (µT): X=0.009900, Y=0.001237, Z=0.002266
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.009900, Y=0.001237, Z=0.002266
+Status Byte: 0x75
+Packet Counter: 13685
+Timestamp (Fine): 1008874869 ticks
+Timestamp (Coarse): 1008874869 ms
+Euler angles (rad): Roll=1.000000, Pitch=0.000012, Yaw=0.000002
+Acceleration (m/s²): X=1.000000, Y=0.000012, Z=0.000002
+Free Acceleration (m/s²): X=1.000000, Y=0.000012, Z=0.000002
+Angular Velocity (rad/s): X=1.000000, Y=0.000012, Z=0.000002
+Magnetic Field (µT): X=1.000000, Y=0.000012, Z=0.000002
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=1.000000, Y=0.000012, Z=0.000002
+Packet Counter: 0
+Timestamp (Fine): 1065353216 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Free Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Status Byte: 0x3
+Timestamp (Coarse): 3 ms
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 9370
+Timestamp (Fine): 9370 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 14777
+Timestamp (Fine): 8468921 ticks
+Euler angles (rad): Roll=-0.297879, Pitch=0.401398, Yaw=111.670975
+Quaternion: [-0.297879, 0.401398, 111.670975, 0.000000]
+Acceleration (m/s²): X=-0.297879, Y=0.401398, Z=111.670975
+Free Acceleration (m/s²): X=-0.297879, Y=0.401398, Z=111.670975
+Angular Velocity (rad/s): X=-0.297879, Y=0.401398, Z=111.670975
+Magnetic Field (µT): X=-0.297879, Y=0.401398, Z=111.670975
+Altitude (ellipsoidal): 0.000004 m
+Velocity (XYZ m/s): X=-0.297879, Y=0.401398, Z=111.670975
+Status Byte: 0x8a
+Packet Counter: 33674
+Timestamp (Fine): 3197666186 ticks
+Timestamp (Coarse): 3197666186 ms
+Euler angles (rad): Roll=-0.035842, Pitch=-0.025009, Yaw=9.812879
+Quaternion: [-0.035842, -0.025009, 9.812879, 0.000000]
+Acceleration (m/s²): X=-0.035842, Y=-0.025009, Z=9.812879
+Free Acceleration (m/s²): X=-0.035842, Y=-0.025009, Z=9.812879
+Angular Velocity (rad/s): X=-0.035842, Y=-0.025009, Z=9.812879
+Magnetic Field (µT): X=-0.035842, Y=-0.025009, Z=9.812879
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.035842, Y=-0.025009, Z=9.812879
+Packet Counter: 53072
+Timestamp (Fine): 3172126544 ticks
+Quaternion: [-0.000090, -0.000063, 0.024532, 0.000000]
+Acceleration (m/s²): X=-0.000090, Y=-0.000063, Z=0.024532
+Free Acceleration (m/s²): X=-0.000090, Y=-0.000063, Z=0.024532
+Angular Velocity (rad/s): X=-0.000090, Y=-0.000063, Z=0.024532
+Magnetic Field (µT): X=-0.000090, Y=-0.000063, Z=0.024532
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.000090, Y=-0.000063, Z=0.024532
+Timestamp (Fine): 3099310288 ticks
+Euler angles (rad): Roll=-0.026807, Pitch=0.020687, Yaw=0.004267
+Quaternion: [-0.026807, 0.020687, 0.004267, 0.000000]
+Acceleration (m/s²): X=-0.026807, Y=0.020687, Z=0.004267
+Free Acceleration (m/s²): X=-0.026807, Y=0.020687, Z=0.004267
+Angular Velocity (rad/s): X=-0.026807, Y=0.020687, Z=0.004267
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=-0.026807, Y=0.020687, Z=0.004267
+Status Byte: 0xc6
+Timestamp (Coarse): 3168508358 ms
+Euler angles (rad): Roll=0.012084, Pitch=0.001512, Yaw=0.001384
+Quaternion: [0.012084, 0.001512, 0.001384, 0.000000]
+Acceleration (m/s²): X=0.012084, Y=0.001512, Z=0.001384
+Free Acceleration (m/s²): X=0.012084, Y=0.001512, Z=0.001384
+Angular Velocity (rad/s): X=0.012084, Y=0.001512, Z=0.001384
+Magnetic Field (µT): X=0.012084, Y=0.001512, Z=0.001384
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.012084, Y=0.001512, Z=0.001384
+Status Byte: 0xbd
+Packet Counter: 64445
+Timestamp (Fine): 1011219389 ticks
+Timestamp (Coarse): 1011219389 ms
+Euler angles (rad): Roll=1.000000, Pitch=0.000015, Yaw=0.000002
+Acceleration (m/s²): X=1.000000, Y=0.000015, Z=0.000002
+Free Acceleration (m/s²): X=1.000000, Y=0.000015, Z=0.000002
+Angular Velocity (rad/s): X=1.000000, Y=0.000015, Z=0.000002
+Magnetic Field (µT): X=1.000000, Y=0.000015, Z=0.000002
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=1.000000, Y=0.000015, Z=0.000002
+Packet Counter: 0
+Timestamp (Fine): 1065353216 ticks
+Euler angles (rad): Roll=-0.032057, Pitch=0.153837, Yaw=-0.644168
+Quaternion: [-0.032057, 0.153837, -0.644168, 0.000000]
+Acceleration (m/s²): X=-0.032057, Y=0.153837, Z=-0.644168
+Angular Velocity (rad/s): X=-0.032057, Y=0.153837, Z=-0.644168
+Magnetic Field (µT): X=-0.032057, Y=0.153837, Z=-0.644168
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=-0.032057, Y=0.153837, Z=-0.644168
+Status Byte: 0xd3
+Packet Counter: 19923
+Timestamp (Fine): 3171110355 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Free Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Status Byte: 0x3
+Timestamp (Coarse): 3 ms
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 9371
+Timestamp (Fine): 9371 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 14802
+Timestamp (Fine): 8468946 ticks
+Euler angles (rad): Roll=-0.297950, Pitch=0.401687, Yaw=111.672050
+Quaternion: [-0.297950, 0.401687, 111.672050, 0.000000]
+Acceleration (m/s²): X=-0.297950, Y=0.401687, Z=111.672050
+Free Acceleration (m/s²): X=-0.297950, Y=0.401687, Z=111.672050
+Angular Velocity (rad/s): X=-0.297950, Y=0.401687, Z=111.672050
+Magnetic Field (µT): X=-0.297950, Y=0.401687, Z=111.672050
+Altitude (ellipsoidal): 0.000004 m
+Velocity (XYZ m/s): X=-0.297950, Y=0.401687, Z=111.672050
+Status Byte: 0xf7
+Packet Counter: 36087
+Timestamp (Fine): 3197668599 ticks
+Timestamp (Coarse): 3197668599 ms
+Euler angles (rad): Roll=-0.049793, Pitch=-0.023741, Yaw=9.808505
+Quaternion: [-0.049793, -0.023741, 9.808505, 0.000000]
+Acceleration (m/s²): X=-0.049793, Y=-0.023741, Z=9.808505
+Free Acceleration (m/s²): X=-0.049793, Y=-0.023741, Z=9.808505
+Angular Velocity (rad/s): X=-0.049793, Y=-0.023741, Z=9.808505
+Magnetic Field (µT): X=-0.049793, Y=-0.023741, Z=9.808505
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.049793, Y=-0.023741, Z=9.808505
+Packet Counter: 62360
+Timestamp (Fine): 3175871384 ticks
+Quaternion: [-0.000124, -0.000060, 0.024521, 0.000000]
+Acceleration (m/s²): X=-0.000124, Y=-0.000060, Z=0.024521
+Free Acceleration (m/s²): X=-0.000124, Y=-0.000060, Z=0.024521
+Angular Velocity (rad/s): X=-0.000124, Y=-0.000060, Z=0.024521
+Magnetic Field (µT): X=-0.000124, Y=-0.000060, Z=0.024521
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.000124, Y=-0.000060, Z=0.024521
+Timestamp (Fine): 3103951780 ticks
+Euler angles (rad): Roll=-0.032374, Pitch=0.007603, Yaw=-0.004084
+Quaternion: [-0.032374, 0.007603, -0.004084, 0.000000]
+Acceleration (m/s²): X=-0.032374, Y=0.007603, Z=-0.004084
+Free Acceleration (m/s²): X=-0.032374, Y=0.007603, Z=-0.004084
+Angular Velocity (rad/s): X=-0.032374, Y=0.007603, Z=-0.004084
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=-0.032374, Y=0.007603, Z=-0.004084
+Status Byte: 0xf0
+Timestamp (Coarse): 3171195632 ms
+Euler angles (rad): Roll=0.008649, Pitch=-0.000276, Yaw=0.007468
+Quaternion: [0.008649, -0.000276, 0.007468, 0.000000]
+Acceleration (m/s²): X=0.008649, Y=-0.000276, Z=0.007468
+Free Acceleration (m/s²): X=0.008649, Y=-0.000276, Z=0.007468
+Angular Velocity (rad/s): X=0.008649, Y=-0.000276, Z=0.007468
+Magnetic Field (µT): X=0.008649, Y=-0.000276, Z=0.007468
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=0.008649, Y=-0.000276, Z=0.007468
+Status Byte: 0x1f
+Packet Counter: 46111
+Timestamp (Fine): 1007531039 ticks
+Timestamp (Coarse): 1007531039 ms
+Euler angles (rad): Roll=1.000000, Pitch=0.000011, Yaw=-0.000000
+Acceleration (m/s²): X=1.000000, Y=0.000011, Z=-0.000000
+Free Acceleration (m/s²): X=1.000000, Y=0.000011, Z=-0.000000
+Angular Velocity (rad/s): X=1.000000, Y=0.000011, Z=-0.000000
+Magnetic Field (µT): X=1.000000, Y=0.000011, Z=-0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=1.000000, Y=0.000011, Z=-0.000000
+Packet Counter: 1
+Timestamp (Fine): 1065353217 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Free Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Status Byte: 0x3
+Timestamp (Coarse): 3 ms
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 9372
+Timestamp (Fine): 9372 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 14827
+Timestamp (Fine): 8468971 ticks
+Euler angles (rad): Roll=-0.297497, Pitch=0.401439, Yaw=111.672829
+Quaternion: [-0.297497, 0.401439, 111.672829, 0.000000]
+Acceleration (m/s²): X=-0.297497, Y=0.401439, Z=111.672829
+Free Acceleration (m/s²): X=-0.297497, Y=0.401439, Z=111.672829
+Angular Velocity (rad/s): X=-0.297497, Y=0.401439, Z=111.672829
+Magnetic Field (µT): X=-0.297497, Y=0.401439, Z=111.672829
+Altitude (ellipsoidal): 0.000004 m
+Velocity (XYZ m/s): X=-0.297497, Y=0.401439, Z=111.672829
+Status Byte: 0x8b
+Packet Counter: 20875
+Timestamp (Fine): 3197653387 ticks
+Timestamp (Coarse): 3197653387 ms
+Euler angles (rad): Roll=-0.068319, Pitch=-0.025252, Yaw=9.815355
+Quaternion: [-0.068319, -0.025252, 9.815355, 0.000000]
+Acceleration (m/s²): X=-0.068319, Y=-0.025252, Z=9.815355
+Free Acceleration (m/s²): X=-0.068319, Y=-0.025252, Z=9.815355
+Angular Velocity (rad/s): X=-0.068319, Y=-0.025252, Z=9.815355
+Magnetic Field (µT): X=-0.068319, Y=-0.025252, Z=9.815355
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.068319, Y=-0.025252, Z=9.815355
+Packet Counter: 60140
+Timestamp (Fine): 3180063468 ticks
+Quaternion: [-0.000171, -0.000064, 0.024538, 0.000000]
+Acceleration (m/s²): X=-0.000171, Y=-0.000064, Z=0.024538
+Free Acceleration (m/s²): X=-0.000171, Y=-0.000064, Z=0.024538
+Angular Velocity (rad/s): X=-0.000171, Y=-0.000064, Z=0.024538
+Magnetic Field (µT): X=-0.000171, Y=-0.000064, Z=0.024538
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.000171, Y=-0.000064, Z=0.024538
+Timestamp (Fine): 3107150292 ticks
+Euler angles (rad): Roll=-0.023974, Pitch=-0.009086, Yaw=0.002904
+Quaternion: [-0.023974, -0.009086, 0.002904, 0.000000]
+Acceleration (m/s²): X=-0.023974, Y=-0.009086, Z=0.002904
+Free Acceleration (m/s²): X=-0.023974, Y=-0.009086, Z=0.002904
+Angular Velocity (rad/s): X=-0.023974, Y=-0.009086, Z=0.002904
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.023974, Y=-0.009086, Z=0.002904
+Status Byte: 0x58
+Timestamp (Coarse): 3166987608 ms
+Euler angles (rad): Roll=0.012336, Pitch=-0.004004, Yaw=0.005485
+Quaternion: [0.012336, -0.004004, 0.005485, 0.000000]
+Acceleration (m/s²): X=0.012336, Y=-0.004004, Z=0.005485
+Free Acceleration (m/s²): X=0.012336, Y=-0.004004, Z=0.005485
+Angular Velocity (rad/s): X=0.012336, Y=-0.004004, Z=0.005485
+Magnetic Field (µT): X=0.012336, Y=-0.004004, Z=0.005485
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=0.012336, Y=-0.004004, Z=0.005485
+Status Byte: 0xd2
+Packet Counter: 7378
+Timestamp (Fine): 1011490002 ticks
+Timestamp (Coarse): 1011490002 ms
+Euler angles (rad): Roll=1.000000, Pitch=0.000015, Yaw=-0.000005
+Acceleration (m/s²): X=1.000000, Y=0.000015, Z=-0.000005
+Free Acceleration (m/s²): X=1.000000, Y=0.000015, Z=-0.000005
+Angular Velocity (rad/s): X=1.000000, Y=0.000015, Z=-0.000005
+Magnetic Field (µT): X=1.000000, Y=0.000015, Z=-0.000005
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=1.000000, Y=0.000015, Z=-0.000005
+Packet Counter: 0
+Timestamp (Fine): 1065353216 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Free Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Status Byte: 0x3
+Timestamp (Coarse): 3 ms
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 9373
+Timestamp (Fine): 9373 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 14852
+Timestamp (Fine): 8468996 ticks
+Euler angles (rad): Roll=-0.296907, Pitch=0.401645, Yaw=111.672661
+Quaternion: [-0.296907, 0.401645, 111.672661, 0.000000]
+Acceleration (m/s²): X=-0.296907, Y=0.401645, Z=111.672661
+Free Acceleration (m/s²): X=-0.296907, Y=0.401645, Z=111.672661
+Angular Velocity (rad/s): X=-0.296907, Y=0.401645, Z=111.672661
+Magnetic Field (µT): X=-0.296907, Y=0.401645, Z=111.672661
+Altitude (ellipsoidal): 0.000004 m
+Velocity (XYZ m/s): X=-0.296907, Y=0.401645, Z=111.672661
+Status Byte: 0x2e
+Packet Counter: 1070
+Timestamp (Fine): 3197633582 ticks
+Timestamp (Coarse): 3197633582 ms
+Euler angles (rad): Roll=-0.049272, Pitch=-0.022473, Yaw=9.832966
+Quaternion: [-0.049272, -0.022473, 9.832966, 0.000000]
+Acceleration (m/s²): X=-0.049272, Y=-0.022473, Z=9.832966
+Free Acceleration (m/s²): X=-0.049272, Y=-0.022473, Z=9.832966
+Angular Velocity (rad/s): X=-0.049272, Y=-0.022473, Z=9.832966
+Magnetic Field (µT): X=-0.049272, Y=-0.022473, Z=9.832966
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.049272, Y=-0.022473, Z=9.832966
+Packet Counter: 53728
+Timestamp (Fine): 3175731680 ticks
+Quaternion: [-0.000123, -0.000057, 0.024582, 0.000000]
+Acceleration (m/s²): X=-0.000123, Y=-0.000057, Z=0.024582
+Free Acceleration (m/s²): X=-0.000123, Y=-0.000057, Z=0.024582
+Angular Velocity (rad/s): X=-0.000123, Y=-0.000057, Z=0.024582
+Magnetic Field (µT): X=-0.000123, Y=-0.000057, Z=0.024582
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.000123, Y=-0.000057, Z=0.024582
+Timestamp (Fine): 3103864696 ticks
+Euler angles (rad): Roll=-0.033646, Pitch=0.007820, Yaw=0.020364
+Quaternion: [-0.033646, 0.007820, 0.020364, 0.000000]
+Acceleration (m/s²): X=-0.033646, Y=0.007820, Z=0.020364
+Free Acceleration (m/s²): X=-0.033646, Y=0.007820, Z=0.020364
+Angular Velocity (rad/s): X=-0.033646, Y=0.007820, Z=0.020364
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=-0.033646, Y=0.007820, Z=0.020364
+Status Byte: 0xba
+Timestamp (Coarse): 3171537082 ms
+Euler angles (rad): Roll=0.013334, Pitch=-0.000804, Yaw=-0.001150
+Quaternion: [0.013334, -0.000804, -0.001150, 0.000000]
+Acceleration (m/s²): X=0.013334, Y=-0.000804, Z=-0.001150
+Free Acceleration (m/s²): X=0.013334, Y=-0.000804, Z=-0.001150
+Angular Velocity (rad/s): X=0.013334, Y=-0.000804, Z=-0.001150
+Magnetic Field (µT): X=0.013334, Y=-0.000804, Z=-0.001150
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=0.013334, Y=-0.000804, Z=-0.001150
+Status Byte: 0xd8
+Packet Counter: 29912
+Timestamp (Fine): 1012561112 ticks
+Timestamp (Coarse): 1012561112 ms
+Euler angles (rad): Roll=1.000000, Pitch=0.000017, Yaw=-0.000001
+Acceleration (m/s²): X=1.000000, Y=0.000017, Z=-0.000001
+Free Acceleration (m/s²): X=1.000000, Y=0.000017, Z=-0.000001
+Angular Velocity (rad/s): X=1.000000, Y=0.000017, Z=-0.000001
+Magnetic Field (µT): X=1.000000, Y=0.000017, Z=-0.000001
+Latitude / Longitude: Lat=0.000000, Lon=-0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=1.000000, Y=0.000017, Z=-0.000001
+Packet Counter: 0
+Timestamp (Fine): 1065353216 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Free Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Status Byte: 0x3
+Timestamp (Coarse): 3 ms
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 9374
+Timestamp (Fine): 9374 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 14877
+Timestamp (Fine): 8469021 ticks
+Euler angles (rad): Roll=-0.296850, Pitch=0.401614, Yaw=111.673019
+Quaternion: [-0.296850, 0.401614, 111.673019, 0.000000]
+Acceleration (m/s²): X=-0.296850, Y=0.401614, Z=111.673019
+Free Acceleration (m/s²): X=-0.296850, Y=0.401614, Z=111.673019
+Angular Velocity (rad/s): X=-0.296850, Y=0.401614, Z=111.673019
+Magnetic Field (µT): X=-0.296850, Y=0.401614, Z=111.673019
+Altitude (ellipsoidal): 0.000004 m
+Velocity (XYZ m/s): X=-0.296850, Y=0.401614, Z=111.673019
+Status Byte: 0xaf
+Packet Counter: 64687
+Timestamp (Fine): 3197631663 ticks
+Timestamp (Coarse): 3197631663 ms
+Euler angles (rad): Roll=-0.055029, Pitch=-0.018319, Yaw=9.811663
+Quaternion: [-0.055029, -0.018319, 9.811663, 0.000000]
+Acceleration (m/s²): X=-0.055029, Y=-0.018319, Z=9.811663
+Free Acceleration (m/s²): X=-0.055029, Y=-0.018319, Z=9.811663
+Angular Velocity (rad/s): X=-0.055029, Y=-0.018319, Z=9.811663
+Magnetic Field (µT): X=-0.055029, Y=-0.018319, Z=9.811663
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.055029, Y=-0.018319, Z=9.811663
+Packet Counter: 26016
+Timestamp (Fine): 3177276832 ticks
+Quaternion: [-0.000138, -0.000046, 0.024529, 0.000000]
+Acceleration (m/s²): X=-0.000138, Y=-0.000046, Z=0.024529
+Free Acceleration (m/s²): X=-0.000138, Y=-0.000046, Z=0.024529
+Angular Velocity (rad/s): X=-0.000138, Y=-0.000046, Z=0.024529
+Magnetic Field (µT): X=-0.000138, Y=-0.000046, Z=0.024529
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.000138, Y=-0.000046, Z=0.024529
+Timestamp (Fine): 3104857256 ticks
+Euler angles (rad): Roll=-0.031556, Pitch=0.001805, Yaw=0.004567
+Quaternion: [-0.031556, 0.001805, 0.004567, 0.000000]
+Acceleration (m/s²): X=-0.031556, Y=0.001805, Z=0.004567
+Free Acceleration (m/s²): X=-0.031556, Y=0.001805, Z=0.004567
+Angular Velocity (rad/s): X=-0.031556, Y=0.001805, Z=0.004567
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=-0.031556, Y=0.001805, Z=0.004567
+Status Byte: 0xaf
+Timestamp (Coarse): 3170975919 ms
+Euler angles (rad): Roll=0.009301, Pitch=-0.001678, Yaw=0.000061
+Quaternion: [0.009301, -0.001678, 0.000061, 0.000000]
+Acceleration (m/s²): X=0.009301, Y=-0.001678, Z=0.000061
+Free Acceleration (m/s²): X=0.009301, Y=-0.001678, Z=0.000061
+Angular Velocity (rad/s): X=0.009301, Y=-0.001678, Z=0.000061
+Magnetic Field (µT): X=0.009301, Y=-0.001678, Z=0.000061
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=0.009301, Y=-0.001678, Z=0.000061
+Status Byte: 0xb2
+Packet Counter: 25778
+Timestamp (Fine): 1008231602 ticks
+Timestamp (Coarse): 1008231602 ms
+Euler angles (rad): Roll=1.000000, Pitch=0.000012, Yaw=-0.000002
+Acceleration (m/s²): X=1.000000, Y=0.000012, Z=-0.000002
+Free Acceleration (m/s²): X=1.000000, Y=0.000012, Z=-0.000002
+Angular Velocity (rad/s): X=1.000000, Y=0.000012, Z=-0.000002
+Magnetic Field (µT): X=1.000000, Y=0.000012, Z=-0.000002
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=1.000000, Y=0.000012, Z=-0.000002
+Packet Counter: 0
+Timestamp (Fine): 1065353216 ticks
+Euler angles (rad): Roll=-0.039689, Pitch=0.153259, Yaw=-0.632976
+Quaternion: [-0.039689, 0.153259, -0.632976, 0.000000]
+Acceleration (m/s²): X=-0.039689, Y=0.153259, Z=-0.632976
+Angular Velocity (rad/s): X=-0.039689, Y=0.153259, Z=-0.632976
+Magnetic Field (µT): X=-0.039689, Y=0.153259, Z=-0.632976
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=-0.039689, Y=0.153259, Z=-0.632976
+Status Byte: 0x7a
+Packet Counter: 36986
+Timestamp (Fine): 3173159034 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Free Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Status Byte: 0x3
+Timestamp (Coarse): 3 ms
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 9375
+Timestamp (Fine): 9375 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 14902
+Timestamp (Fine): 8469046 ticks
+Euler angles (rad): Roll=-0.296941, Pitch=0.401603, Yaw=111.673363
+Quaternion: [-0.296941, 0.401603, 111.673363, 0.000000]
+Acceleration (m/s²): X=-0.296941, Y=0.401603, Z=111.673363
+Free Acceleration (m/s²): X=-0.296941, Y=0.401603, Z=111.673363
+Angular Velocity (rad/s): X=-0.296941, Y=0.401603, Z=111.673363
+Magnetic Field (µT): X=-0.296941, Y=0.401603, Z=111.673363
+Altitude (ellipsoidal): 0.000004 m
+Velocity (XYZ m/s): X=-0.296941, Y=0.401603, Z=111.673363
+Status Byte: 0xa7
+Packet Counter: 2215
+Timestamp (Fine): 3197634727 ticks
+Timestamp (Coarse): 3197634727 ms
+Euler angles (rad): Roll=-0.038578, Pitch=-0.026410, Yaw=9.811713
+Quaternion: [-0.038578, -0.026410, 9.811713, 0.000000]
+Acceleration (m/s²): X=-0.038578, Y=-0.026410, Z=9.811713
+Free Acceleration (m/s²): X=-0.038578, Y=-0.026410, Z=9.811713
+Angular Velocity (rad/s): X=-0.038578, Y=-0.026410, Z=9.811713
+Magnetic Field (µT): X=-0.038578, Y=-0.026410, Z=9.811713
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.038578, Y=-0.026410, Z=9.811713
+Packet Counter: 968
+Timestamp (Fine): 3172860872 ticks
+Quaternion: [-0.000097, -0.000067, 0.024529, 0.000000]
+Acceleration (m/s²): X=-0.000097, Y=-0.000067, Z=0.024529
+Free Acceleration (m/s²): X=-0.000097, Y=-0.000067, Z=0.024529
+Angular Velocity (rad/s): X=-0.000097, Y=-0.000067, Z=0.024529
+Magnetic Field (µT): X=-0.000097, Y=-0.000067, Z=0.024529
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.000097, Y=-0.000067, Z=0.024529
+Timestamp (Fine): 3100282648 ticks
+Euler angles (rad): Roll=-0.033878, Pitch=0.019027, Yaw=-0.000943
+Quaternion: [-0.033878, 0.019027, -0.000943, 0.000000]
+Acceleration (m/s²): X=-0.033878, Y=0.019027, Z=-0.000943
+Free Acceleration (m/s²): X=-0.033878, Y=0.019027, Z=-0.000943
+Angular Velocity (rad/s): X=-0.033878, Y=0.019027, Z=-0.000943
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=-0.033878, Y=0.019027, Z=-0.000943
+Status Byte: 0x8f
+Timestamp (Coarse): 3171599247 ms
+Euler angles (rad): Roll=0.008553, Pitch=-0.002339, Yaw=0.002346
+Quaternion: [0.008553, -0.002339, 0.002346, 0.000000]
+Acceleration (m/s²): X=0.008553, Y=-0.002339, Z=0.002346
+Free Acceleration (m/s²): X=0.008553, Y=-0.002339, Z=0.002346
+Angular Velocity (rad/s): X=0.008553, Y=-0.002339, Z=0.002346
+Magnetic Field (µT): X=0.008553, Y=-0.002339, Z=0.002346
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=0.008553, Y=-0.002339, Z=0.002346
+Status Byte: 0x6a
+Packet Counter: 8298
+Timestamp (Fine): 1007427690 ticks
+Timestamp (Coarse): 1007427690 ms
+Euler angles (rad): Roll=1.000000, Pitch=0.000011, Yaw=-0.000003
+Acceleration (m/s²): X=1.000000, Y=0.000011, Z=-0.000003
+Free Acceleration (m/s²): X=1.000000, Y=0.000011, Z=-0.000003
+Angular Velocity (rad/s): X=1.000000, Y=0.000011, Z=-0.000003
+Magnetic Field (µT): X=1.000000, Y=0.000011, Z=-0.000003
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=1.000000, Y=0.000011, Z=-0.000003
+Packet Counter: 1
+Timestamp (Fine): 1065353217 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Free Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Status Byte: 0x3
+Timestamp (Coarse): 3 ms
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 9376
+Timestamp (Fine): 9376 ticks
+Euler angles (rad): Roll=0.000000, Pitch=0.000000, Yaw=0.000000
+Quaternion: [0.000000, 0.000000, 0.000000, 0.000000]
+Acceleration (m/s²): X=0.000000, Y=0.000000, Z=0.000000
+Angular Velocity (rad/s): X=0.000000, Y=0.000000, Z=0.000000
+Magnetic Field (µT): X=0.000000, Y=0.000000, Z=0.000000
+Latitude / Longitude: Lat=0.000000, Lon=0.000000
+Altitude (ellipsoidal): 0.000000 m
+Velocity (XYZ m/s): X=0.000000, Y=0.000000, Z=0.000000
+Packet Counter: 14927
+Timestamp (Fine): 8469071 ticks
+Euler angles (rad): Roll=-0.297285, Pitch=0.401174, Yaw=111.673950
+Quaternion: [-0.297285, 0.401174, 111.673950, 0.000000]
+Acceleration (m/s²): X=-0.297285, Y=0.401174, Z=111.673950
+Free Acceleration (m/s²): X=-0.297285, Y=0.401174, Z=111.673950
+Angular Velocity (rad/s): X=-0.297285, Y=0.401174, Z=111.673950
+Magnetic Field (µT): X=-0.297285, Y=0.401174, Z=111.673950
+Altitude (ellipsoidal): 0.000004 m
+Velocity (XYZ m/s): X=-0.297285, Y=0.401174, Z=111.673950
+Status Byte: 0xca
+Packet Counter: 13770
+Timestamp (Fine): 3197646282 ticks
+Timestamp (Coarse): 3197646282 ms
+Euler angles (rad): Roll=-0.037905, Pitch=-0.044282, Yaw=9.818354
+Quaternion: [-0.037905, -0.044282, 9.818354, 0.000000]
+Acceleration (m/s²): X=-0.037905, Y=-0.044282, Z=9.818354
+Free Acceleration (m/s²): X=-0.037905, Y=-0.044282, Z=9.818354
+Angular Velocity (rad/s): X=-0.037905, Y=-0.044282, Z=9.818354
+Magnetic Field (µT): X=-0.037905, Y=-0.044282, Z=9.818354
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.037905, Y=-0.044282, Z=9.818354
+Packet Counter: 16968
+Timestamp (Fine): 3172680264 ticks
+Quaternion: [-0.000095, -0.000111, 0.024546, 0.000000]
+Acceleration (m/s²): X=-0.000095, Y=-0.000111, Z=0.024546
+Free Acceleration (m/s²): X=-0.000095, Y=-0.000111, Z=0.024546
+Angular Velocity (rad/s): X=-0.000095, Y=-0.000111, Z=0.024546
+Magnetic Field (µT): X=-0.000095, Y=-0.000111, Z=0.024546
+Latitude / Longitude: Lat=-0.000000, Lon=0.000000
+Altitude (ellipsoidal): -0.000000 m
+Velocity (XYZ m/s): X=-0.000095, Y=-0.000111, Z=0.024546
+Timestamp (Fine): 3100076088 ticks
