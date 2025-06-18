@@ -31,15 +31,16 @@ class XsensMti710
 
         static void xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* data);
 
-        static void set_xsens_data(MTiData& data);
+        static void set_xsens_data(const MTiData& data);
         static MTiData get_xsens_data(); 
 
     private:
         int xsensVid;
         int baudrate;
 
-        static std::string xsens_device_path;
-        static MTiData xsensData;
+        static inline std::string xsens_device_path = "";
+        static constexpr int BAUDRATE = B115200;
+        static inline MTiData xsensData = {};
+
         static constexpr const char* XSENS_VID = "2639";
-        static constexpr speed_t BAUDRATE = B115200;
 };

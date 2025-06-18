@@ -1,5 +1,7 @@
 #include "xsens_mti710.hpp"
 
+XsensMti710::XsensMti710() = default;
+
 mtiDecode_enum XsensMti710::find_xsens_device() {
     struct udev* udev = udev_new();
     if (!udev) return DEVICE_FOUND_FAILURE;
@@ -216,14 +218,13 @@ void XsensMti710::xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* d
         std::cout << "Unknown Event(s) received: 0x" << std::hex << flag << std::dec << "\n";
         #endif
     }
-    set_xsens_data(l_mtiData);
+    xsensData = l_mtiData;
 }
 
-void XsensMti710::set_xsens_data(MTiData data)
-{
-    this->xsensData = data;
+void XsensMti710::set_xsens_data(const MTiData& data) {
+    xsensData = data;
 }
 MTiData XsensMti710::get_xsens_data()
 {
-    return this->xsensData;
+    return xsensData;
 }
