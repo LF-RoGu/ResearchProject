@@ -19,18 +19,27 @@ extern "C"
     #include "libs/xsens_utility.h"
 }
 
-class SerialPort
+
+class XsensMti710
 {
     public:
-        SerialPort(int deviceId, int baudrate);
-        int ReadData(uint8_t *buffer, unsigned int buf_size);
-        int get_baudrate();
+        XsensMti710();
+        XsensMti710(int deviceId, int baudrate);
+
         mtiDecode_enum find_xsens_device();
         mtiDecode_enum open_xsens_port();
-        void xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* data);
-        void set_xsens_data(MTiData xsensData);
-        MTiData get_xsens_data(); 
+
+        static void xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* data);
+
+        static void set_xsens_data(MTiData& data);
+        static MTiData get_xsens_data(); 
+
     private:
         int xsensVid;
         int baudrate;
+
+        static std::string xsens_device_path;
+        static MTiData xsensData;
+        static constexpr const char* XSENS_VID = "2639";
+        static constexpr speed_t BAUDRATE = B115200;
 };

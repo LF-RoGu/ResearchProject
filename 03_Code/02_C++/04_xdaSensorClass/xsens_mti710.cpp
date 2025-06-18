@@ -1,8 +1,8 @@
 #include "xsens_mti710.hpp"
 
-mtiDecode_enum SerialPort::find_xsens_device() {
+mtiDecode_enum XsensMti710::find_xsens_device() {
     struct udev* udev = udev_new();
-    if (!udev) return false;
+    if (!udev) return DEVICE_FOUND_FAILURE;
 
     struct udev_enumerate* enumerate = udev_enumerate_new(udev);
     udev_enumerate_add_match_subsystem(enumerate, "tty");
@@ -19,9 +19,9 @@ mtiDecode_enum SerialPort::find_xsens_device() {
         if (parent) {
             const char* vid = udev_device_get_sysattr_value(parent, "idVendor");
             const char* dev_node = udev_device_get_devnode(dev);
-            if (vid && dev_node && std::string(vid) == XSENS_VID) {
-                xsens_device_path = std::string(dev_node);
-                std::cout << "✅ Xsens device found: " << xsens_device_path << "\n";
+            if (vid && dev_node && std::string(vid) == XsensMti710::XSENS_VID) {
+                XsensMti710::xsens_device_path = std::string(dev_node);
+                std::cout << "✅ Xsens device found: " << XsensMti710::xsens_device_path << "\n";
                 udev_device_unref(dev);
                 udev_unref(udev);
                 return DEVICE_FOUND_SUCCESS;
@@ -35,9 +35,9 @@ mtiDecode_enum SerialPort::find_xsens_device() {
     return DEVICE_FOUND_FAILURE;
 }
 
-mtiDecode_enum SerialPort::open_xsens_port() 
+mtiDecode_enum XsensMti710::open_xsens_port() 
 {
-    int fd = open(xsens_device_path.c_str(), O_RDWR | O_NOCTTY);
+    int fd = open(XsensMti710::xsens_device_path.c_str(), O_RDWR | O_NOCTTY);
     if (fd < 0) {
         std::perror("Failed to open port");
         return OPEN_PORT_FAILURE;
@@ -50,8 +50,8 @@ mtiDecode_enum SerialPort::open_xsens_port()
         return PORT_GET_ATTR_FAILURE;
     }
 
-    cfsetispeed(&tty, get_baudrate());
-    cfsetospeed(&tty, get_baudrate());
+    cfsetispeed(&tty, XsensMti710::BAUDRATE);
+    cfsetospeed(&tty, XsensMti710::BAUDRATE);
     tty.c_cflag = CS8 | CLOCAL | CREAD;
     tty.c_iflag = IGNPAR;
     tty.c_oflag = 0;
@@ -70,7 +70,7 @@ mtiDecode_enum SerialPort::open_xsens_port()
     return OPEN_PORT_SUCCESS;
 }
 
-void SerialPort::xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* data) {
+void XsensMti710::xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* data) {
     MTiData l_mtiData;
     if (flag & XSENS_EVT_EULER) {
         l_mtiData.euler[0] = data->data.f4x3[0];
@@ -198,7 +198,7 @@ void SerialPort::xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* da
     }
 
     if (flag & XSENS_EVT_TIME_FINE) {
-        l_mtiData.timestamp_fine = data->data.u4;
+        l_mtiData.time_fine = data->data.u4;
         #ifdef DEBUG
         std::cout << "Timestamp (Fine): " << data->data.u4 << " ticks\n";
         #endif
@@ -219,7 +219,11 @@ void SerialPort::xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* da
     set_xsens_data(l_mtiData);
 }
 
-int SerialPort::get_baudrate()
+void XsensMti710::set_xsens_data(MTiData data)
 {
-    return SerialPort::baudrate;
+    this->xsensData = data;
+}
+MTiData XsensMti710::get_xsens_data()
+{
+    return this->xsensData;
 }
