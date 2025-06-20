@@ -1,4 +1,6 @@
 #include "string.h"
+#include <stdint.h>
+#include <stdio.h>
 
 #include "xsens_mdata2.h"
 #include "xsens_mti.h"
@@ -226,7 +228,6 @@ void xsens_mti_send( xsens_interface_t *interface, xsens_packet_buffer_t *packet
     {
         uint8_t buffer[2048] = { 0 };
         uint16_t buffer_pos = 0;
-        uint8_t crc = 0;
 
         // Preamble
         buffer[buffer_pos++] = PREAMBLE_BYTE;
@@ -379,26 +380,49 @@ void xsens_internal_handle_product_code( xsens_packet_buffer_t *packet )
 {
     // ASCII formatted code max 20 bytes
     // TODO: handle product code
+    // TODO: Test
+    // ASCII formatted code, max 21 bytes
+    char code[21];
+    // packet->length is the payload size
+    int len = packet->length;
+    if (len > 20) len = 20;
+    memcpy(code, packet->payload, len);
+    code[len] = '\0';
+
+    // now do something with it:
+    printf("[XSENS EVT] Product code: %s\n", code);
 }
 
 void xsens_internal_handle_hardware_version( xsens_packet_buffer_t *packet )
 {
-    // TODO: handle product code
-
-    //    uint8_t hw_version[2];
-    //    uint16_t *hw_ptr = (uint16_t *)&hw_version;
-    //    hw_ptr           = xsens_coalesce_16BE_16LE( &packet->payload[0] );
+    // The hardware version is a 16-bit word in packet->payload[0..1].
+    // xsens_coalesce_16BE_16LE merges big- and little-endian representations for compatibility.
+    if (packet->length >= 2) {
+        // 16-bit BE/LE coalesce
+        uint16_t hw = xsens_coalesce_16BE_16LE(packet->payload);
+        printf("[XSENS] Hardware version: %u\n", hw);
+    } 
+    else {
+        printf("[XSENS] Hardware version: <invalid packet length %u>\n",
+               (unsigned)packet->length);
+    }
 }
 
 void xsens_internal_handle_firmware_version( xsens_packet_buffer_t *packet )
 {
-    // TODO: handle firmware version
-
-    uint8_t  major    = packet->payload[0];
-    uint8_t  minor    = packet->payload[1];
-    uint8_t  revision = packet->payload[2];
-    uint32_t build    = xsens_coalesce_32BE_32LE( &packet->payload[3] );
-    uint32_t scm      = xsens_coalesce_32BE_32LE( &packet->payload[7] );
+    if (packet->length >= 11) {
+        uint8_t  major    = packet->payload[0];
+        uint8_t  minor    = packet->payload[1];
+        uint8_t  revision = packet->payload[2];
+        uint32_t build    = xsens_coalesce_32BE_32LE(&packet->payload[3]);
+        uint32_t scm      = xsens_coalesce_32BE_32LE(&packet->payload[7]);
+        printf("[XSENS] Firmware rev: %u.%u.%u  build %u  scm %u\n",
+               major, minor, revision, build, scm);
+    } 
+    else {
+        printf("[XSENS] Firmware rev: <invalid packet length %u>\n",
+               (unsigned)packet->length);
+    }
 }
 
 void xsens_internal_handle_selftest_results( xsens_packet_buffer_t *packet )
@@ -408,33 +432,49 @@ void xsens_internal_handle_selftest_results( xsens_packet_buffer_t *packet )
 
 void xsens_internal_handle_error( xsens_packet_buffer_t *packet )
 {
-    uint8_t error_code = packet->payload[0];
-
-    /*
-    switch( error_code )
-    {
-        case ERROR_PERIOD_INVALID:
+    uint8_t code = packet->payload[0];
+    const char *msg;
+    switch (code) {
+        case ERROR_PERIOD_INVALID:   
+        {
+            msg = "Period invalid";    
             break;
-
-        case ERROR_MESSAGE_INVALID:
+        } 
+        case ERROR_MESSAGE_INVALID:  
+        {
+            msg = "Message invalid";   
             break;
-
-        case ERROR_TIMER_OVERFLOW:
+        } 
+        case ERROR_TIMER_OVERFLOW:  
+        {
+            msg = "Timer overflow";    
             break;
+        }  
 
-        case ERROR_BAUDRATE:
+        case ERROR_BAUDRATE:  
+        {
+            msg = "Baud rate error";    
             break;
+        }        
 
-        case ERROR_PARAMETER_INVALID:
+        case ERROR_PARAMETER_INVALID: 
+        {
+            msg = "Parameter invalid"; 
             break;
+        }
 
-        case ERROR_DEVICE:
+        case ERROR_DEVICE:            
+        {
+            msg = "Device error";       
             break;
-
-        default:
+        }
+        default:                      
+        {
+            msg = "Unknown error";      
             break;
+        }
     }
-     */
+    printf("[XSENS] Error 0x%02X: %s\n", (unsigned)code, msg);
 }
 
 void xsens_internal_handle_mdata2( xsens_packet_buffer_t *packet )

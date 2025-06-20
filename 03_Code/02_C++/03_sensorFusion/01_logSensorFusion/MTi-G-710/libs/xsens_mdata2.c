@@ -159,7 +159,7 @@ void xsens_mdata2_decode_field( mdata2_packet_t *output, callback_event_t evt_cb
         }
 
         // Provide the local tangent plane coordinate scheme in the callback
-        value.coord_ref = coordinate_system;
+        value.coord_ref = (XsensEventTangentPlaneFormat_t)coordinate_system;
 
         // Convert BE data to LE, put it in the right union field
         switch( value.type )

@@ -1,8 +1,8 @@
 #ifndef UARTFRAME_H
 #define UARTFRAME_H
 
-#include "SensorDataStr.h"
-#include "EndianUtils.h"
+#include "lib/SensorDataStr.h"
+#include "lib/EndianUtils.h"
 #include <vector>
 #include <cstdint>
 #include <iostream>

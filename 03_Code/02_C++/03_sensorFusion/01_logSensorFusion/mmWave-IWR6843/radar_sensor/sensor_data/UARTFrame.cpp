@@ -163,9 +163,6 @@ TLVPayloadData TLV_frame::parseTLVPayload(std::vector<uint8_t>& data, TLVHeaderD
 {
     EndianUtils EndianUtils_c;
     TLVPayloadData TLVPayloadData_str;
-    // Implement parsing logic based on the type and length from the header
-    TLVHeaderData_var.type_u32;
-    TLVHeaderData_var.length_u32;
 
     switch (TLVHeaderData_var.type_u32) 
     {
