@@ -1,41 +1,25 @@
-# Makefile
+CXX = g++
+CXXFLAGS = -Wall -Wextra -std=c++17 -MMD -MP
+LDFLAGS = -ludev -lm
+TARGET = main
 
-CC       := gcc
-CXX      := g++
-CFLAGS   := -Wall -Wextra -std=c11   -MMD -MP
-CXXFLAGS := -Wall -Wextra -std=c++17 -MMD -MP
-LDFLAGS  := -ludev -lm
+# 🔧 Add xsens_mti710.cpp here!
+SRC = main.cpp xsens_mti710.cpp
 
-TARGET    := mti_request
-
-# 1) your C++ sources
-SRCS      := mti_request.cpp
-
-# 2) your C libraries
-CSRCS     := \
+XSENS_LIBS = \
     libs/xsens_mti.c \
     libs/xsens_utility.c \
     libs/xsens_mdata2.c
 
-OBJS      := $(SRCS:.cpp=.o) $(CSRCS:.c=.o)
-DEPS      := $(SRCS:.cpp=.d) $(CSRCS:.c=.d)
-
-.PHONY: all clean
+OBJ = $(SRC:.cpp=.o) $(XSENS_LIBS:.c=.o)
+DEP = $(SRC:.cpp=.d)
 
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) $(OBJS) -o $@ $(LDFLAGS)
+$(TARGET): $(OBJ)
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
-# C++ compilation
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-# C compilation
-%.o: %.c
-	$(CC)  $(CFLAGS)  -c $< -o $@
-
--include $(DEPS)
+-include $(DEP)
 
 clean:
-	rm -f $(TARGET) $(OBJS) $(DEPS)
+	rm -f $(TARGET) $(OBJ) $(DEP)

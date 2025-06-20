@@ -17,22 +17,52 @@ typedef enum
 } mtiDecode_enum;
 
 typedef struct {
-    float euler[3];             // roll, pitch, yaw
-    float quaternion[4];        // w, x, y, z
-    float acceleration[3];      // X, Y, Z
-    float free_acceleration[3]; // X, Y, Z
-    float angular_velocity[3];  // X, Y, Z
-    float magnetic[3];          // X, Y, Z
-    double latitude;            // deg
-    double longitude;           // deg
-    double altitude;            // m
-    float velocity[3];          // X, Y, Z in m/s
-    uint8_t status_byte;
-    uint16_t packet_counter;
-    float temperature;          // °C
-    uint32_t time_fine;         // ticks
-    uint32_t time_coarse;       // ms
+    // —————————————————————————————————————————————————————————————————————————
+    // Orientation outputs
+    // —————————————————————————————————————————————————————————————————————————
+    float   euler[3];            // Roll, Pitch, Yaw (rad)              
+    float   quaternion[4];       // [w, x, y, z] quaternion              
+    float   rotation_matrix[9];  // 3×3 row-major rotation matrix      
+
+    // —————————————————————————————————————————————————————————————————————————
+    // Incremental motion (from MT_MTDATA2)
+    // —————————————————————————————————————————————————————————————————————————
+    float   delta_v[3];          // Δv: velocity increment (m/s²)      
+    float   delta_q[4];          // Δq: quaternion increment (rad)     
+
+    // —————————————————————————————————————————————————————————————————————————
+    // Kinematics
+    // —————————————————————————————————————————————————————————————————————————
+    float   rate_of_turn[3];     // Angular rate (wx,wy,wz) (rad/s)       
+    float   acceleration[3];     // Measured acceleration (m/s²)        
+    float   free_acceleration[3]; // Gravity-compensated accel (m/s²)      
+
+    // —————————————————————————————————————————————————————————————————————————
+    // Magnetic & GNSS
+    // —————————————————————————————————————————————————————————————————————————
+    float   magnetic[3];         // Magnetic field [mx, my, mz] (μT)
+    float   velocity[3];         // GNSS velocity [vx, vy, vz] (m/s)       
+    double  latitude;            // GPS latitude (deg)                     
+    double  longitude;           // GPS longitude (deg)                    
+    double  altitude;            // Ellipsoid altitude (m)                 
+
+    // —————————————————————————————————————————————————————————————————————————
+    // Environmental & status
+    // —————————————————————————————————————————————————————————————————————————
+    float   baro_pressure;       // Barometric pressure (hPa)             
+    float   temperature;         // Temperature (°C)                      
+    uint8_t status_byte;         // Status-byte flags                    
+    uint16_t status_word;        // Extended status word (if enabled)   
+
+    // —————————————————————————————————————————————————————————————————————————
+    // Packet & time stamps
+    // —————————————————————————————————————————————————————————————————————————
+    uint16_t packet_counter;     // Packet counter                         
+    uint32_t time_fine;          // Fine timestamp ticks                 
+    uint32_t time_coarse;        // Coarse timestamp (ms)                
+    double   utc_time;           // UTC time (sec.fraction)               
 } MTiData;
+
 
 typedef enum {
     // Section 8.1 - Control Commands
