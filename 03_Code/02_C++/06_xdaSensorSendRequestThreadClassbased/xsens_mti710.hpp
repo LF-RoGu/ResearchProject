@@ -53,9 +53,10 @@ private:
     void sendToDevice(uint8_t* buf, uint16_t len);
 
     // udev-discovered path & baud
-    static constexpr const char* XSENS_VID = "0483";             // your vendor ID
+    static constexpr const char* XSENS_VID = "2639"; 
+    static inline std::string xsens_device_path = "";            
     static std::string           devNode_;
-    static constexpr speed_t     BAUDRATE  = B115200;
+    static constexpr int BAUDRATE = B115200;
 };
 
 #endif // XSENS_MTI710_HPP
