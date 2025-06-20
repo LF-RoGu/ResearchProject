@@ -1,41 +1,33 @@
 ﻿#ifndef RADAR_H
 #define RADAR_H
 
-//Global includes
 #include <cstdint>
 #include <vector>
 #include <string>
 #include <iostream>
 #include <pthread.h>
-
-#include <fstream>
 #include <chrono>
 #include <iomanip>
 #include <sstream>
 
-//Private includes
-#include "IWR6843.h"
-#include "SensorData.h"
+#include "radar_sensor/IWR6843.h"
+#include "radar_sensor/SensorData.h"
 
-//Namespaces
 using namespace std;
 
-//External variables
+// single global sensor instance
 extern IWR6843 sensor;
 
-extern const int NUM_THREADS;
-extern pthread_t threads[];
+// thread count & handles
+extern const int    NUM_THREADS;
+extern pthread_t    threads[];
 
-extern const int NUM_FRAMES;
-extern vector<SensorData> totalFrames;
-
-//Function prototypes
+// thread functions
 void* sensor_thread(void* arg);
 void* controller_thread(void* arg);
 void* actuator_thread(void* arg);
 
-
-string formatTimestamp(const std::chrono::time_point<std::chrono::system_clock>& timePoint);
-void writeToCSV(const std::string& filename, const std::vector<SensorData>& objects);
+// timestamp formatting
+string formatTimestamp(const chrono::time_point<chrono::system_clock>& tp);
 
 #endif // RADAR_H

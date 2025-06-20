@@ -28,14 +28,16 @@ private:
 	pthread_mutex_t decodedFrameBufferMutex;
 
 	int configSerialPort(int port_fd, int baudRate);
-	int sendConfigFile(int port_fd, string configFilePath);
+	int sendConfigFile(int fd, const std::string& filePath);
 	vector<size_t> findIndexesOfMagicWord();
 	vector<vector<uint8_t>> splitIntoSublistsByIndexes(const vector<size_t>& indexes);
 
 public:
 	IWR6843();
 	~IWR6843();
-	int init(string configPort, string dataPort, string configFilePath);
+	int init(const std::string& configPort,
+             const std::string& dataPort,
+             const std::string& configFilePath);
 	int poll();
 	bool copyDecodedFramesFromTop(vector<SensorData>& destination, uint numFrames, bool delFrames, long timeout_ms);
 	bool getDecodedFramesSize(int& destination, long timeout_ms);
