@@ -26,6 +26,7 @@ public:
     // Allow clean startup
     XsensMti710();
     ~XsensMti710();
+    static void xsens_event_handler(XsensEventFlag_t, XsensEventData_t*);
 
 private:
     enum class AckFlag { None, GotoConfig, OutCfg, Flags, GotoMeas };
@@ -38,9 +39,6 @@ private:
     static void cbOutCfg(xsens_packet_buffer_t*);
     static void cbFlags(xsens_packet_buffer_t*);
     static void cbGotoMeas(xsens_packet_buffer_t*);
-
-    // main data handler you already have
-    static void xsens_event_handler(XsensEventFlag_t, XsensEventData_t*);
 
     // helper
     void waitFor(AckFlag);

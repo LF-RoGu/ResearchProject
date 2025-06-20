@@ -5,7 +5,8 @@
 #include <termios.h>
 #include <unistd.h>
 #include <iostream>
-#define DEBUG
+
+//#define DEBUG
 
 #ifdef DEBUG
 #include <iomanip>
