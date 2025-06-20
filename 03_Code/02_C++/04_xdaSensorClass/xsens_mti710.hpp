@@ -29,7 +29,7 @@ class XsensMti710
         mtiDecode_enum find_xsens_device();
         mtiDecode_enum open_xsens_port();
 
-        static void xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* data);
+        static void xsens_event_handler(XsensEventFlag_t event, XsensEventData_t* mt2data);
 
         static void set_xsens_data(const MTiData& data);
         static MTiData get_xsens_data(); 

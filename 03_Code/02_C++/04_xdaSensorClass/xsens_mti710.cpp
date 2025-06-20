@@ -1,4 +1,9 @@
 #include "xsens_mti710.hpp"
+#define DEBUG 1
+
+#ifdef DEBUG
+#include <iomanip>
+#endif
 
 XsensMti710::XsensMti710() = default;
 
@@ -72,153 +77,251 @@ mtiDecode_enum XsensMti710::open_xsens_port()
     return OPEN_PORT_SUCCESS;
 }
 
-void XsensMti710::xsens_event_handler(XsensEventFlag_t flag, XsensEventData_t* data) {
-    MTiData l_mtiData;
-    if (flag & XSENS_EVT_EULER) {
-        l_mtiData.euler[0] = data->data.f4x3[0];
-        l_mtiData.euler[1] = data->data.f4x3[1];
-        l_mtiData.euler[2] = data->data.f4x3[2];
-
-        #ifdef DEBUG
-        std::cout << "Euler angles (rad): "
-                  << "Roll=" << data->data.f4x3[0]
-                  << ", Pitch=" << data->data.f4x3[1]
-                  << ", Yaw=" << data->data.f4x3[2] << "\n";
-        #endif
+void XsensMti710::xsens_event_handler(XsensEventFlag_t event, XsensEventData_t* mt2data) {
+    #ifdef DEBUG
+    std::cout << std::fixed << std::setprecision(3);
+    #endif
+    switch (event) {
+        case XSENS_EVT_EULER:
+            if(mt2data->type == XSENS_EVT_TYPE_FLOAT3)
+            {
+                // Assuming mt2data->data.f4x3 is a float array of size 3
+                xsensData.euler[0] = mt2data->data.f4x3[0]; // Roll
+                xsensData.euler[1] = mt2data->data.f4x3[1]; // Pitch
+                xsensData.euler[2] = mt2data->data.f4x3[2]; // Yaw
+                #ifdef DEBUG
+                std::cout << "[DEBUG] [XSENS_EVT_EULER] Roll=" << xsensData.euler[0] << ", Pitch=" << xsensData.euler[1] << ", Yaw=" << xsensData.euler[2]
+                        << " (Event: 0x" << std::hex << static_cast<int>(event) << std::dec << ")\n";
+                #endif
+            }
+            else
+            {
+                std::cerr << "[ERROR] Invalid data type for XSENS_EVT_EULER\n";
+                return;
+            }
+            break;
+        case XSENS_EVT_QUATERNION:
+            if(mt2data->type == XSENS_EVT_TYPE_FLOAT4)
+            {
+                // Assuming mt2data->data.f4x4 is a float array of size 4
+                xsensData.quaternion[0] = mt2data->data.f4x4[0]; // q0
+                xsensData.quaternion[1] = mt2data->data.f4x4[1]; // q1
+                xsensData.quaternion[2] = mt2data->data.f4x4[2]; // q2
+                xsensData.quaternion[3] = mt2data->data.f4x4[3]; // q3
+                #ifdef DEBUG
+                std::cout << "[DEBUG] [XSENS_EVT_QUATERNION] [" << xsensData.quaternion[0] << ", " << xsensData.quaternion[1] << ", " << xsensData.quaternion[2] << ", " << xsensData.quaternion[3]
+                        << "] (Event: 0x" << std::hex << static_cast<int>(event) << std::dec << ")\n";
+                #endif
+            }
+            else
+            {
+                std::cerr << "[ERROR] Invalid data type for XSENS_EVT_QUATERNION\n";
+                return;
+            }
+            break;
+        case XSENS_EVT_ACCELERATION:
+            if(mt2data->type == XSENS_EVT_TYPE_FLOAT3)
+            {
+                // Assuming mt2data->data.f4x3 is a float array of size 3
+                xsensData.acceleration[0] = mt2data->data.f4x3[0]; // ax
+                xsensData.acceleration[1] = mt2data->data.f4x3[1]; // ay
+                xsensData.acceleration[2] = mt2data->data.f4x3[2]; // az
+                #ifdef DEBUG
+                std::cout << "[DEBUG] [XSENS_EVT_ACCELERATION] X=" << xsensData.acceleration[0] << ", Y=" << xsensData.acceleration[1] << ", Z=" << xsensData.acceleration[2]
+                        << " (Event: 0x" << std::hex << static_cast<int>(event) << std::dec << ")\n";
+                #endif
+            }
+            else
+            {
+                std::cerr << "[ERROR] Invalid data type for XSENS_EVT_ACCELERATION\n";
+                return;
+            }
+            break;
+        case XSENS_EVT_FREE_ACCELERATION:
+            if(mt2data->type == XSENS_EVT_TYPE_FLOAT3)
+            {
+                // Assuming mt2data->data.f4x3 is a float array of size 3
+                xsensData.free_acceleration[0] = mt2data->data.f4x3[0]; // fx
+                xsensData.free_acceleration[1] = mt2data->data.f4x3[1]; // fy
+                xsensData.free_acceleration[2] = mt2data->data.f4x3[2]; // fz
+                #ifdef DEBUG
+                std::cout << "[DEBUG] [XSENS_EVT_FREE_ACCELERATION] X=" << xsensData.free_acceleration[0] << ", Y=" << xsensData.free_acceleration[1] << ", Z=" << xsensData.free_acceleration[2]
+                        << " (Event: 0x" << std::hex << static_cast<int>(event) << std::dec << ")\n";
+                #endif
+            }
+            else
+            {
+                std::cerr << "[ERROR] Invalid data type for XSENS_EVT_FREE_ACCELERATION\n";
+                return;
+            }
+            break;
+        case XSENS_EVT_RATE_OF_TURN:
+        if(mt2data->type == XSENS_EVT_TYPE_FLOAT3)
+            {
+                // Assuming mt2data->data.f4x3 is a float array of size 3
+                xsensData.angular_velocity[0] = mt2data->data.f4x3[0]; // wx
+                xsensData.angular_velocity[1] = mt2data->data.f4x3[1]; // wy
+                xsensData.angular_velocity[2] = mt2data->data.f4x3[2]; // wz
+                #ifdef DEBUG
+                std::cout << "[DEBUG] [XSENS_EVT_RATE_OF_TURN] X=" << xsensData.angular_velocity[0] << ", Y=" << xsensData.angular_velocity[1] << ", Z=" << xsensData.angular_velocity[2]
+                        << " (Event: 0x" << std::hex << static_cast<int>(event) << std::dec << ")\n";
+                #endif
+            }
+            else
+            {
+                std::cerr << "[ERROR] Invalid data type for XSENS_EVT_RATE_OF_TURN\n";
+                return;
+            }
+            break;
+        case XSENS_EVT_MAGNETIC:
+        if(mt2data->type == XSENS_EVT_TYPE_FLOAT3)
+            {
+                // Assuming mt2data->data.f4x3 is a float array of size 3
+                xsensData.magnetic[0] = mt2data->data.f4x3[0]; // mx
+                xsensData.magnetic[1] = mt2data->data.f4x3[1]; // my
+                xsensData.magnetic[2] = mt2data->data.f4x3[2]; // mz
+                #ifdef DEBUG
+                std::cout << "[DEBUG] [XSENS_EVT_MAGNETIC] X=" << xsensData.magnetic[0] << ", Y=" << xsensData.magnetic[1] << ", Z=" << xsensData.magnetic[2]
+                        << " (Event: 0x" << std::hex << static_cast<int>(event) << std::dec << ")\n";
+                #endif
+            }
+            else
+            {
+                std::cerr << "[ERROR] Invalid data type for XSENS_EVT_MAGNETIC\n";
+                return;
+            }
+            break;
+        case XSENS_EVT_LAT_LON:
+            if(mt2data->type == XSENS_EVT_TYPE_FLOAT2)
+            {
+                // Assuming mt2data->data.f8x2 is a double array of size 2
+                xsensData.latitude = mt2data->data.f8x2[0]; // Latitude
+                xsensData.longitude = mt2data->data.f8x2[1]; // Longitude
+                #ifdef DEBUG
+                std::cout << "[DEBUG] [XSENS_EVT_LAT_LON] Lat=" << xsensData.latitude << ", Lon=" << xsensData.longitude
+                        << " (Event: 0x" << std::hex << static_cast<int>(event) << std::dec << ")\n";
+                #endif
+            }
+            else
+            {
+                std::cerr << "[ERROR] Invalid data type for XSENS_EVT_LAT_LON\n";
+                return;
+            }
+            break;
+        case XSENS_EVT_ALTITUDE_ELLIPSOID:
+            if(mt2data->type == XSENS_EVT_TYPE_FLOAT)
+            {
+                // Assuming mt2data->data.f8 is a double value for altitude
+                xsensData.altitude = mt2data->data.f8; // Altitude in meters
+                #ifdef DEBUG
+                std::cout << "[DEBUG] [XSENS_EVT_ALTITUDE] Altitude=" << xsensData.altitude
+                        << " m (Event: 0x" << std::hex << static_cast<int>(event) << std::dec << ")\n";
+                #endif
+            }
+            else
+            {
+                std::cerr << "[ERROR] Invalid data type for XSENS_EVT_ALTITUDE_ELLIPSOID\n";
+                return;
+            }
+            break;
+        case XSENS_EVT_VELOCITY_XYZ:
+            if(mt2data->type == XSENS_EVT_TYPE_FLOAT3)
+            {
+                // Assuming mt2data->data.f4x3 is a float array of size 3
+                xsensData.velocity[0] = mt2data->data.f4x3[0]; // vx
+                xsensData.velocity[1] = mt2data->data.f4x3[1]; // vy
+                xsensData.velocity[2] = mt2data->data.f4x3[2]; // vz
+                #ifdef DEBUG
+                std::cout << "[DEBUG] [XSENS_EVT_VELOCITY] X=" << xsensData.velocity[0] << ", Y=" << xsensData.velocity[1] << ", Z=" << xsensData.velocity[2]
+                        << " (Event: 0x" << std::hex << static_cast<int>(event) << std::dec << ")\n";
+                #endif
+            }
+            else
+            {
+                std::cerr << "[ERROR] Invalid data type for XSENS_EVT_VELOCITY_XYZ\n";
+                return;
+            }
+            break;
+        case XSENS_EVT_STATUS_BYTE:
+            if(mt2data->type == XSENS_EVT_TYPE_U8)
+            {
+                xsensData.status_byte = static_cast<int>(mt2data->data.u1); // Status byte
+                #ifdef DEBUG
+                std::cout << "[DEBUG] [XSENS_EVT_STATUS_BYTE] Status Byte: 0x"
+                          << std::hex << xsensData.status_byte << std::dec
+                          << " (Event: 0x" << std::hex << static_cast<int>(event) << std::dec << ")\n";
+                #endif
+            }
+            else
+            {
+                std::cerr << "[ERROR] Invalid data type for XSENS_EVT_STATUS_BYTE\n";
+                return;
+            }
+            break;
+        case XSENS_EVT_PACKET_COUNT:
+            if(mt2data->type == XSENS_EVT_TYPE_U16)
+            {
+                xsensData.packet_counter = mt2data->data.u2; // Packet count
+                #ifdef DEBUG
+                std::cout << "[DEBUG] [XSENS_EVT_PACKET_COUNT] Count: " << xsensData.packet_counter
+                          << " (Event: 0x" << std::hex << static_cast<int>(event) << std::dec << ")\n";
+                #endif
+            }
+            else
+            {
+                std::cerr << "[ERROR] Invalid data type for XSENS_EVT_PACKET_COUNT\n";
+                return;
+            }
+            break;
+        case XSENS_EVT_TEMPERATURE:
+            if(mt2data->type == XSENS_EVT_TYPE_FLOAT)
+            {
+                xsensData.temperature = mt2data->data.f4; // Temperature in Celsius
+                #ifdef DEBUG
+                std::cout << "[DEBUG] [XSENS_EVT_TEMPERATURE] Temperature: " << xsensData.temperature << " °C"
+                          << " (Event: 0x" << std::hex << static_cast<int>(event) << std::dec << ")\n";
+                #endif
+            }
+            else
+            {
+                std::cerr << "[ERROR] Invalid data type for XSENS_EVT_TEMPERATURE\n";
+                return;
+            }
+            break;
+        case XSENS_EVT_TIME_FINE:
+            if(mt2data->type == XSENS_EVT_TYPE_U32)
+            {
+                xsensData.time_fine = mt2data->data.u4; // Fine time in microseconds
+                #ifdef DEBUG
+                std::cout << "[DEBUG] [XSENS_EVT_TIME_FINE] Time Fine: " << xsensData.time_fine
+                          << " (Event: 0x" << std::hex << static_cast<int>(event) << std::dec << ")\n";
+                #endif
+            }
+            else
+            {
+                std::cerr << "[ERROR] Invalid data type for XSENS_EVT_TIME_FINE\n";
+                return;
+            }
+            break;
+        case XSENS_EVT_TIME_COARSE:
+            if(mt2data->type == XSENS_EVT_TYPE_U32)
+            {
+                xsensData.time_coarse = mt2data->data.u4; // Coarse time in seconds
+                #ifdef DEBUG
+                std::cout << "[DEBUG] [XSENS_EVT_TIME_COARSE] Time Coarse: " << xsensData.time_coarse
+                          << " (Event: 0x" << std::hex << static_cast<int>(event) << std::dec << ")\n";
+                #endif
+            }
+            else
+            {
+                std::cerr << "[ERROR] Invalid data type for XSENS_EVT_TIME_COARSE\n";
+                return;
+            }
+            break;
+        default:
+            std::cerr << "[ERROR] Unrecognized event: " << static_cast<int>(event) << "\n";
+            return;
     }
-
-    if (flag & XSENS_EVT_QUATERNION) {
-        l_mtiData.quaternion[0] = data->data.f4x4[0];
-        l_mtiData.quaternion[1] = data->data.f4x4[1];
-        l_mtiData.quaternion[2] = data->data.f4x4[2];
-        l_mtiData.quaternion[3] = data->data.f4x4[3];
-        #ifdef DEBUG
-        std::cout << "Quaternion: ["
-                  << data->data.f4x4[0] << ", "
-                  << data->data.f4x4[1] << ", "
-                  << data->data.f4x4[2] << ", "
-                  << data->data.f4x4[3] << "]\n";
-        #endif
-    }
-
-    if (flag & XSENS_EVT_ACCELERATION) {
-        l_mtiData.acceleration[0] = data->data.f4x3[0];
-        l_mtiData.acceleration[1] = data->data.f4x3[1];
-        l_mtiData.acceleration[2] = data->data.f4x3[2];
-        #ifdef DEBUG
-        std::cout << "Acceleration (m/s²): "
-                  << "X=" << data->data.f4x3[0]
-                  << ", Y=" << data->data.f4x3[1]
-                  << ", Z=" << data->data.f4x3[2] << "\n";
-        #endif
-    }
-
-    if (flag & XSENS_EVT_FREE_ACCELERATION) {
-        l_mtiData.free_acceleration[0] = data->data.f4x3[0];
-        l_mtiData.free_acceleration[1] = data->data.f4x3[1];
-        l_mtiData.free_acceleration[2] = data->data.f4x3[2];
-        #ifdef DEBUG
-        std::cout << "Free Acceleration (m/s²): "
-                  << "X=" << data->data.f4x3[0]
-                  << ", Y=" << data->data.f4x3[1]
-                  << ", Z=" << data->data.f4x3[2] << "\n";
-        #endif
-    }
-
-    if (flag & XSENS_EVT_RATE_OF_TURN) {
-        l_mtiData.angular_velocity[0] = data->data.f4x3[0];
-        l_mtiData.angular_velocity[1] = data->data.f4x3[1];
-        l_mtiData.angular_velocity[2] = data->data.f4x3[2];
-        #ifdef DEBUG
-        std::cout << "Angular Velocity (rad/s): "
-                  << "X=" << data->data.f4x3[0]
-                  << ", Y=" << data->data.f4x3[1]
-                  << ", Z=" << data->data.f4x3[2] << "\n";
-        #endif
-    }
-
-    if (flag & XSENS_EVT_MAGNETIC) {
-        l_mtiData.magnetic[0] = data->data.f4x3[0];
-        l_mtiData.magnetic[1] = data->data.f4x3[1];
-        l_mtiData.magnetic[2] = data->data.f4x3[2];
-        #ifdef DEBUG
-        std::cout << "Magnetic Field (µT): "
-                  << "X=" << data->data.f4x3[0]
-                  << ", Y=" << data->data.f4x3[1]
-                  << ", Z=" << data->data.f4x3[2] << "\n";
-        #endif
-    }
-
-    if (flag & XSENS_EVT_LAT_LON) {
-        l_mtiData.latitude = data->data.f8x2[0];
-        l_mtiData.longitude = data->data.f8x2[0];
-        #ifdef DEBUG
-        std::cout << "Latitude / Longitude: "
-                  << "Lat=" << data->data.f8x2[0]
-                  << ", Lon=" << data->data.f8x2[1] << "\n";
-        #endif
-    }
-
-    if (flag & XSENS_EVT_ALTITUDE_ELLIPSOID) {
-        l_mtiData.altitude = data->data.f8;
-        #ifdef DEBUG
-        std::cout << "Altitude (ellipsoidal): " << data->data.f8 << " m\n";
-        #endif
-    }
-
-    if (flag & XSENS_EVT_VELOCITY_XYZ) {
-        l_mtiData.velocity[0] = data->data.f4x3[0];
-        l_mtiData.velocity[1] = data->data.f4x3[1];
-        l_mtiData.velocity[2] = data->data.f4x3[2];
-        #ifdef DEBUG
-        std::cout << "Velocity (XYZ m/s): "
-                  << "X=" << data->data.f4x3[0]
-                  << ", Y=" << data->data.f4x3[1]
-                  << ", Z=" << data->data.f4x3[2] << "\n";
-        #endif
-    }
-
-    if (flag & XSENS_EVT_STATUS_BYTE) {
-        l_mtiData.status_byte = static_cast<int>(data->data.u1);
-        #ifdef DEBUG
-        std::cout << "Status Byte: 0x" << std::hex << static_cast<int>(data->data.u1) << std::dec << "\n";
-        #endif
-    }
-
-    if (flag & XSENS_EVT_PACKET_COUNT) {
-        l_mtiData.packet_counter = data->data.u2;
-        #ifdef DEBUG
-        std::cout << "Packet Counter: " << data->data.u2 << "\n";
-        #endif
-    }
-
-    if (flag & XSENS_EVT_TEMPERATURE) {
-        l_mtiData.temperature = data->data.f4;
-        #ifdef DEBUG
-        std::cout << "Temperature: " << data->data.f4 << " °C\n";
-        #endif
-    }
-
-    if (flag & XSENS_EVT_TIME_FINE) {
-        l_mtiData.time_fine = data->data.u4;
-        #ifdef DEBUG
-        std::cout << "Timestamp (Fine): " << data->data.u4 << " ticks\n";
-        #endif
-    }
-
-    if (flag & XSENS_EVT_TIME_COARSE) {
-        l_mtiData.time_coarse = data->data.u4;
-        #ifdef DEBUG
-        std::cout << "Timestamp (Coarse): " << data->data.u4 << " ms\n";
-        #endif
-    }
-
-    if (flag & ~(XSENS_EVT_ALL)) {
-        #ifdef DEBUG
-        std::cout << "Unknown Event(s) received: 0x" << std::hex << flag << std::dec << "\n";
-        #endif
-    }
-    xsensData = l_mtiData;
 }
 
 void XsensMti710::set_xsens_data(const MTiData& data) {
@@ -232,3 +335,4 @@ MTiData XsensMti710::get_xsens_data()
 int XsensMti710::get_fd() const {
     return XsensMti710::xsens_fd;
 }
+
