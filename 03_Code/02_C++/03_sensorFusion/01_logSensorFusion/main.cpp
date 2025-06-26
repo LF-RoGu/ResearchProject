@@ -16,17 +16,15 @@
 
 using namespace std;
 
-//— Globals ——————————————————————————————————————————————————————————————
 IWR6843      radarSensor;
 XsensMti710  imuSensor;
 
 const int  NUM_THREADS = 2;
 pthread_t  threads[NUM_THREADS];
 
-ofstream   csvRadar("_outFiles/radar_output.csv");
-ofstream   csvImu  ("_outFiles/imu_output.csv");
+ofstream   csvRadar("_outFiles/radar_DriveArroundFast2.csv");
+ofstream   csvImu  ("_outFiles/imu_DriveArroundFast2.csv");
 
-//— radar thread ———————————————————————————————————————————————————————
 void* radar_thread(void*)
 {
     if (!csvRadar.is_open()) {
@@ -134,7 +132,6 @@ void* radar_thread(void*)
     pthread_exit(nullptr);
 }
 
-//— imu thread ————————————————————————————————————————————————————————————
 void* imu_thread(void*)
 {
     // find & open
@@ -165,7 +162,6 @@ void* imu_thread(void*)
     pthread_exit(nullptr);
 }
 
-//— main ————————————————————————————————————————————————————————————————
 int main()
 {
     cout << "[INFO] Initializing radar...\n";
