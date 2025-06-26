@@ -7,7 +7,7 @@ from collections import defaultdict
 @dataclass
 class RadarRecord:
     frame_id: int
-    subframe: int
+    point_id: int
     x: float
     y: float
     z: float
@@ -17,7 +17,6 @@ class RadarRecord:
 @dataclass
 class ImuRecord:
     frame_id: int
-    subframe: int
     acc_x: float
     acc_y: float
     acc_z: float
@@ -34,122 +33,90 @@ class ImuRecord:
 class RadarCSVReader:
     FIELDNAMES = [
         "frame_id", 
-        "subframe",
+        "point_id",
         "x", "y", "z",
         "doppler", 
         "snr", 
         "noise"
     ]
 
-    def __init__(self, file_name: str = "radar_data_30_04_2025.csv", folder_name: str = "01_Logs-30042025", subfolder_name: str = None, csv_path: str = None):
-        """
-        If csv_path is provided, it will be used directly.
-        Otherwise, the path will be resolved from the file_name and project structure.
-        """
+    def __init__(self, file_name: str = "radar_data_30_04_2025.csv", folder_name: str = "01_Logs-30042025", csv_path: str = None):
         if csv_path:
             self.csv_path = csv_path
         else:
-            script_dir   = os.path.dirname(os.path.abspath(__file__))
+            script_dir = os.path.dirname(os.path.abspath(__file__))
             project_root = find_project_root(script_dir, "ResearchProject")
-            self.csv_path = os.path.join(
-                project_root,
-                "04_Logs", "01_sensorFusion", folder_name, subfolder_name,
-                file_name
-            )
+            self.csv_path = os.path.join(project_root, "04_Logs", "01_sensorFusion", folder_name, file_name)
 
-    def _row_to_record(self, row: dict) -> RadarRecord:
-        # convert the strings in row to the correct types
-        return RadarRecord(
-            frame_id = int(row["frame_id"]),
-            subframe = int(row["subframe"]),
-            x        = float(row["x"]),
-            y        = float(row["y"]),
-            z        = float(row["z"]),
-            doppler  = float(row["doppler"]),
-            snr      = float(row["snr"]) / 10,
-            noise    = float(row["noise"]) / 10
-        )
+    def _row_to_record(self, row: dict) -> RadarRecord | None:
+        try:
+            return RadarRecord(
+                frame_id=int(row["frame_id"]),
+                point_id=int(row["point_id"]),
+                x=float(row["x"]),
+                y=float(row["y"]),
+                z=float(row["z"]),
+                doppler=float(row["doppler"]),
+                snr=float(row["snr"]) / 10,
+                noise=float(row["noise"]) / 10
+            )
+        except (ValueError, KeyError) as e:
+            print(f"⚠️ Skipping malformed radar row: {row} — {e}")
+            return None
 
     def load_all(self) -> list[RadarRecord]:
-        """Read the entire CSV into a list of RadarRecord."""
         grouped_frames = defaultdict(list)
         with open(self.csv_path, newline="") as f:
-            reader = csv.DictReader(f, fieldnames=self.FIELDNAMES)
-            next(reader)  # skip header
+            reader = csv.DictReader(f)
             for row in reader:
                 record = self._row_to_record(row)
-                grouped_frames[record.frame_id].append(record)
-
-        # Return a list of frames ordered by frame_id
+                if record:
+                    grouped_frames[record.frame_id].append(record)
         return [grouped_frames[frame_id] for frame_id in sorted(grouped_frames)]
-
-    def __iter__(self):
-        """Make the loader itself iterable."""
-        with open(self.csv_path, newline="") as f:
-            reader = csv.DictReader(f, fieldnames=self.FIELDNAMES)
-            next(reader)
-            for row in reader:
-                yield self._row_to_record(row)
-
+    
 class ImuCSVReader:
     FIELDNAMES = [
-        "frame_id", 
-        "subframe",
-        "acc_x", "acc_y", "acc_z",
-        "gyro_x", "gyro_y", "gyro_z",
+        "frame_id",
+        "accel_x", "accel_y", "accel_z",
+        "rate_x", "rate_y", "rate_z",
         "mag_x", "mag_y", "mag_z",
-        "roll", "pitch", "yaw"
+        "roll", "pitch", "yaw" 
     ]
 
-    def __init__(self, file_name: str = "imu_data_30_04_2025.csv", folder_name: str = "01_Logs-30042025" , subfolder_name: str = None, csv_path: str = None):
-        """
-        If csv_path is provided, it will be used directly.
-        Otherwise, the path will be resolved from the file_name and project structure.
-        """
+
+    def __init__(self, file_name: str = "imu_data_30_04_2025.csv", folder_name: str = "01_Logs-30042025", csv_path: str = None):
         if csv_path:
             self.csv_path = csv_path
         else:
-            script_dir   = os.path.dirname(os.path.abspath(__file__))
+            script_dir = os.path.dirname(os.path.abspath(__file__))
             project_root = find_project_root(script_dir, "ResearchProject")
-            self.csv_path = os.path.join(
-                project_root,
-                "04_Logs", "01_sensorFusion", folder_name , subfolder_name,
-                file_name
+            self.csv_path = os.path.join(project_root, "04_Logs", "01_sensorFusion", folder_name, file_name)
+
+    def _row_to_record(self, row: dict) -> ImuRecord | None:
+        try:
+            return ImuRecord(
+                frame_id=int(row["frame_id"]),
+                acc_x=float(row["accel_x"]),
+                acc_y=float(row["accel_y"]),
+                acc_z=float(row["accel_z"]),
+                gyro_x=float(row["rate_x"]),
+                gyro_y=float(row["rate_y"]),
+                gyro_z=float(row["rate_z"]),
+                mag_x=float(row["mag_x"]),
+                mag_y=float(row["mag_y"]),
+                mag_z=float(row["mag_z"]),
+                roll=0.0, pitch=0.0, yaw=0.0  # Placeholder
             )
-    def _row_to_record(self, row: dict) -> ImuRecord:
-        # convert the strings in row to the correct types
-        return ImuRecord(
-            frame_id = int(row["frame_id"]),
-            subframe = int(row["subframe"]),
-            acc_x    = float(row["acc_x"]),
-            acc_y    = float(row["acc_y"]),
-            acc_z    = float(row["acc_z"]),
-            gyro_x   = float(row["gyro_x"]),
-            gyro_y   = float(row["gyro_y"]),
-            gyro_z   = float(row["gyro_z"]),
-            mag_x    = float(row["mag_x"]),
-            mag_y    = float(row["mag_y"]),
-            mag_z    = float(row["mag_z"]),
-            roll     = float(row["roll"]),
-            pitch    = float(row["pitch"]),
-            yaw      = float(row["yaw"])
-        )
+        except (ValueError, KeyError) as e:
+            print(f"⚠️ Skipping malformed IMU row: {row} — {e}")
+            return None
 
     def load_all(self) -> list[ImuRecord]:
-        """Read the entire CSV into a list of RadarRecord."""
-        records = []
+        grouped_frames = defaultdict(list)
         with open(self.csv_path, newline="") as f:
-            reader = csv.DictReader(f, fieldnames=self.FIELDNAMES)
-            next(reader)  # skip header
+            reader = csv.DictReader(f)
             for row in reader:
-                records.append(self._row_to_record(row))
-        return records
-
-    def __iter__(self):
-        """Make the loader itself iterable."""
-        with open(self.csv_path, newline="") as f:
-            reader = csv.DictReader(f, fieldnames=self.FIELDNAMES)
-            next(reader)
-            for row in reader:
-                yield self._row_to_record(row)
-    
+                record = self._row_to_record(row)
+                if record:
+                    grouped_frames[record.frame_id].append(record)
+        return [grouped_frames[frame_id] for frame_id in sorted(grouped_frames)]
