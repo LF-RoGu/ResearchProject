@@ -23,8 +23,8 @@ XsensMti710  imuSensor;
 const int  NUM_THREADS = 2;
 pthread_t  threads[NUM_THREADS];
 
-ofstream   csvRadar("radar_output.csv");
-ofstream   csvImu  ("imu_output.csv");
+ofstream   csvRadar("_outFiles/radar_output.csv");
+ofstream   csvImu  ("_outFiles/imu_output.csv");
 
 //— radar thread ———————————————————————————————————————————————————————
 void* radar_thread(void*)
@@ -33,7 +33,27 @@ void* radar_thread(void*)
         cerr << "[ERROR] Unable to open radar_output.csv\n";
         pthread_exit(nullptr);
     }
-    csvRadar << "frame_id\tpoint_id\tx\ty\tz\tdoppler\tsnr\tnoise\n";
+    csvRadar << "frame_id\t"
+        << "point_id\t"
+        <<"x\t"
+        <<"y\t"
+        <<"z\t"
+        <<"doppler\t"
+        <<"snr\t"
+        <<"noise\n";
+
+    csvImu << "frame_id\t"
+        << "accel_x\taccel_y\taccel_z\t"
+        << "free_accel_x\tfree_accel_y\tfree_accel_z\t"
+        << "delta_v_x\tdelta_v_y\tdelta_v_z\t"
+        << "delta_q_w\tdelta_q_x\tdelta_q_y\tdelta_q_z\t"
+        << "rate_x\trate_y\trate_z\t"
+        << "quat_w\tquat_x\tquat_y\tquat_z\t"
+        << "mag_x\tmag_y\tmag_z\t"
+        << "temperature\t"
+        << "status_byte\t"
+        << "packet_counter\t"
+        << "time_fine\n";
 
     while (true) {
         int cnt = radarSensor.poll();
@@ -152,7 +172,7 @@ int main()
     if (radarSensor.init(
             "/dev/ttyUSB0",
             "/dev/ttyUSB1",
-            "./configs/profile_azim60_elev30_optimized.cfg"
+            "../01_logSensorFusion/mmWave-IWR6843/configs/profile_azim60_elev30_optimized.cfg"
         ) != 1)
     {
         cerr << "[ERROR] radarSensor.init() failed\n";

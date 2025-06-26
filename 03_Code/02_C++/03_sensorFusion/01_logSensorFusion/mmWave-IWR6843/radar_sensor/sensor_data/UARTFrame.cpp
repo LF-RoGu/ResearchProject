@@ -210,25 +210,32 @@ TLVPayloadData TLV_frame::parseTLVPayload(std::vector<uint8_t>& data, TLVHeaderD
     break;
     case 2: // Range Profile
     {
-
+        TLVPayloadData_str.RangeProfilePoint_str.rangePoint =
+            static_cast<uint16_t>(EndianUtils_c.toLittleEndian32(data, 2));
     }
     break;
     case 3: // Noise Profile
     {
-
+        TLVPayloadData_str.NoiseProfilePoint_str.noisePoint =
+                    static_cast<uint16_t>(EndianUtils_c.toLittleEndian32(data, 2));
     }
     break;
     case 4: // Azimuth Static Heatmap
     {
-
+        TLVPayloadData_str.AzimutHeatmapPoint_str.imag =
+            static_cast<int16_t>(EndianUtils_c.toLittleEndian32(data, 2));
+        TLVPayloadData_str.AzimutHeatmapPoint_str.real =
+            static_cast<int16_t>(EndianUtils_c.toLittleEndian32(data, 2));
     }
     break;
     case 7: // Side Info for Detected Points
     {
-        for (uint32_t i = 0; i < numDetectedObj_var; i++)
+        for (uint32_t i = 0; i < numDetectedObj_var; ++i)
         {
-            TLVPayloadData_str.SideInfoPoint_str.snr = EndianUtils_c.toLittleEndian32(data, 4);
-            TLVPayloadData_str.SideInfoPoint_str.snr = EndianUtils_c.toLittleEndian32(data, 4);
+            TLVPayloadData_str.SideInfoPoint_str.snr   =
+                static_cast<uint16_t>(EndianUtils_c.toLittleEndian32(data, 2));
+            TLVPayloadData_str.SideInfoPoint_str.noise =
+                static_cast<uint16_t>(EndianUtils_c.toLittleEndian32(data, 2));
         }
     }
     break;

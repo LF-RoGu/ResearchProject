@@ -11,6 +11,9 @@ CFLAGS    := -std=c11 -Wall -Wextra
 # Include paths
 INCLUDES  := -I. -ImmWave-IWR6843 -IMTi-G-710
 
+# Output directory
+OUT_DIR   := _out
+
 # Sources
 SRCS_CPP := \
   main.cpp \
@@ -25,27 +28,33 @@ SRCS_C := \
   MTi-G-710/libs/xsens_utility.c \
   MTi-G-710/libs/xsens_mdata2.c
 
-# Object files
+# Convert source files to object files in _out directory
 OBJS_CPP := $(SRCS_CPP:.cpp=.o)
 OBJS_C   := $(SRCS_C:.c=.o)
 OBJS     := $(OBJS_CPP) $(OBJS_C)
+OBJS     := $(addprefix $(OUT_DIR)/, $(OBJS))
 
 TARGET := main
 
 .PHONY: all clean
 
-all: $(TARGET)
+all: $(OUT_DIR) $(TARGET)
+
+$(OUT_DIR):
+	mkdir -p $(OUT_DIR)
 
 $(TARGET): $(OBJS)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $(OBJS) -ludev
 
 # C++ compilation rule
-%.o: %.cpp
+$(OUT_DIR)/%.o: %.cpp
+	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
 # C compilation rule
-%.o: %.c
+$(OUT_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)
 	$(CC)  $(CFLAGS)  $(INCLUDES) -c $< -o $@
 
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -rf $(OUT_DIR) $(TARGET)
