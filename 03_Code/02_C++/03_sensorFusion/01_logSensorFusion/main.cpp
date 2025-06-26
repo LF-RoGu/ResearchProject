@@ -16,42 +16,66 @@
 
 using namespace std;
 
+const char CSV_TAB = ',';
+
+int g_noiseCounter = 0;
+
 IWR6843      radarSensor;
 XsensMti710  imuSensor;
 
 const int  NUM_THREADS = 2;
 pthread_t  threads[NUM_THREADS];
 
-ofstream   csvRadar("_outFiles/radar_DriveArroundFast2.csv");
-ofstream   csvImu  ("_outFiles/imu_DriveArroundFast2.csv");
+ofstream   csvRadar("_outFiles/radar_straightWall.csv");
+ofstream   csvImu  ("_outFiles/imu_straightWall.csv");
 
-void* radar_thread(void*)
+void* sensor_thread(void*)
 {
     if (!csvRadar.is_open()) {
         cerr << "[ERROR] Unable to open radar_output.csv\n";
         pthread_exit(nullptr);
     }
-    csvRadar << "frame_id\t"
-        << "point_id\t"
-        <<"x\t"
-        <<"y\t"
-        <<"z\t"
-        <<"doppler\t"
-        <<"snr\t"
-        <<"noise\n";
+    if (!csvImu.is_open()) {
+        cerr << "[ERROR] Unable to open radar_output.csv\n";
+        pthread_exit(nullptr);
+    }
 
-    csvImu << "frame_id\t"
-        << "accel_x\taccel_y\taccel_z\t"
-        << "free_accel_x\tfree_accel_y\tfree_accel_z\t"
-        << "delta_v_x\tdelta_v_y\tdelta_v_z\t"
-        << "delta_q_w\tdelta_q_x\tdelta_q_y\tdelta_q_z\t"
-        << "rate_x\trate_y\trate_z\t"
-        << "quat_w\tquat_x\tquat_y\tquat_z\t"
-        << "mag_x\tmag_y\tmag_z\t"
-        << "temperature\t"
-        << "status_byte\t"
-        << "packet_counter\t"
-        << "time_fine\n";
+    csvRadar 
+        << "frame_id" << CSV_TAB 
+        << "point_id" << CSV_TAB
+        << "x" << CSV_TAB 
+        << "y" << CSV_TAB 
+        << "z" << CSV_TAB
+        << "doppler" << CSV_TAB 
+        << "snr" << CSV_TAB << "noise\n";
+
+    csvImu << "frame_id" << CSV_TAB
+        << "accel_x" << CSV_TAB 
+        << "accel_y" << CSV_TAB 
+        << "accel_z" << CSV_TAB
+        << "free_accel_x" << CSV_TAB 
+        << "free_accel_y" << CSV_TAB 
+        << "free_accel_z" << CSV_TAB
+        << "delta_v_x" << CSV_TAB 
+        << "delta_v_y" << CSV_TAB 
+        << "delta_v_z" << CSV_TAB
+        << "delta_q_w" << CSV_TAB 
+        << "delta_q_x" << CSV_TAB 
+        << "delta_q_y" << CSV_TAB 
+        << "delta_q_z" << CSV_TAB
+        << "rate_x" << CSV_TAB 
+        << "rate_y" << CSV_TAB 
+        << "rate_z" << CSV_TAB
+        << "quat_w" << CSV_TAB 
+        << "quat_x" << CSV_TAB 
+        << "quat_y" << CSV_TAB 
+        << "quat_z" << CSV_TAB
+        << "mag_x" << CSV_TAB 
+        << "mag_y" << CSV_TAB 
+        << "mag_z" << CSV_TAB
+        << "temperature" << CSV_TAB 
+        << "status_byte" << CSV_TAB 
+        << "packet_counter" << CSV_TAB << "time_fine\n";
 
     while (true) {
         int cnt = radarSensor.poll();
@@ -70,61 +94,73 @@ void* radar_thread(void*)
             continue;
         }
 
-        for (auto &f : frames) {
-            auto hdr = f.getHeader();
-            auto pd  = f.getTLVPayloadData();
-            uint32_t fid = hdr.getFrameNumber();
+        
+        if (g_noiseCounter >= 10) 
+        {
+            for (auto &f : frames) 
+            {
+                auto hdr = f.getHeader();
+                auto pd  = f.getTLVPayloadData();
+                uint32_t fid = hdr.getFrameNumber();
 
-            // log one IMU sample per radar frame
-            MTiData mtiData = imuSensor.getXsensData();
-            csvImu
-              << fid << '\t'
-              << mtiData.acceleration[0]     << '\t'
-              << mtiData.acceleration[1]     << '\t'
-              << mtiData.acceleration[2]     << '\t'
-              << mtiData.free_acceleration[0]<< '\t'
-              << mtiData.free_acceleration[1]<< '\t'
-              << mtiData.free_acceleration[2]<< '\t'
-              << mtiData.delta_v[0]          << '\t'
-              << mtiData.delta_v[1]          << '\t'
-              << mtiData.delta_v[2]          << '\t'
-              << mtiData.delta_q[0]          << '\t'
-              << mtiData.delta_q[1]          << '\t'
-              << mtiData.delta_q[2]          << '\t'
-              << mtiData.delta_q[3]          << '\t'
-              << mtiData.rate_of_turn[0]     << '\t'
-              << mtiData.rate_of_turn[1]     << '\t'
-              << mtiData.rate_of_turn[2]     << '\t'
-              << mtiData.quaternion[0]       << '\t'
-              << mtiData.quaternion[1]       << '\t'
-              << mtiData.quaternion[2]       << '\t'
-              << mtiData.quaternion[3]       << '\t'
-              << mtiData.magnetic[0]         << '\t'
-              << mtiData.magnetic[1]         << '\t'
-              << mtiData.magnetic[2]         << '\t'
-              << mtiData.temperature         << '\t'
-              << static_cast<int>(mtiData.status_byte) << '\t'
-              << mtiData.packet_counter      << '\t'
-              << mtiData.time_fine           << '\n';
+                // log one IMU sample per radar frame
+                MTiData mtiData = imuSensor.getXsensData();
+                csvImu
+                << fid << CSV_TAB
+                << mtiData.acceleration[0]      << CSV_TAB
+                << mtiData.acceleration[1]      << CSV_TAB
+                << mtiData.acceleration[2]      << CSV_TAB
+                << mtiData.free_acceleration[0] << CSV_TAB
+                << mtiData.free_acceleration[1] << CSV_TAB
+                << mtiData.free_acceleration[2] << CSV_TAB
+                << mtiData.delta_v[0]           << CSV_TAB
+                << mtiData.delta_v[1]           << CSV_TAB
+                << mtiData.delta_v[2]           << CSV_TAB
+                << mtiData.delta_q[0]           << CSV_TAB
+                << mtiData.delta_q[1]           << CSV_TAB
+                << mtiData.delta_q[2]           << CSV_TAB
+                << mtiData.delta_q[3]           << CSV_TAB
+                << mtiData.rate_of_turn[0]      << CSV_TAB
+                << mtiData.rate_of_turn[1]      << CSV_TAB
+                << mtiData.rate_of_turn[2]      << CSV_TAB
+                << mtiData.quaternion[0]        << CSV_TAB
+                << mtiData.quaternion[1]        << CSV_TAB
+                << mtiData.quaternion[2]        << CSV_TAB
+                << mtiData.quaternion[3]        << CSV_TAB
+                << mtiData.magnetic[0]          << CSV_TAB
+                << mtiData.magnetic[1]          << CSV_TAB
+                << mtiData.magnetic[2]          << CSV_TAB
+                << mtiData.temperature          << CSV_TAB
+                << static_cast<int>(mtiData.status_byte) << CSV_TAB
+                << mtiData.packet_counter       << CSV_TAB
+                << mtiData.time_fine            << '\n';
 
-            // then log each radar point
-            for (size_t i = 0; i < pd.DetectedPoints_str.size(); ++i) {
-                auto &pt    = pd.DetectedPoints_str[i];
-                auto &side  = pd.SideInfoPoint_str;
-                auto &noise = pd.NoiseProfilePoint_str;
+                // then log each radar point
+                for (size_t i = 0; i < pd.DetectedPoints_str.size(); ++i) {
+                    auto &pt    = pd.DetectedPoints_str[i];
+                    auto &side  = pd.SideInfoPoint_str;
+                    auto &noise = pd.NoiseProfilePoint_str;
 
-                csvRadar
-                  << fid        << '\t'
-                  << (i + 1)    << '\t'
-                  << pt.x_f     << '\t'
-                  << pt.y_f     << '\t'
-                  << pt.z_f     << '\t'
-                  << pt.doppler_f << '\t'
-                  << side.snr     << '\t'
-                  << noise.noisePoint
-                  << '\n';
+                    csvRadar
+                    << fid         << CSV_TAB
+                    << (i + 1)     << CSV_TAB
+                    << pt.x_f      << CSV_TAB
+                    << pt.y_f      << CSV_TAB
+                    << pt.z_f      << CSV_TAB
+                    << pt.doppler_f << CSV_TAB
+                    << side.snr    << CSV_TAB
+                    << noise.noisePoint
+                    << '\n';
+                }
             }
         }
+        else
+        {
+            g_noiseCounter++;
+        }
+
+
+        
     }
 
     csvRadar.close();
@@ -176,7 +212,7 @@ int main()
     }
 
     cout << "[INFO] Spawning threads...\n";
-    void* (*func[NUM_THREADS])(void*) = { radar_thread, imu_thread };
+    void* (*func[NUM_THREADS])(void*) = { sensor_thread, imu_thread };
     for (int i = 0; i < NUM_THREADS; ++i) {
         if (pthread_create(&threads[i], nullptr, func[i], nullptr)) {
             cerr << "[ERROR] pthread_create #" << i << "\n";
