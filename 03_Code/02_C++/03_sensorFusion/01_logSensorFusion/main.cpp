@@ -26,8 +26,8 @@ XsensMti710  imuSensor;
 const int  NUM_THREADS = 2;
 pthread_t  threads[NUM_THREADS];
 
-ofstream   csvRadar("_outFiles/radar_straightWall.csv");
-ofstream   csvImu  ("_outFiles/imu_straightWall.csv");
+ofstream   csvRadar("_outFiles/radar_driveAround2.csv");
+ofstream   csvImu  ("_outFiles/imu_driveAround2.csv");
 
 void* sensor_thread(void*)
 {
@@ -94,7 +94,6 @@ void* sensor_thread(void*)
             continue;
         }
 
-        
         if (g_noiseCounter >= 10) 
         {
             for (auto &f : frames) 
@@ -157,10 +156,7 @@ void* sensor_thread(void*)
         else
         {
             g_noiseCounter++;
-        }
-
-
-        
+        } 
     }
 
     csvRadar.close();
