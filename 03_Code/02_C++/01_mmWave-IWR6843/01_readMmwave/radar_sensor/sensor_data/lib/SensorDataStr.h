@@ -34,8 +34,11 @@ struct DetectedPoints {
 };
 
 struct RangeProfilePoint {
-    uint16_t rangePoint;
+    uint16_t bin_u16;        // Bin index
+    float    range_f;    // Converted to meters
+    uint16_t power_u16;      // Magnitude squared
 };
+
 
 struct NoiseProfilePoint {
     uint16_t noisePoint;
@@ -98,7 +101,7 @@ struct CompressedPoint {
 struct TLVPayloadData
 {
     std::vector<DetectedPoints> DetectedPoints_str;
-    RangeProfilePoint RangeProfilePoint_str;
+    std::vector<RangeProfilePoint> RangeProfilePoint_str;
     NoiseProfilePoint NoiseProfilePoint_str;
     AzimuthHeatmapPoint AzimutHeatmapPoint_str;
     std::vector<SideInfoPoint> SideInfoPoint_str;
