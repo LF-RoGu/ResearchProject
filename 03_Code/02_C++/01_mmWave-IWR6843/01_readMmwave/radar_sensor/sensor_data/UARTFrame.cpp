@@ -296,27 +296,28 @@ TLV_payload::TLV_payload()
 // Constructor implementation
 TLV_payload::TLV_payload(std::vector<uint8_t>& data, uint32_t numDetectedObj_var, uint32_t numTLVs_var)
 {
+    #ifdef DEBUG_TLV_DATA
     std::cout << "\n[DEBUG] Entering TLV_payload() loop for TLVs" << std::endl;
     std::cout << "  Num Detected Objects: " << numDetectedObj_var << std::endl;
     std::cout << "  Num TLVs: " << numTLVs_var << std::endl;
     std::cout << "  Buffer size at start: " << data.size() << std::endl;
-
+    #endif
     for (uint32_t i = 0; i < numTLVs_var; ++i)
     {
-        #ifdef DEBUG_TLV_HEADER
+        #ifdef DEBUG_TLV_DATA
         std::cout << "\n[DEBUG] === TLV #" << i << " ===" << std::endl;
         #endif
         TLV_frame frame(data, numDetectedObj_var);
 
         TLVHeaderData tlvHeader = frame.getTLVFrameHeaderData();
-        #ifdef DEBUG_TLV_HEADER
+        #ifdef DEBUG_TLV_DATA
         std::cout << "[DEBUG] Parsed TLV Header → Type: " << tlvHeader.type_u32
                 << " | Length: " << tlvHeader.length_u32
                 << " | Buffer left: " << data.size() << std::endl;
         #endif
 
         TLVPayloadData tlvPayloadData = frame.getTLVFramePayloadData();
-        #ifdef DEBUG_TLV_HEADER
+        #ifdef DEBUG_TLV_DATA
         std::cout << "[DEBUG] Points: " << tlvPayloadData.DetectedPoints_str.size()
                 << " | SideInfo: " << tlvPayloadData.SideInfoPoint_str.size() << std::endl;
         #endif
