@@ -1,6 +1,7 @@
 #include "Radar.h"
 #include <unistd.h>    // for sleep()
 #include <algorithm>   // for std::min
+#include <math.h>      // for std::sqrt
 
 #define PRINT_VALUES
 
@@ -29,52 +30,71 @@ void* sensor_thread(void* /*arg*/)
 
         for (const SensorData& frame : frames)
         {
-            std::vector<DetectedPoints> allDetected;
-            std::vector<SideInfoPoint> allSideInfo;
-
-            for (const TLVPayloadData& tlv : frame.getTLVPayloadData())
+            for (const TLVPayloadData& pd : frame.getTLVPayloadData())
             {
-                // Combine
-                allDetected.insert(allDetected.end(),
-                                tlv.DetectedPoints_str.begin(),
-                                tlv.DetectedPoints_str.end());
-
-                allSideInfo.insert(allSideInfo.end(),
-                                tlv.SideInfoPoint_str.begin(),
-                                tlv.SideInfoPoint_str.end());
-            }
-
-            if (allDetected.size() != allSideInfo.size())
-            {
-                std::cerr << "[ERROR] Mismatch: Detected=" << allDetected.size()
-                        << " vs SideInfo=" << allSideInfo.size() << std::endl;
-            }
-            #ifdef PRINT_VALUES
-            for (size_t i = 0; i < allDetected.size(); ++i)
-            {
-                const DetectedPoints& dp = allDetected[i];
-                if (i < allSideInfo.size())
-                {
-                    const SideInfoPoint& si = allSideInfo[i];
-                    std::cout << "[POINT] X: " << dp.x_f
-                            << ", Y: " << dp.y_f
-                            << ", Z: " << dp.z_f
-                            << " Doppler: " << dp.doppler_f
-                            << " SNR: " << si.snr
-                            << " Noise: " << si.noise << std::endl;
+                // Safety check for matching counts
+                if (pd.SideInfoPoint_str.size() != pd.DetectedPoints_str.size()) {
+                    std::cerr << "[ERROR] Mismatch: Detected=" << pd.DetectedPoints_str.size()
+                            << " vs SideInfo=" << pd.SideInfoPoint_str.size() << std::endl;
                 }
-                else
+
+                for (size_t i = 0; i < pd.DetectedPoints_str.size(); ++i)
                 {
-                    std::cout << "[POINT] X: " << dp.x_f
-                            << ", Y: " << dp.y_f
-                            << ", Z: " << dp.z_f
-                            << " Doppler: " << dp.doppler_f
-                            << " [WARN] Missing SideInfo"
-                            << std::endl;
+                    const DetectedPoints& dp = pd.DetectedPoints_str[i];
+                    float pt_range = std::sqrt(
+                        dp.x_f * dp.x_f + dp.y_f * dp.y_f + dp.z_f * dp.z_f
+                    );
+
+                    // Find closest peak in RangeProfilePoint_str
+                    float closest_peak_range = -1.0f;
+                    uint16_t closest_peak_power = 0;
+                    float min_diff = std::numeric_limits<float>::max();
+
+                    for (const RangeProfilePoint& rp : pd.RangeProfilePoint_str) {
+                        float diff = std::abs(pt_range - rp.range_f);
+                        if (diff < min_diff) {
+                            min_diff = diff;
+                            closest_peak_range = rp.range_f;
+                            closest_peak_power = rp.power_u16;
+                        }
+                    }
+
+                    bool is_valid = false;
+                    if (closest_peak_range >= 0.0f) {
+                        // Example condition: must be within 0.1m and power above threshold
+                        if (min_diff < 0.1f && closest_peak_power > 3000) {
+                            is_valid = true;
+                        }
+                    }
+
+                    // Show result
+                    if (i < pd.SideInfoPoint_str.size()) {
+                        const SideInfoPoint& si = pd.SideInfoPoint_str[i];
+                        std::cout << "[POINT] X: " << dp.x_f
+                                << " Y: " << dp.y_f
+                                << " Z: " << dp.z_f
+                                << " Doppler: " << dp.doppler_f
+                                << " SNR: " << si.snr
+                                << " Noise: " << si.noise
+                                << " | RANGE: " << pt_range
+                                << " | ClosestPeak: " << closest_peak_range
+                                << " Pwr: " << closest_peak_power
+                                << " | " << (is_valid ? "VALID" : "FILTERED") << "\n";
+                    } else {
+                        std::cout << "[POINT] X: " << dp.x_f
+                                << " Y: " << dp.y_f
+                                << " Z: " << dp.z_f
+                                << " Doppler: " << dp.doppler_f
+                                << " | RANGE: " << pt_range
+                                << " | ClosestPeak: " << closest_peak_range
+                                << " Pwr: " << closest_peak_power
+                                << " | [WARN] Missing SideInfo "
+                                << (is_valid ? "VALID" : "FILTERED") << "\n";
+                    }
                 }
             }
-            #endif // PRINT_VALUES
         }
+
 
     }
 

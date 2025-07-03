@@ -351,6 +351,8 @@ TLV_payload::TLV_payload()
 // Constructor implementation
 TLV_payload::TLV_payload(std::vector<uint8_t>& data, uint32_t numDetectedObj_var, uint32_t numTLVs_var)
 {
+    TLVPayloadData mergedPayloadData;
+
     #ifdef DEBUG_UART_FRAME_TLV_DATA
     std::cout << "\n[DEBUG] Entering TLV_payload() loop for TLVs" << std::endl;
     std::cout << "  Num Detected Objects: " << numDetectedObj_var << std::endl;
@@ -379,7 +381,26 @@ TLV_payload::TLV_payload(std::vector<uint8_t>& data, uint32_t numDetectedObj_var
                 << " | SideInfo: " << tlvPayloadData.SideInfoPoint_str.size() << std::endl;
         #endif
 
-        setTLVPayloadData(tlvPayloadData);
+        for(uint32_t i = 0; i<numTLVs_var;i++)
+        {
+            mergedPayloadData.DetectedPoints_str.insert(
+            mergedPayloadData.DetectedPoints_str.end(),
+            tlvPayloadData.DetectedPoints_str.begin(),
+            tlvPayloadData.DetectedPoints_str.end()
+            );
+            mergedPayloadData.SideInfoPoint_str.insert(
+            mergedPayloadData.SideInfoPoint_str.end(),
+            tlvPayloadData.SideInfoPoint_str.begin(),
+            tlvPayloadData.SideInfoPoint_str.end()
+            );
+            mergedPayloadData.RangeProfilePoint_str.insert(
+            mergedPayloadData.RangeProfilePoint_str.end(),
+            tlvPayloadData.RangeProfilePoint_str.begin(),
+            tlvPayloadData.RangeProfilePoint_str.end()
+            );
+        }
+
+        setTLVPayloadData(mergedPayloadData);
     }
 }
 
