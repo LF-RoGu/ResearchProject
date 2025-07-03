@@ -23,7 +23,7 @@ public:
 	
 	Frame_header getHeader();
 	TLV_payload getTLVPayload();
-	std::vector<TLVPayloadData> getTLVPayloadData();
+	std::vector<TLVPayloadData> getTLVPayloadData() const;
 
 	//Vector and timestamp
 	chrono::time_point<chrono::system_clock> timestamp;

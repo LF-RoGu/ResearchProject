@@ -12,58 +12,72 @@ void* sensor_thread(void* /*arg*/)
     {
         int newCount = sensor.poll();
         if (newCount < 0) {
-            cerr << "[ERROR] sensor.poll() failed\n";
+            std::cerr << "[ERROR] sensor.poll() failed\n";
             break;
         }
         if (newCount == 0) {
-            // no data yet
             continue;
         }
 
-        vector<SensorData> frames;
+        std::vector<SensorData> frames;
         if (!sensor.copyDecodedFramesFromTop(frames, newCount, true, 100)) {
-            cerr << "[ERROR] timed out copying frames\n";
+            std::cerr << "[ERROR] timed out copying frames\n";
             continue;
         }
 
-        for (auto &frame : frames)
+        for (const SensorData& frame : frames)
         {
-            auto hdr = frame.getHeader();
-            vector<TLVPayloadData> pd_vect = frame.getTLVPayloadData();
+            std::vector<DetectedPoints> allDetected;
+            std::vector<SideInfoPoint> allSideInfo;
 
-            for (const TLVPayloadData& pd : pd_vect) {
-                if (pd.SideInfoPoint_str.size() != pd.DetectedPoints_str.size()) {
-                    std::cerr << "[ERROR] Mismatch: Detected=" << pd.DetectedPoints_str.size()
-                            << " vs SideInfo=" << pd.SideInfoPoint_str.size() << std::endl;
-                    return 0;
-                }
+            for (const TLVPayloadData& tlv : frame.getTLVPayloadData())
+            {
+                // Combine
+                allDetected.insert(allDetected.end(),
+                                tlv.DetectedPoints_str.begin(),
+                                tlv.DetectedPoints_str.end());
 
-                uint32_t frame_id = hdr.getFrameNumber();
-                size_t   pts      = pd.DetectedPoints_str.size();
-
-                for (size_t i = 0; i < pts; ++i) {
-                    const DetectedPoints& pt   = pd.DetectedPoints_str[i];
-                    const SideInfoPoint&  side = pd.SideInfoPoint_str[i];
-
-                    float snr_dB   = side.snr * 0.1f;
-                    float noise_dB = side.noise * 0.1f;
-
-                    cout << frame_id << '\t'
-                        << (i + 1)  << '\t'
-                        << pt.x_f   << '\t'
-                        << pt.y_f   << '\t'
-                        << pt.z_f   << '\t'
-                        << pt.doppler_f << '\t'
-                        << snr_dB   << '\t'
-                        << noise_dB << '\n';
-                }
+                allSideInfo.insert(allSideInfo.end(),
+                                tlv.SideInfoPoint_str.begin(),
+                                tlv.SideInfoPoint_str.end());
             }
 
+            if (allDetected.size() != allSideInfo.size())
+            {
+                std::cerr << "[ERROR] Mismatch: Detected=" << allDetected.size()
+                        << " vs SideInfo=" << allSideInfo.size() << std::endl;
+            }
+
+            for (size_t i = 0; i < allDetected.size(); ++i)
+            {
+                const DetectedPoints& dp = allDetected[i];
+                if (i < allSideInfo.size())
+                {
+                    const SideInfoPoint& si = allSideInfo[i];
+                    std::cout << "[POINT] X: " << dp.x_f
+                            << ", Y: " << dp.y_f
+                            << ", Z: " << dp.z_f
+                            << " Doppler: " << dp.doppler_f
+                            << " SNR: " << si.snr
+                            << " Noise: " << si.noise << std::endl;
+                }
+                else
+                {
+                    std::cout << "[POINT] X: " << dp.x_f
+                            << ", Y: " << dp.y_f
+                            << ", Z: " << dp.z_f
+                            << " Doppler: " << dp.doppler_f
+                            << " [WARN] Missing SideInfo"
+                            << std::endl;
+                }
+            }
         }
+
     }
 
     pthread_exit(nullptr);
 }
+
 
 void* controller_thread(void* /*arg*/)
 {

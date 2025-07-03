@@ -362,9 +362,10 @@ TLV_payload::TLV_payload(std::vector<uint8_t>& data, uint32_t numDetectedObj_var
         #ifdef DEBUG_UART_FRAME_TLV_DATA
         std::cout << "\n[DEBUG] === TLV #" << i << " ===" << std::endl;
         #endif
-        TLV_frame frame(data, numDetectedObj_var);
 
+        TLV_frame frame(data, numDetectedObj_var);
         TLVHeaderData tlvHeader = frame.getTLVFrameHeaderData();
+
         #ifdef DEBUG_UART_FRAME_TLV_DATA
         std::cout << "[DEBUG] Parsed TLV Header → Type: " << tlvHeader.type_u32
                 << " | Length: " << tlvHeader.length_u32
@@ -372,6 +373,7 @@ TLV_payload::TLV_payload(std::vector<uint8_t>& data, uint32_t numDetectedObj_var
         #endif
 
         TLVPayloadData tlvPayloadData = frame.getTLVFramePayloadData();
+        
         #ifdef DEBUG_UART_FRAME_TLV_DATA
         std::cout << "[DEBUG] Points: " << tlvPayloadData.DetectedPoints_str.size()
                 << " | SideInfo: " << tlvPayloadData.SideInfoPoint_str.size() << std::endl;
