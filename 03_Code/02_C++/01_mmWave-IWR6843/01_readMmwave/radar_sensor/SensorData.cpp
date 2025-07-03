@@ -1,7 +1,6 @@
 #include "SensorData.h"
 
 //#define DEBUG_RAW_FRAME
-#define DEBUG_FRAME_HEADER
 #define DEBUG_FRAME_TLV
 
 SensorData::SensorData()
@@ -26,9 +25,7 @@ SensorData::SensorData(vector<uint8_t> rawData)
 		if (count % 16 == 0) std::cout << "\n";
 	}
 	if (count % 16 != 0) std::cout << "\n"; // ensure trailing line
-	std::cout << "================ END HEX DUMP =====================\n";
-	#endif
-	#ifdef DEBUG_FRAME_HEADER
+
 	std::cout << "[DEBUG] Parsed Header Fields:\n";
 	std::cout << "Magic Word: 0x" << std::hex << header.getMagicWord() << "\n";
 	std::cout << "  Version: " << std::hex << header.getVersion() << "\n";
@@ -48,37 +45,36 @@ SensorData::SensorData(vector<uint8_t> rawData)
 	header = Frame_header(rawData);
 
 	payload = TLV_payload(rawData, header.getNumObjDetecter(), header.getNumTLV());
-	payload_data = payload.getTLVFramePayloadData();
+	payload_data_vect = payload.getTLVPayloadData();
 
 	#ifdef DEBUG_FRAME_TLV
 	std::cout << "\n================== SENSOR DATA DEBUG ==================\n";
+	for (size_t i = 0; i < payload_data_vect.size(); ++i) {
+	const TLVPayloadData& tlv = payload_data_vect[i];
 
-	// Detected Points
-	for (size_t j = 0; j < payload_data.DetectedPoints_str.size(); ++j) {
-		const DetectedPoints detectedPoint = payload_data.DetectedPoints_str[j];
+	for (size_t j = 0; j < tlv.DetectedPoints_str.size(); ++j) {
+		const DetectedPoints& dp = tlv.DetectedPoints_str[j];
 		std::cout << "Converted Floats:\n";
-		std::cout << "  x: " << detectedPoint.x_f << " meters\n";
-		std::cout << "  y: " << detectedPoint.y_f << " meters\n";
-		std::cout << "  z: " << detectedPoint.z_f << " meters\n";
-		std::cout << "  doppler: " << detectedPoint.doppler_f << " m/s\n";
+		std::cout << "  x: " << dp.x_f << " meters\n";
+		std::cout << "  y: " << dp.y_f << " meters\n";
+		std::cout << "  z: " << dp.z_f << " meters\n";
+		std::cout << "  doppler: " << dp.doppler_f << " m/s\n";
 	}
 
-	// Side Info Points
-	for (size_t j = 0; j < payload_data.SideInfoPoint_str.size(); ++j) {
-		const SideInfoPoint sideInfo = payload_data.SideInfoPoint_str[j];
+	for (size_t j = 0; j < tlv.SideInfoPoint_str.size(); ++j) {
+		const SideInfoPoint& si = tlv.SideInfoPoint_str[j];
 		std::cout << "[DEBUG] SideInfo #" << j
-				<< " SNR: " << sideInfo.snr
-				<< " Noise: " << sideInfo.noise << "\n";
+				<< " SNR: " << si.snr
+				<< " Noise: " << si.noise << "\n";
 	}
 
-	// Range Profile Peaks
-	for (size_t j = 0; j < payload_data.RangeProfilePoint_str.size(); ++j) {
-		const RangeProfilePoint peak = payload_data.RangeProfilePoint_str[j];
-		std::cout << "[PEAK] Bin #" << peak.bin_u16
-				<< " | Range: " << peak.range_f << " m"
-				<< " | Power: " << peak.power_u16 << "\n";
+	for (size_t j = 0; j < tlv.RangeProfilePoint_str.size(); ++j) {
+		const RangeProfilePoint& rp = tlv.RangeProfilePoint_str[j];
+		std::cout << "[PEAK] Bin #" << rp.bin_u16
+				<< " | Range: " << rp.range_f << " m"
+				<< " | Power: " << rp.power_u16 << "\n";
 	}
-
+	}
 	std::cout << "=======================================================\n";
 	#endif
 }
@@ -93,7 +89,7 @@ TLV_payload SensorData::getTLVPayload()
 	return payload;
 }
 
-TLVPayloadData SensorData::getTLVPayloadData()
+std::vector<TLVPayloadData> SensorData::getTLVPayloadData() 
 {
-	return payload_data;
+    return payload_data_vect;
 }

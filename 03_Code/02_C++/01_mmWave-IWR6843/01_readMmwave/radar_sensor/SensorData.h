@@ -15,7 +15,7 @@ class SensorData
 private:
 	Frame_header header;
 	TLV_payload payload;
-	TLVPayloadData payload_data;
+	std::vector<TLVPayloadData> payload_data_vect;
 
 public:
 	SensorData();
@@ -23,7 +23,7 @@ public:
 	
 	Frame_header getHeader();
 	TLV_payload getTLVPayload();
-	TLVPayloadData getTLVPayloadData();
+	std::vector<TLVPayloadData> getTLVPayloadData();
 
 	//Vector and timestamp
 	chrono::time_point<chrono::system_clock> timestamp;

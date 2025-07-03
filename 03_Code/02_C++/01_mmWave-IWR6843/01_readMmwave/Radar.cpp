@@ -29,34 +29,36 @@ void* sensor_thread(void* /*arg*/)
         for (auto &frame : frames)
         {
             auto hdr = frame.getHeader();
-            auto pd  = frame.getTLVPayloadData();
+            vector<TLVPayloadData> pd_vect = frame.getTLVPayloadData();
 
-            if (pd.SideInfoPoint_str.size() != pd.DetectedPoints_str.size()) {
-                std::cerr << "[ERROR] Mismatch: Detected=" << pd.DetectedPoints_str.size()
-                        << " vs SideInfo=" << pd.SideInfoPoint_str.size() << std::endl;
-                return 0;
+            for (const TLVPayloadData& pd : pd_vect) {
+                if (pd.SideInfoPoint_str.size() != pd.DetectedPoints_str.size()) {
+                    std::cerr << "[ERROR] Mismatch: Detected=" << pd.DetectedPoints_str.size()
+                            << " vs SideInfo=" << pd.SideInfoPoint_str.size() << std::endl;
+                    return 0;
+                }
+
+                uint32_t frame_id = hdr.getFrameNumber();
+                size_t   pts      = pd.DetectedPoints_str.size();
+
+                for (size_t i = 0; i < pts; ++i) {
+                    const DetectedPoints& pt   = pd.DetectedPoints_str[i];
+                    const SideInfoPoint&  side = pd.SideInfoPoint_str[i];
+
+                    float snr_dB   = side.snr * 0.1f;
+                    float noise_dB = side.noise * 0.1f;
+
+                    cout << frame_id << '\t'
+                        << (i + 1)  << '\t'
+                        << pt.x_f   << '\t'
+                        << pt.y_f   << '\t'
+                        << pt.z_f   << '\t'
+                        << pt.doppler_f << '\t'
+                        << snr_dB   << '\t'
+                        << noise_dB << '\n';
+                }
             }
 
-
-            uint32_t frame_id = hdr.getFrameNumber();
-            size_t   pts      = pd.DetectedPoints_str.size();
-
-            for (size_t i = 0; i < pts; ++i) {
-                auto& pt   = pd.DetectedPoints_str[i];
-                auto& side = pd.SideInfoPoint_str[i];
-
-                float snr_dB   = side.snr * 0.1f;
-                float noise_dB = side.noise * 0.1f;
-
-                cout << frame_id << '\t'
-                    << (i + 1)  << '\t'
-                    << pt.x_f   << '\t'
-                    << pt.y_f   << '\t'
-                    << pt.z_f   << '\t'
-                    << pt.doppler_f << '\t'
-                    << snr_dB   << '\t'
-                    << noise_dB << '\n';
-            }
         }
     }
 

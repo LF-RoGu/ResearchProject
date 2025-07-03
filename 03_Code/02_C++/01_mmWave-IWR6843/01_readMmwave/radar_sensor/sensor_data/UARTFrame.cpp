@@ -2,6 +2,7 @@
 #include <iomanip>  // Needed for std::setprecision
 
 //#define DEBUG_UART_FRAME
+//#define DEBUG_UART_FRAME_TLV_DATA
 
 
 constexpr uint64_t MAGIC_WORD = 0x0708050603040102;
