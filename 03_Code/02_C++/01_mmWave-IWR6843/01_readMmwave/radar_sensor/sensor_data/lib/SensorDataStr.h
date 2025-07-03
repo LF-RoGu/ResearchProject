@@ -9,7 +9,7 @@
 #define FIXED_FRAME_COUNT 10       // Number of frames to read if continuous is disabled
 
 struct FrameHeaderData {
-    uint16_t magicWord_u16[4];
+    uint64_t magicWord_u64;
     uint32_t version_u32;
     uint32_t totalPacketLength_u32;
     uint32_t platform_u32;
@@ -101,7 +101,7 @@ struct TLVPayloadData
     RangeProfilePoint RangeProfilePoint_str;
     NoiseProfilePoint NoiseProfilePoint_str;
     AzimuthHeatmapPoint AzimutHeatmapPoint_str;
-    SideInfoPoint SideInfoPoint_str;
+    std::vector<SideInfoPoint> SideInfoPoint_str;
     AzimuthElevationHeatmapPoint AzimuthElevationHeatmapPoint_str;
     SphericalCoordinate SphericalCoordinate_str;
     TargetData TargetData_str;

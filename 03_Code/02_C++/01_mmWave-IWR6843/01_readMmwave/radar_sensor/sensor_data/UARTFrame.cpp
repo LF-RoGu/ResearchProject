@@ -1,6 +1,8 @@
 #include "UARTFrame.h"
 #include <iomanip>  // Needed for std::setprecision
 
+#define DEBUG
+
 
 constexpr uint64_t MAGIC_WORD = 0x0708050603040102;
 
@@ -28,6 +30,7 @@ void Frame_header::parseFrameHeader(std::vector<uint8_t>& data)
         std::cerr << "Error: Invalid magic word detected! Aborting frame parsing.\n";
         return; // Early exit if the magic word is invalid
     }
+    setMagicWord(magicWord);
 
     // Extract version (32-bit) from the vector
     setVersion(EndianUtils_c.toLittleEndian32(data, 4));
@@ -52,6 +55,11 @@ void Frame_header::parseFrameHeader(std::vector<uint8_t>& data)
 
     // Extract subframe number (32-bit) from the vector
     setSubframeNum(EndianUtils_c.toLittleEndian32(data, 4));
+}
+
+void Frame_header::setMagicWord(uint64_t var)
+{
+    FrameHeader_str.magicWord_u64 = var;
 }
 
 void Frame_header::setVersion(uint32_t var)
@@ -89,9 +97,15 @@ void Frame_header::setNumTLV(uint32_t var)
     FrameHeader_str.numTLVs_u32 = var;
 }
 
+
 void Frame_header::setSubframeNum(uint32_t var)
 {
     FrameHeader_str.subFrameNumber_u32 = var;
+}
+
+uint64_t Frame_header::getMagicWord() const
+{
+    return FrameHeader_str.magicWord_u64;
 }
 
 uint32_t Frame_header::getVersion() const
@@ -137,6 +151,7 @@ uint32_t Frame_header::getSubframeNum() const
 
 TLV_frame::TLV_frame() 
 {
+    
 }
 
 TLV_frame::TLV_frame(std::vector<uint8_t>& data, uint32_t numDetectedObj_var)
@@ -179,15 +194,7 @@ TLVPayloadData TLV_frame::parseTLVPayload(std::vector<uint8_t>& data, TLVHeaderD
             uint32_t y_int = EndianUtils::toLittleEndian32(data, 4);
             uint32_t z_int = EndianUtils::toLittleEndian32(data, 4);
             uint32_t doppler_int = EndianUtils::toLittleEndian32(data, 4);
-#ifdef DEBUG
-            // Debug print to verify byte extraction
-            std::cout << "-----------------------------------------------------" << std::endl;
-            std::cout << "Extracted Raw Integers (Hex):" << std::endl;
-            std::cout << "  x (raw): 0x" << std::hex << x_int << std::endl;
-            std::cout << "  y (raw): 0x" << std::hex << y_int << std::endl;
-            std::cout << "  z (raw): 0x" << std::hex << z_int << std::endl;
-            std::cout << "  doppler (raw): 0x" << std::hex << doppler_int << std::endl;
-#endif
+
             // Convert to float
             float x_f = EndianUtils::toFloat32(x_int);
             float y_f = EndianUtils::toFloat32(y_int);
@@ -228,10 +235,16 @@ TLVPayloadData TLV_frame::parseTLVPayload(std::vector<uint8_t>& data, TLVHeaderD
     break;
     case 7: // Side Info for Detected Points
     {
-        for (uint32_t i = 0; i < numDetectedObj_var; i++)
-        {
-            TLVPayloadData_str.SideInfoPoint_str.snr = EndianUtils_c.toLittleEndian32(data, 4);
-            TLVPayloadData_str.SideInfoPoint_str.snr = EndianUtils_c.toLittleEndian32(data, 4);
+        for (uint32_t i = 0; i < numDetectedObj_var; i++) {
+            SideInfoPoint sideInfo;
+            sideInfo.snr   = EndianUtils_c.toLittleEndian16(data, 2);
+            sideInfo.noise = EndianUtils_c.toLittleEndian16(data, 2);
+            TLVPayloadData_str.SideInfoPoint_str.push_back(sideInfo);
+        #ifdef DEBUG
+            std::cout << "[DEBUG] SideInfo #" << i 
+                    << " SNR: " << sideInfo.snr
+                    << " Noise: " << sideInfo.noise << std::endl;
+        #endif
         }
     }
     break;
@@ -281,11 +294,37 @@ TLV_payload::TLV_payload()
 }
 
 // Constructor implementation
-TLV_payload::TLV_payload(std::vector<uint8_t>& data, uint32_t numDetectedObj_var)
-    : TLV_frame(data, numDetectedObj_var)
+TLV_payload::TLV_payload(std::vector<uint8_t>& data, uint32_t numDetectedObj_var, uint32_t numTLVs_var)
 {
-    
+    std::cout << "\n[DEBUG] Entering TLV_payload() loop for TLVs" << std::endl;
+    std::cout << "  Num Detected Objects: " << numDetectedObj_var << std::endl;
+    std::cout << "  Num TLVs: " << numTLVs_var << std::endl;
+    std::cout << "  Buffer size at start: " << data.size() << std::endl;
+
+    for (uint32_t i = 0; i < numTLVs_var; ++i)
+    {
+        #ifdef DEBUG_TLV_HEADER
+        std::cout << "\n[DEBUG] === TLV #" << i << " ===" << std::endl;
+        #endif
+        TLV_frame frame(data, numDetectedObj_var);
+
+        TLVHeaderData tlvHeader = frame.getTLVFrameHeaderData();
+        #ifdef DEBUG_TLV_HEADER
+        std::cout << "[DEBUG] Parsed TLV Header → Type: " << tlvHeader.type_u32
+                << " | Length: " << tlvHeader.length_u32
+                << " | Buffer left: " << data.size() << std::endl;
+        #endif
+
+        TLVPayloadData tlvPayloadData = frame.getTLVFramePayloadData();
+        #ifdef DEBUG_TLV_HEADER
+        std::cout << "[DEBUG] Points: " << tlvPayloadData.DetectedPoints_str.size()
+                << " | SideInfo: " << tlvPayloadData.SideInfoPoint_str.size() << std::endl;
+        #endif
+
+        setTLVPayloadData(tlvPayloadData);
+    }
 }
+
 
 void TLV_payload::setTLVPayloadData(TLVPayloadData TLVPayloadData_var)
 {
