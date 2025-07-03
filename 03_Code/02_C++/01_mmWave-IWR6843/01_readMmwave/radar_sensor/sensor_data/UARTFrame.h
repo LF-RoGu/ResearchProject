@@ -32,6 +32,8 @@ private:
     FrameHeaderData FrameHeader_str;  ///< Struct to store parsed frame header data.
 
 public:
+    bool frameValid;  ///< Flag to indicate if the frame header is valid.
+    bool isValid() const { return frameValid; }
     Frame_header();
     Frame_header(std::vector<uint8_t>& data);
 

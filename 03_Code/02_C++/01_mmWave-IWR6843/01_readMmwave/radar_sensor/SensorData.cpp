@@ -18,6 +18,12 @@ SensorData::SensorData(vector<uint8_t> rawData)
 	//Parsing the data
 	header = Frame_header(rawData);
 
+	if (!header.isValid()) 
+	{
+		std::cerr << "[WARNING] Skipping invalid frame.\n";
+		return; // Don’t parse further
+	}
+
 	payload = TLV_payload(rawData, header.getNumObjDetecter(), header.getNumTLV());
 	payload_data_vect = payload.getTLVPayloadData();
 

@@ -29,8 +29,12 @@ void Frame_header::parseFrameHeader(std::vector<uint8_t>& data)
     // Check if the magic word matches the expected value
     if (magicWord != MAGIC_WORD) {
         std::cerr << "Error: Invalid magic word detected! Aborting frame parsing.\n";
+        frameValid = false;
         return; // Early exit if the magic word is invalid
     }
+    frameValid = true;
+
+    // Extract MagicWord (64-bit) from the vector
     setMagicWord(magicWord);
 
     // Extract version (32-bit) from the vector
