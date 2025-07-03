@@ -373,7 +373,7 @@ TLV_payload::TLV_payload(std::vector<uint8_t>& data, uint32_t numDetectedObj_var
         #endif
 
         TLVPayloadData tlvPayloadData = frame.getTLVFramePayloadData();
-        
+
         #ifdef DEBUG_UART_FRAME_TLV_DATA
         std::cout << "[DEBUG] Points: " << tlvPayloadData.DetectedPoints_str.size()
                 << " | SideInfo: " << tlvPayloadData.SideInfoPoint_str.size() << std::endl;

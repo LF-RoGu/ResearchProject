@@ -2,6 +2,8 @@
 #include <unistd.h>    // for sleep()
 #include <algorithm>   // for std::min
 
+#define PRINT_VALUES
+
 IWR6843    sensor;
 const int  NUM_THREADS = 3;
 pthread_t  threads[NUM_THREADS];
@@ -47,7 +49,7 @@ void* sensor_thread(void* /*arg*/)
                 std::cerr << "[ERROR] Mismatch: Detected=" << allDetected.size()
                         << " vs SideInfo=" << allSideInfo.size() << std::endl;
             }
-
+            #ifdef PRINT_VALUES
             for (size_t i = 0; i < allDetected.size(); ++i)
             {
                 const DetectedPoints& dp = allDetected[i];
@@ -71,6 +73,7 @@ void* sensor_thread(void* /*arg*/)
                             << std::endl;
                 }
             }
+            #endif // PRINT_VALUES
         }
 
     }
