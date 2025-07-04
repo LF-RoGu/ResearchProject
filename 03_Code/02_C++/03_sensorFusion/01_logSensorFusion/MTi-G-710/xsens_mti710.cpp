@@ -39,7 +39,7 @@ mtiDecode_enum XsensMti710::findXsensDevice() {
             const char* dev_node = udev_device_get_devnode(dev);
             if (vid && dev_node && std::string(vid) == XsensMti710::XSENS_VID) {
                 XsensMti710::xsens_device_path = std::string(dev_node);
-                std::cout << "✅ Xsens device found: " << XsensMti710::xsens_device_path << "\n";
+                std::cout << "Xsens device found: " << XsensMti710::xsens_device_path << "\n";
                 udev_device_unref(dev);
                 udev_unref(udev);
                 return DEVICE_FOUND_SUCCESS;

@@ -8,6 +8,8 @@
 
 class EndianUtils {
 public:
+
+    static uint16_t toLittleEndian16(std::vector<uint8_t>& data, uint8_t bytesToCheck);
     /**
      * Converts a sequence of bytes (up to 4) in little-endian order to a 32-bit integer.
      * Input:
