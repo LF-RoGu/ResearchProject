@@ -9,7 +9,7 @@
 #define FIXED_FRAME_COUNT 10       // Number of frames to read if continuous is disabled
 
 struct FrameHeaderData {
-    uint16_t magicWord_u16[4];
+    uint64_t magicWord_u64;
     uint32_t version_u32;
     uint32_t totalPacketLength_u32;
     uint32_t platform_u32;
@@ -34,8 +34,11 @@ struct DetectedPoints {
 };
 
 struct RangeProfilePoint {
-    uint16_t rangePoint;
+    uint16_t bin_u16;        // Bin index
+    float    range_f;    // Converted to meters
+    uint16_t power_u16;      // Magnitude squared
 };
+
 
 struct NoiseProfilePoint {
     uint16_t noisePoint;
@@ -98,10 +101,10 @@ struct CompressedPoint {
 struct TLVPayloadData
 {
     std::vector<DetectedPoints> DetectedPoints_str;
-    RangeProfilePoint RangeProfilePoint_str;
+    std::vector<RangeProfilePoint> RangeProfilePoint_str;
     NoiseProfilePoint NoiseProfilePoint_str;
     AzimuthHeatmapPoint AzimutHeatmapPoint_str;
-    SideInfoPoint SideInfoPoint_str;
+    std::vector<SideInfoPoint> SideInfoPoint_str;
     AzimuthElevationHeatmapPoint AzimuthElevationHeatmapPoint_str;
     SphericalCoordinate SphericalCoordinate_str;
     TargetData TargetData_str;

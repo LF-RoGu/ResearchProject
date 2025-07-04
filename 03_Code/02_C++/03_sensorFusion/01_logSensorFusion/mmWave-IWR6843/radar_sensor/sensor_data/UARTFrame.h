@@ -32,6 +32,8 @@ private:
     FrameHeaderData FrameHeader_str;  ///< Struct to store parsed frame header data.
 
 public:
+    bool frameValid;  ///< Flag to indicate if the frame header is valid.
+    bool isValid() const { return frameValid; }
     Frame_header();
     Frame_header(std::vector<uint8_t>& data);
 
@@ -46,6 +48,14 @@ public:
     void parseFrameHeader(std::vector<uint8_t>& data);
 
     // Setters
+
+
+    /**
+     * Sets the Magic Word in the frame header.
+     * Input:
+     *  - var: The version value to set.
+     */
+    void setMagicWord(uint64_t var);
     /**
      * Sets the version field in the frame header.
      * Input:
@@ -102,7 +112,16 @@ public:
      */
     void setSubframeNum(uint32_t var);
 
+
     // Getters
+    /**
+     * Gets the MagicWord from the frame header.
+     * Input:
+     *  - None.
+     * Output:
+     *  - uint64_t: The MagicWord.
+     */
+    uint64_t getMagicWord() const;
     /**
      * Gets the version field from the frame header.
      * Input:
@@ -267,7 +286,7 @@ public:
      * Constructor that takes raw data and number of detected objects,
      * and calls the base class constructor for parsing.
      */
-    TLV_payload(std::vector<uint8_t>& data, uint32_t numDetectedObj_var);
+    TLV_payload(std::vector<uint8_t>& data, uint32_t numDetectedObj_var, uint32_t numTLVs_var);
 
     // Setters for vectors
     void setTLVPayloadData(TLVPayloadData TLVPayloadData_var);

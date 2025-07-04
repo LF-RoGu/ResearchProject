@@ -1,6 +1,9 @@
 #include "Radar.h"
 #include <unistd.h>    // for sleep()
 #include <algorithm>   // for std::min
+#include <math.h>      // for std::sqrt
+
+#define PRINT_VALUES
 
 IWR6843    sensor;
 const int  NUM_THREADS = 3;
@@ -12,51 +15,92 @@ void* sensor_thread(void* /*arg*/)
     {
         int newCount = sensor.poll();
         if (newCount < 0) {
-            cerr << "[ERROR] sensor.poll() failed\n";
+            std::cerr << "[ERROR] sensor.poll() failed\n";
             break;
         }
         if (newCount == 0) {
-            // no data yet
             continue;
         }
 
-        vector<SensorData> frames;
+        std::vector<SensorData> frames;
         if (!sensor.copyDecodedFramesFromTop(frames, newCount, true, 100)) {
-            cerr << "[ERROR] timed out copying frames\n";
+            std::cerr << "[ERROR] timed out copying frames\n";
             continue;
         }
 
-        for (auto &frame : frames)
+        for (const SensorData& frame : frames)
         {
-            auto hdr = frame.getHeader();
-            auto pd  = frame.getTLVPayloadData();
-
-            uint32_t frame_id = hdr.getFrameNumber();
-            size_t   pts      = pd.DetectedPoints_str.size();
-
-            for (size_t i = 0; i < pts; ++i)
+            for (const TLVPayloadData& pd : frame.getTLVPayloadData())
             {
-                auto &pt   = pd.DetectedPoints_str[i];
-                auto &side = pd.SideInfoPoint_str;
-                auto &noise= pd.NoiseProfilePoint_str;
+                // Safety check for matching counts
+                if (pd.SideInfoPoint_str.size() != pd.DetectedPoints_str.size()) {
+                    std::cerr << "[ERROR] Mismatch: Detected=" << pd.DetectedPoints_str.size()
+                            << " vs SideInfo=" << pd.SideInfoPoint_str.size() << std::endl;
+                }
 
-                // print tab‐separated columns:
-                cout
-                  << frame_id << '\t'
-                  << (i+1)    << '\t'
-                  << pt.x_f   << '\t'
-                  << pt.y_f   << '\t'
-                  << pt.z_f   << '\t'
-                  << pt.doppler_f << '\t'
-                  << side.snr    << '\t'
-                  << noise.noisePoint
-                  << '\n';
+                for (size_t i = 0; i < pd.DetectedPoints_str.size(); ++i)
+                {
+                    const DetectedPoints& dp = pd.DetectedPoints_str[i];
+                    float pt_range = std::sqrt(
+                        dp.x_f * dp.x_f + dp.y_f * dp.y_f + dp.z_f * dp.z_f
+                    );
+
+                    // Find closest peak in RangeProfilePoint_str
+                    float closest_peak_range = -1.0f;
+                    uint16_t closest_peak_power = 0;
+                    float min_diff = std::numeric_limits<float>::max();
+
+                    for (const RangeProfilePoint& rp : pd.RangeProfilePoint_str) {
+                        float diff = std::abs(pt_range - rp.range_f);
+                        if (diff < min_diff) {
+                            min_diff = diff;
+                            closest_peak_range = rp.range_f;
+                            closest_peak_power = rp.power_u16;
+                        }
+                    }
+
+                    bool is_valid = false;
+                    if (closest_peak_range >= 0.0f) {
+                        // Example condition: must be within 0.1m and power above threshold
+                        if (min_diff < 0.1f && closest_peak_power > 3000) {
+                            is_valid = true;
+                        }
+                    }
+
+                    // Show result
+                    if (i < pd.SideInfoPoint_str.size()) {
+                        const SideInfoPoint& si = pd.SideInfoPoint_str[i];
+                        std::cout << "[POINT] X: " << dp.x_f
+                                << " Y: " << dp.y_f
+                                << " Z: " << dp.z_f
+                                << " Doppler: " << dp.doppler_f
+                                << " SNR: " << si.snr
+                                << " Noise: " << si.noise
+                                << " | RANGE: " << pt_range
+                                << " | ClosestPeak: " << closest_peak_range
+                                << " Pwr: " << closest_peak_power
+                                << " | " << (is_valid ? "VALID" : "FILTERED") << "\n";
+                    } else {
+                        std::cout << "[POINT] X: " << dp.x_f
+                                << " Y: " << dp.y_f
+                                << " Z: " << dp.z_f
+                                << " Doppler: " << dp.doppler_f
+                                << " | RANGE: " << pt_range
+                                << " | ClosestPeak: " << closest_peak_range
+                                << " Pwr: " << closest_peak_power
+                                << " | [WARN] Missing SideInfo "
+                                << (is_valid ? "VALID" : "FILTERED") << "\n";
+                    }
+                }
             }
         }
+
+
     }
 
     pthread_exit(nullptr);
 }
+
 
 void* controller_thread(void* /*arg*/)
 {
