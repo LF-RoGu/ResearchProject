@@ -24,8 +24,8 @@ FILTER_Z_MIN = -2
 FILTER_Z_MAX = 2
 FILTER_PHI_MIN = -85
 FILTER_PHI_MAX = 85
-FILTER_DOPPLER_MIN = 0.1
-FILTER_DOPPLER_MAX = 2.0
+FILTER_DOPPLER_MIN = 0.01
+FILTER_DOPPLER_MAX = 8.0
 KALMAN_FILTER_PROCESS_VARIANCE = 0.01
 KALMAN_FILTER_MEASUREMENT_VARIANCE = 0.1
 
@@ -125,8 +125,8 @@ def update_graphs(raw_points, filtered_points, raw_self_speed_history, filtered_
 # -------------------------------
 # Program entry point
 # -------------------------------
-radarLoader = RadarCSVReader(file_name="radar_StraightWall_cleaned.csv", folder_name="01_Logs-26062025")
-imuLoader = ImuCSVReader(file_name="imu_StraightWall_cleaned.csv", folder_name="01_Logs-26062025")
+radarLoader = RadarCSVReader(file_name="radar_testReflectiveness14.csv", folder_name="03_Logs-07042025")
+imuLoader = ImuCSVReader(file_name="imu_testReflectiveness14.csv", folder_name="03_Logs-07042025")
 
 imu_frames = imuLoader.load_all()
 radar_frames = radarLoader.load_all()
