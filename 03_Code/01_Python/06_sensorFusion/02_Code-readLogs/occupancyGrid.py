@@ -2,114 +2,95 @@ import numpy as np
 from matplotlib.colors import ListedColormap, BoundaryNorm
 
 """
-How to use:
-
-# STEP 1: Initialize the Occupancy Grid Processor
-grid_processor = OccupancyGridProcessor(grid_spacing=0.1)
-
-# STEP 2: Sample point cloud data (X, Y, Z)
-points = np.array([
-    [1.0, 2.0, 0.5],
-    [1.2, 2.1, 0.4],
-    [5.0, 8.0, 0.5],
-    [5.1, 8.1, 0.6],
-    [9.0, 1.0, 0.2]
-])
-
-# STEP 3: Generate Cartesian Occupancy Grid
-cartesian_grid = grid_processor.calculate_cartesian_grid(points, x_limits=(-10, 10), y_limits=(0, 15))
-
-# STEP 4: Visualize the Cartesian Occupancy Grid
-plt.imshow(cartesian_grid.T, cmap=grid_processor.cmap, norm=grid_processor.norm, origin='lower')
-plt.colorbar()
-plt.title("Cartesian Occupancy Grid")
-plt.xlabel("X-axis")
-plt.ylabel("Y-axis")
-plt.show()
-
+OccupancyGridProcessor
+-------------------------------
+PURPOSE:
+ - Generate occupancy grids using Bayesian log-odds filtering.
+ - Supports initialization, updating, and probability conversion.
 """
 
-
+# -------------------------------------------------------------
 # CLASS: OccupancyGridProcessor
+# -------------------------------------------------------------
 class OccupancyGridProcessor:
+    def __init__(self, grid_spacing=0.5, p_hit=0.7, p_miss=0.4):
+        """
+        Initialize the processor with grid spacing and log-odds parameters.
+        """
+        self.grid_spacing = grid_spacing  # Grid cell size
+        self.p_hit = p_hit                # Probability of detection
+        self.p_miss = p_miss              # Probability of miss
 
-    # FUNCTION: Initialize the grid processor with grid spacing
-    def __init__(self, grid_spacing=0.5):
-        # Default spacing between grid cells
-        self.grid_spacing = grid_spacing  
-        # Auto-initialize colormap
-        self.cmap, self.norm = self.create_custom_colormap()  
+        self.L_hit = np.log(self.p_hit / (1 - self.p_hit))   # Log-odds increment for hit
+        self.L_miss = np.log(self.p_miss / (1 - self.p_miss)) # Log-odds decrement for miss
+        self.L_min = -4.6  # Minimum log-odds (≈ P = 0.01)
+        self.L_max = 4.6   # Maximum log-odds (≈ P = 0.99)
 
-    # FUNCTION: Calculate Cartesian Occupancy Grid
-    def calculate_cartesian_grid(self, points, x_limits, y_limits):
-        # STEP 1: Calculate grid size
-        x_bins = int((x_limits[1] - x_limits[0]) / self.grid_spacing)
-        y_bins = int((y_limits[1] - y_limits[0]) / self.grid_spacing)
+        self.log_odds_grid = None         # Log-odds storage
 
-        # STEP 2: Initialize the grid
-        occupancy_grid = np.zeros((x_bins, y_bins))
+        self.x_limits = (-10, 10)         # Default X-axis limits
+        self.y_limits = (0, 15)           # Default Y-axis limits
 
-        # STEP 3: Populate the grid with point counts
+        self.cmap, self.norm = self.create_custom_colormap() # Colormap for visualization
+
+    # -------------------------------------------------------------
+    # FUNCTION: Initialize the log-odds grid dimensions
+    # -------------------------------------------------------------
+    def initialize_log_odds_grid(self):
+        """
+        Create an empty log-odds grid based on configured limits.
+        """
+        x_bins = int((self.x_limits[1] - self.x_limits[0]) / self.grid_spacing)
+        y_bins = int((self.y_limits[1] - self.y_limits[0]) / self.grid_spacing)
+        self.log_odds_grid = np.zeros((x_bins, y_bins))
+
+    # -------------------------------------------------------------
+    # FUNCTION: Update log-odds grid using new point cloud data
+    # -------------------------------------------------------------
+    def update_log_odds_grid(self, points):
+        """
+        Apply log-odds updates for hit and miss evidence.
+        """
+        if self.log_odds_grid is None:
+            self.initialize_log_odds_grid()
+
+        hit_mask = np.zeros_like(self.log_odds_grid, dtype=bool)
+
+        # Process each point in the input list
         for point in points:
-            if len(point) == 3:
-                x, y, _ = point  # Use X, Y only
-            elif len(point) == 2:
-                x, y = point
-            else:
-                raise ValueError(f"Unsupported point format: {point}")
+            x, y = point[0], point[1]
+            if self.x_limits[0] <= x < self.x_limits[1] and self.y_limits[0] <= y < self.y_limits[1]:
+                x_idx = int((x - self.x_limits[0]) / self.grid_spacing)
+                y_idx = int((y - self.y_limits[0]) / self.grid_spacing)
+                self.log_odds_grid[x_idx, y_idx] += self.L_hit
+                hit_mask[x_idx, y_idx] = True
 
-            # STEP 4: Map points to grid cells
-            if x_limits[0] <= x < x_limits[1] and y_limits[0] <= y < y_limits[1]:
-                x_idx = int((x - x_limits[0]) / self.grid_spacing)
-                y_idx = int((y - y_limits[0]) / self.grid_spacing)
-                occupancy_grid[x_idx, y_idx] += 1  # Increment cell count
+        # Decrease log-odds for cells not hit in this frame
+        miss_mask = ~hit_mask
+        self.log_odds_grid[miss_mask] += self.L_miss
 
-        return occupancy_grid
+        # Clamp to prevent runaway values
+        self.log_odds_grid = np.clip(self.log_odds_grid, self.L_min, self.L_max)
 
-    # FUNCTION: Calculate Polar Occupancy Grid
-    def calculate_polar_grid(self, points, range_max, range_bins, angle_bins):
-        # STEP 1: Initialize the polar grid
-        polar_grid = np.zeros((range_bins, angle_bins))
+    # -------------------------------------------------------------
+    # FUNCTION: Convert log-odds grid to occupancy probabilities
+    # -------------------------------------------------------------
+    def get_occupancy_probability_grid(self):
+        """
+        Calculate final occupancy probabilities.
+        """
+        odds = np.exp(self.log_odds_grid)
+        return odds / (1 + odds)
 
-        # STEP 2: Populate the polar grid
-        for point in points:
-            if len(point) == 3:
-                x, y, _ = point
-            elif len(point) == 2:
-                x, y = point
-            else:
-                raise ValueError(f"Unsupported point format: {point}")
-
-            # STEP 3: Convert to polar coordinates
-            offset = 90  # Rotate 'n' degrees clockwise
-            r = np.sqrt(x**2 + y**2)  # Range
-            theta = (np.degrees(np.arctan2(y, x)) + offset) % 360  # Azimuth
-
-            # STEP 4: Map to bins
-            if r < range_max:
-                r_bin = int(r / (range_max / range_bins))
-                theta_bin = int(theta / (360 / angle_bins))
-                polar_grid[r_bin, theta_bin] += 1  # Increment cell count
-
-        return polar_grid
-
-    # FUNCTION: Create a Custom Colormap for Visualization
+    # -------------------------------------------------------------
+    # FUNCTION: Custom colormap for visual representation
+    # -------------------------------------------------------------
     def create_custom_colormap(self):
-        # STEP 1: Define colors for different densities
-        colors = [
-            "white",      # Background (0 density)
-            "#d1e5f0",    # Light blue (low density)
-            "#92c5de",    # Blue
-            "#4393c3",    # Medium density
-            "#2166ac",    # High density
-            "#053061"     # Very high density
-        ]
-
-        # STEP 2: Create the colormap
+        """
+        Define the color levels and boundaries.
+        """
+        colors = ["white", "#d1e5f0", "#92c5de", "#4393c3", "#2166ac", "#053061"]
         cmap = ListedColormap(colors)
-
-        # STEP 3: Define boundaries for density levels
-        boundaries = [0, 1, 2, 3, 4, 5, np.inf]
+        boundaries = [0, 0.2, 0.4, 0.6, 0.8, 1.0]
         norm = BoundaryNorm(boundaries, cmap.N, clip=True)
-
         return cmap, norm
