@@ -125,8 +125,8 @@ def update_graphs(raw_points, filtered_points, raw_self_speed_history, filtered_
 # -------------------------------
 # Program entry point
 # -------------------------------
-radarLoader = RadarCSVReader(file_name="radar_testReflectiveness14.csv", folder_name="03_Logs-07042025")
-imuLoader = ImuCSVReader(file_name="imu_testReflectiveness14.csv", folder_name="03_Logs-07042025")
+radarLoader = RadarCSVReader(file_name="radar_testReflectiveness6.csv", folder_name="03_Logs-07042025")
+imuLoader = ImuCSVReader(file_name="imu_testReflectiveness6.csv", folder_name="03_Logs-07042025")
 
 imu_frames = imuLoader.load_all()
 radar_frames = radarLoader.load_all()
