@@ -1,3 +1,17 @@
+"""
+Pipeline.py
+-------------------------------------------------------------
+PURPOSE:
+  Main radar point cloud pipeline with:
+   - Frame aggregation
+   - SNR, Z, Phi, Doppler filtering
+   - DB Clustering with unique IDs
+   - Log-odds Bayesian occupancy grid
+   - Digital grid thresholding and history buffer
+   - Visual debug panel for occupancy history info
+-------------------------------------------------------------
+"""
+
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -24,28 +38,29 @@ FILTER_PHI_MAX = 85
 FILTER_DOPPLER_MIN = 0.0
 FILTER_DOPPLER_MAX = 8.0
 
-OCCUPANCY_P_THRESHOLD = 0.5  # Threshold for cell occupancy probability
+# Log-odds occupancy grid config
+OCCUPANCY_P_THRESHOLD = 0.4     # Minimum P(occupied) for binary grid
+OCCUPANCY_HISTORY_SIZE = 300     # How many binary grids to store
 
+# -------------------------------------------------------------
+# PROCESSOR OBJECTS
+# -------------------------------------------------------------
 cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.0, min_samples=4)
-grid_processor = occupancyGrid.OccupancyGridProcessor(
-    grid_spacing=0.5,   # grid spacing for each grid
-    p_hit=0.7,          # detection trust
-    p_miss=0.4          # decay trust
-)
-
+grid_processor = occupancyGrid.OccupancyGridProcessor(grid_spacing=0.5)
 
 # -------------------------------------------------------------
-# GLOBAL handles for occupancy grid plot
+# GLOBAL handles for occupancy grid and history
 # -------------------------------------------------------------
-im_occ = None   # QuadMesh for imshow
-cbar_occ = None # Colorbar handle
+im_occ = None          # Imshow handle for occupancy grid
+cbar_occ = None        # Colorbar handle
+occupancy_history = [] # Time-series storage of binary occupancy grids
 
 # -------------------------------------------------------------
-# FUNCTION: Create multiple named subplots
+# FUNCTION: Create named subplots with dynamic projections
 # -------------------------------------------------------------
 def create_named_subplots(fig, layout, names, projections):
     """
-    Generate subplots with dynamic layout and projections.
+    Create a GridSpec layout and return named axes dict.
     """
     gs = GridSpec(*layout, figure=fig)
     axes = {}
@@ -59,12 +74,16 @@ def create_named_subplots(fig, layout, names, projections):
     return axes
 
 # -------------------------------------------------------------
-# FUNCTION: Simulation update logic
+# FUNCTION: Update simulation for given frame number
 # -------------------------------------------------------------
 def update_sim(new_num_frame):
     """
-    Apply frame update logic, including filtering, clustering,
-    and occupancy grid update.
+    Process frames:
+     - Aggregate
+     - Filter
+     - Cluster
+     - Update occupancy grid
+     - Threshold binary map and store history
     """
     global curr_num_frame
 
@@ -78,17 +97,28 @@ def update_sim(new_num_frame):
 
         point_cloud = frame_aggregator.getPoints()
 
+        # Apply filters
         filtered_point_cloud = pointFilter.filterSNRmin(point_cloud, FILTER_SNR_MIN)
         filtered_point_cloud = pointFilter.filterCartesianZ(filtered_point_cloud, FILTER_Z_MIN, FILTER_Z_MAX)
         filtered_point_cloud = pointFilter.filterSphericalPhi(filtered_point_cloud, FILTER_PHI_MIN, FILTER_PHI_MAX)
         filteredDoppler_point_cloud = pointFilter.filterDoppler(filtered_point_cloud, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
 
+        # Clustering
         cluster_input = pointFilter.extract_points(filteredDoppler_point_cloud)
         clusters, _ = cluster_processor_stage2.cluster_points(cluster_input)
 
+        # Occupancy grid update
         grid_processor.x_limits = (-10, 10)
         grid_processor.y_limits = (0, 15)
         grid_processor.update_log_odds_grid(cluster_input)
+
+        # Binary occupancy grid & store in history
+        P_grid = grid_processor.get_occupancy_probability_grid()
+        binary_grid = (P_grid >= OCCUPANCY_P_THRESHOLD).astype(int)
+        occupancy_history.append(binary_grid.copy())
+
+        if len(occupancy_history) > OCCUPANCY_HISTORY_SIZE:
+            occupancy_history.pop(0)
 
     update_graphs(raw_points=point_cloud,
                   filtered_points=filteredDoppler_point_cloud,
@@ -96,24 +126,28 @@ def update_sim(new_num_frame):
     curr_num_frame = new_num_frame
 
 # -------------------------------------------------------------
-# FUNCTION: Update all subplots in the figure
-# PURPOSE: Refresh Raw, Filter, DB Clusters, and Occupancy Grid.
+# FUNCTION: Update all plots each frame
 # -------------------------------------------------------------
 def update_graphs(raw_points, filtered_points, clusters):
-    global im_occ, cbar_occ  # Handles for occupancy grid image and colorbar
+    """
+    Refresh:
+     - Raw point cloud
+     - Filtered point cloud
+     - DB Clusters with unique IDs
+     - Occupancy grid with colorbar
+     - Text panel for occupancy history
+    """
+    global im_occ, cbar_occ
 
-    # -------------------------------------------------------------
-    # Extract point arrays for plotting
-    # -------------------------------------------------------------
     l_raw_points = pointFilter.extract_points(raw_points)
     l_filtered_points = pointFilter.extract_points(filtered_points)
 
     # -------------------------------------------------------------
-    # FUNCTION: Helper to plot a 3D scatter plot
+    # Helper: 3D scatter plot
     # -------------------------------------------------------------
     def plot_3d_points(ax, title, points, color='b'):
         """
-        Plot 3D points with consistent limits and view.
+        MISRA: Plot 3D points with fixed view and limits.
         """
         ax.clear()
         ax.set_title(title)
@@ -127,24 +161,18 @@ def update_graphs(raw_points, filtered_points, clusters):
 
         points = np.asarray(points)
         if points.ndim == 1 or points.shape[0] == 0:
-            return  # Nothing to plot
+            return
         if points.ndim == 1 and points.size == 3:
             points = points.reshape(1, 3)
         ax.scatter(points[:, 0], points[:, 1], points[:, 2], c=color)
 
-    # -------------------------------------------------------------
-    # Plot: Raw-PointCloud
-    # -------------------------------------------------------------
+    # Raw-PointCloud
     plot_3d_points(axes["Raw-PointCloud"], 'Raw-PointCloud', l_raw_points)
 
-    # -------------------------------------------------------------
-    # Plot: Filter-PointCloud
-    # -------------------------------------------------------------
+    # Filter-PointCloud
     plot_3d_points(axes["Filter-PointCloud"], 'Filter-PointCloud', l_filtered_points)
 
-    # -------------------------------------------------------------
-    # Plot: DB-Clusters with unique IDs and colors
-    # -------------------------------------------------------------
+    # DB Clusters
     ax = axes["DB-Clusters"]
     ax.clear()
     ax.set_title("DB-Clusters")
@@ -165,9 +193,7 @@ def update_graphs(raw_points, filtered_points, clusters):
         ax.text(centroid[0], centroid[1], centroid[2], f'ID {cluster_id}', color='black')
     ax.legend()
 
-    # -------------------------------------------------------------
-    # Plot: Occupancy Grid - Log-Odds with single colorbar
-    # -------------------------------------------------------------
+    # Occupancy Grid
     ax_occ = axes["Occupancy-Grid"]
     ax_occ.set_title("Occupancy Grid - Log-Odds")
     ax_occ.set_xlabel("X Position (Grid)")
@@ -175,7 +201,6 @@ def update_graphs(raw_points, filtered_points, clusters):
 
     prob_grid = grid_processor.get_occupancy_probability_grid()
 
-    # Only create imshow and colorbar once
     if im_occ is None:
         im_occ = ax_occ.imshow(
             prob_grid.T,
@@ -196,6 +221,25 @@ def update_graphs(raw_points, filtered_points, clusters):
         im_occ.set_data(prob_grid.T)
         im_occ.set_clim(0.0, 1.0)
 
+    # -------------------------------------------------------------
+    # Occupancy History Info Text Panel
+    # -------------------------------------------------------------
+    ax_hist = axes["Occupancy-History"]
+    ax_hist.clear()
+    ax_hist.set_title("Occupancy History Info")
+    ax_hist.axis('off')
+
+    history_size = len(occupancy_history)
+    latest_occupied = np.sum(occupancy_history[-1]) if history_size > 0 else 0
+
+    debug_text = f"""
+Frames stored: {history_size}
+Occupied cells (latest): {latest_occupied}
+Occupancy threshold: {OCCUPANCY_P_THRESHOLD}
+"""
+
+    ax_hist.text(0.1, 0.6, debug_text, fontsize=12, va='top', ha='left', wrap=True)
+
 # -------------------------------------------------------------
 # ENTRY POINT
 # -------------------------------------------------------------
@@ -206,12 +250,12 @@ radar_frames = radarLoader.load_all()
 
 frame_aggregator = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 
-fig = plt.figure(figsize=(12, 8))
+fig = plt.figure(figsize=(14, 10))
 axes = create_named_subplots(
     fig,
-    (2, 2),
-    names=["Raw-PointCloud", "Filter-PointCloud", "DB-Clusters", "Occupancy-Grid"],
-    projections=["3d", "3d", "3d", None]
+    (3, 2),  # 3 rows x 2 columns to fit 5 plots
+    names=["Raw-PointCloud", "Filter-PointCloud", "DB-Clusters", "Occupancy-Grid", "Occupancy-History"],
+    projections=["3d", "3d", "3d", None, None]
 )
 
 curr_num_frame = -1
