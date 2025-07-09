@@ -76,31 +76,75 @@ def update_sim(new_num_frame):
         filtered_point_cloud = pointFilter.filterCartesianZ(filtered_point_cloud, FILTER_Z_MIN, FILTER_Z_MAX)
         filtered_point_cloud = pointFilter.filterSphericalPhi(filtered_point_cloud, FILTER_PHI_MIN, FILTER_PHI_MAX)
         filteredDoppler_point_cloud = pointFilter.filterDoppler(filtered_point_cloud, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
-
-        # Perform DB Clustering on filtered point cloud
-        cluster_input = pointFilter.extract_points(filteredDoppler_point_cloud)
-        clusters, _ = cluster_processor_stage2.cluster_points(cluster_input)
+    
+    # -------------------------------------------------------------
+    # VARIABLE: imu_info
+    # PURPOSE: Example (x,y,z) info generated randomly for testing.
+    # -------------------------------------------------------------
+    imu_info = np.random.uniform(low=-10.0, high=10.0, size=3)
 
     update_graphs(raw_points=point_cloud,
                   filtered_points=filteredDoppler_point_cloud,
-                  clusters=clusters)
+                  imu_info=imu_info)
     curr_num_frame = new_num_frame
 
 # -------------------------------------------------------------
 # FUNCTION: update_graphs
 # PURPOSE: Update the graphs with processed data.
 # -------------------------------------------------------------
-def update_graphs(raw_points, filtered_points, clusters):
+def update_graphs(raw_points, filtered_points, imu_info):
     """Update all subplots with new data."""
 
     l_raw_points = pointFilter.extract_points(raw_points)
     l_filtered_points = pointFilter.extract_points(filtered_points)
 
     # -------------------------------------------------------------
+    # FUNCTION: add_corner_text
+    # PURPOSE: Add (x,y,z) information to the bottom right corner 
+    #          of a plot. This annotation shows IMU or any custom 
+    #          information for each frame in a consistent location.
+    # PARAMETERS:
+    #   ax       - Matplotlib axes object to annotate.
+    #   imu_info - Tuple or list of three floats representing (x,y,z).
+    # NOTES:
+    #   The text box uses axes coordinates so it stays fixed during 
+    #   zoom or resize. A semi-transparent background improves 
+    #   readability over point clouds.
+    # -------------------------------------------------------------
+    def add_corner_text(ax, imu_info):
+        # Format the (x,y,z) text string with two decimal places.
+        text = "(x,y,z) = ({:.2f}, {:.2f}, {:.2f})".format(
+            imu_info[0],
+            imu_info[1],
+            imu_info[2]
+        )
+
+        # Add the formatted text to the bottom-right corner.
+        # For 3D Axes, use x, y, z, s
+        ax.text(
+            0.95,          # x position in axes coords
+            0.02,          # y position in axes coords
+            0.0,           # z position (pick a default plane)
+            text,          # string
+            transform=ax.transAxes,
+            fontsize=10,
+            color='black',
+            ha='right',
+            va='bottom',
+            bbox={
+                'boxstyle': 'round,pad=0.3',
+                'facecolor': 'white',
+                'alpha': 0.7
+            }
+        )
+
+
+
+    # -------------------------------------------------------------
     # FUNCTION: plot_3d_points
     # PURPOSE: Plot a 3D point cloud.
     # -------------------------------------------------------------
-    def plot_3d_points(ax, title, points, color='b'):
+    def plot_3d_points(ax, title, points, color='b', imu_info=None):
         """Plot 3D points with labels and axes."""
         ax.clear()
         ax.set_title(title)
@@ -119,35 +163,14 @@ def update_graphs(raw_points, filtered_points, clusters):
             points = points.reshape(1, 3)
         ax.scatter(points[:, 0], points[:, 1], points[:, 2], c=color)
 
+        if imu_info is not None:
+            add_corner_text(ax, imu_info)
+
     # Plot Raw-PointCloud
-    plot_3d_points(axes["Raw-PointCloud"], 'Raw-PointCloud', np.array([[p[0], p[1], p[2]] for p in l_raw_points]).reshape(-1, 3))
+    plot_3d_points(axes["Raw-PointCloud"], 'Raw-PointCloud', np.array([[p[0], p[1], p[2]] for p in l_raw_points]).reshape(-1, 3), imu_info=imu_info)
 
     # Plot Filter-PointCloud
-    plot_3d_points(axes["Filter-PointCloud"], 'Filter-PointCloud', np.array([[p[0], p[1], p[2]] for p in l_filtered_points]).reshape(-1, 3))
-
-    # Plot DB Clusters
-    ax = axes["DB-Clusters"]
-    ax.clear()
-    ax.set_title("DB-Clusters")
-    ax.set_xlabel('X [m]')
-    ax.set_ylabel('Y [m]')
-    ax.set_zlabel('Z [m]')
-    ax.set_xlim(-10, 10)
-    ax.set_ylim(0, 15)
-    ax.set_zlim(-2, 10)
-    ax.view_init(elev=90, azim=-90)
-
-    # Assign unique colors for clusters
-    colors = plt.cm.get_cmap('tab20', len(clusters))
-    for idx, (cluster_id, data) in enumerate(clusters.items()):
-        cluster_points = data['points']
-        ax.scatter(cluster_points[:, 0], cluster_points[:, 1], cluster_points[:, 2],
-                   color=colors(idx), label=f'ID {cluster_id}')
-        # Plot cluster centroid with unique ID
-        centroid = data['centroid']
-        ax.text(centroid[0], centroid[1], centroid[2],
-                f'ID {cluster_id}', color='black')
-    ax.legend()
+    plot_3d_points(axes["Filter-PointCloud"], 'Filter-PointCloud', np.array([[p[0], p[1], p[2]] for p in l_filtered_points]).reshape(-1, 3), imu_info=imu_info)
 
 # -------------------------------------------------------------
 # ENTRY POINT: Load data, set up figure and slider.
@@ -170,8 +193,8 @@ fig = plt.figure(figsize=(12, 8))
 axes = create_named_subplots(
     fig,
     (2, 2),  # Layout with room for 3 subplots
-    names=["Raw-PointCloud", "Filter-PointCloud", "DB-Clusters"],
-    projections=["3d", "3d", "3d"]
+    names=["Raw-PointCloud", "Filter-PointCloud"],
+    projections=["3d", "3d"]
 )
 
 curr_num_frame = -1
