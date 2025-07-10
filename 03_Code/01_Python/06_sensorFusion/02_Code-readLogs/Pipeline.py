@@ -138,11 +138,9 @@ def update_graphs(raw_points, filtered_points, imu_info):
             }
         )
 
-
-
     # -------------------------------------------------------------
     # FUNCTION: plot_3d_points
-    # PURPOSE: Plot a 3D point cloud.
+    # PURPOSE: Plot a 3D point cloud with Doppler speed annotations.
     # -------------------------------------------------------------
     def plot_3d_points(ax, title, points, color='b', imu_info=None):
         """Plot 3D points with labels and axes."""
@@ -163,20 +161,46 @@ def update_graphs(raw_points, filtered_points, imu_info):
             points = points.reshape(1, 3)
         ax.scatter(points[:, 0], points[:, 1], points[:, 2], c=color)
 
+        # Annotate each point with its Doppler speed if available
+        for point in points:
+            x, y, z = point[0], point[1], point[2]
+            if len(point) >= 4:
+                doppler = point[3]
+                ax.text(
+                    x, y, z + 0.05,  # slight Z offset
+                    f"{doppler:.2f} m/s",
+                    fontsize=7,
+                    color='red'
+                )
+
         if imu_info is not None:
             add_corner_text(ax, imu_info)
 
-    # Plot Raw-PointCloud
-    plot_3d_points(axes["Raw-PointCloud"], 'Raw-PointCloud', np.array([[p[0], p[1], p[2]] for p in l_raw_points]).reshape(-1, 3), imu_info=imu_info)
+    # -------------------------------------------------------------
+    # PLOT: Raw-PointCloud with Doppler labels
+    # -------------------------------------------------------------
+    plot_3d_points(
+        axes["Raw-PointCloud"],
+        'Raw-PointCloud',
+        np.array(l_raw_points),   # Keep Doppler info
+        imu_info=imu_info
+    )
 
-    # Plot Filter-PointCloud
-    plot_3d_points(axes["Filter-PointCloud"], 'Filter-PointCloud', np.array([[p[0], p[1], p[2]] for p in l_filtered_points]).reshape(-1, 3), imu_info=imu_info)
+    # -------------------------------------------------------------
+    # PLOT: Filter-PointCloud with Doppler labels
+    # -------------------------------------------------------------
+    plot_3d_points(
+        axes["Filter-PointCloud"],
+        'Filter-PointCloud',
+        np.array(l_filtered_points),  # Keep Doppler info
+        imu_info=imu_info
+    )
 
 # -------------------------------------------------------------
 # ENTRY POINT: Load data, set up figure and slider.
 # -------------------------------------------------------------
-radarLoader = RadarCSVReader(file_name="radar_testCFAR2800U_8.csv", folder_name="04_Logs-10072025")
-imuLoader = ImuCSVReader(file_name="imu_testCFAR2800U_8.csv", folder_name="04_Logs-10072025")
+radarLoader = RadarCSVReader(file_name="radar_straightWall_1.csv", folder_name="04_Logs-10072025")
+imuLoader = ImuCSVReader(file_name="imu_straightWall_1.csv", folder_name="04_Logs-10072025")
 
 imu_frames = imuLoader.load_all()
 radar_frames = radarLoader.load_all()
