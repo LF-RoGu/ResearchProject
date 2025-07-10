@@ -106,6 +106,7 @@ void XsensMti710::configure() {
     XsensFrequencyConfig_t cfg[] = {
         { .id = XDI_PACKET_COUNTER,     .frequency = 0xFFFF },
         { .id = XDI_SAMPLE_TIME_FINE,   .frequency = 0xFFFF },
+        { .id = XDI_QUATERNION,         .frequency = R     },
         { .id = XDI_DELTA_Q,            .frequency = R     },
         { .id = XDI_RATE_OF_TURN,       .frequency = R     },
         { .id = XDI_DELTA_V,            .frequency = R     },

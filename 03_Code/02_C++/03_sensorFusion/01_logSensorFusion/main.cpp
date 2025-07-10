@@ -59,8 +59,8 @@ static IWR6843     radarSensor;
 static XsensMti710 imuSensor;
 
 #ifndef VALIDATE_PRINT
-static ofstream csvRadar("_outFiles/radar_driveAround_4.csv");
-static ofstream csvImu  ("_outFiles/imu_driveAround_4.csv");
+static ofstream csvRadar("_outFiles/radar_testQuater.csv");
+static ofstream csvImu  ("_outFiles/imu_testQuater.csv");
 #endif
 
 /*=== threadIwr6843(): Radar acquisition & filtering ===*/
@@ -226,6 +226,7 @@ void threadWriter(void)
     /* write CSV headers */
     csvRadar << "frame_id,point_id,x,y,z,doppler,snr,noise\n";
     csvImu   << "frame_id,imu_idx,"
+             << "quat_w,quat_x,quat_y,quat_z,"
              << "accel_x,accel_y,accel_z,"
              << "free_accel_x,free_accel_y,free_accel_z,"
              << "delta_v_x,delta_v_y,delta_v_z,"
@@ -321,6 +322,10 @@ void threadWriter(void)
 #else
             csvImu << fid               << CSV_TAB
                    << (i + 1UL)         << CSV_TAB
+                   << imu.quaternion[0] << CSV_TAB  // w
+                   << imu.quaternion[1] << CSV_TAB  // x
+                   << imu.quaternion[2] << CSV_TAB  // y
+                   << imu.quaternion[3] << CSV_TAB  // z
                    << imu.acceleration[0]      << CSV_TAB
                    << imu.acceleration[1]      << CSV_TAB
                    << imu.acceleration[2]      << CSV_TAB
