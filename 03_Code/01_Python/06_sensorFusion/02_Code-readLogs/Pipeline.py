@@ -175,8 +175,8 @@ def update_graphs(raw_points, filtered_points, imu_info):
 # -------------------------------------------------------------
 # ENTRY POINT: Load data, set up figure and slider.
 # -------------------------------------------------------------
-radarLoader = RadarCSVReader(file_name="radar_testReflectiveness5.csv", folder_name="04_Logs-10072025")
-imuLoader = ImuCSVReader(file_name="imu_testReflectiveness5.csv", folder_name="04_Logs-10072025")
+radarLoader = RadarCSVReader(file_name="radar_testCFAR2800U_8.csv", folder_name="04_Logs-10072025")
+imuLoader = ImuCSVReader(file_name="imu_testCFAR2800U_8.csv", folder_name="04_Logs-10072025")
 
 imu_frames = imuLoader.load_all()
 radar_frames = radarLoader.load_all()
