@@ -19,6 +19,11 @@ class ImuRecord:
     frame_id: int
     imu_idx: int
 
+    quat_w: float
+    quat_x: float
+    quat_y: float
+    quat_z: float
+
     accel_x: float
     accel_y: float
     accel_z: float
@@ -130,7 +135,7 @@ class ImuCSVReader:
                 frame_id       = int(row["frame_id"]),
                 imu_idx        = int(row["imu_idx"]),
 
-                # raw accel + gravity-removed
+                # raw accel
                 accel_x          = float(row["accel_x"]),
                 accel_y          = float(row["accel_y"]),
                 accel_z          = float(row["accel_z"]),
