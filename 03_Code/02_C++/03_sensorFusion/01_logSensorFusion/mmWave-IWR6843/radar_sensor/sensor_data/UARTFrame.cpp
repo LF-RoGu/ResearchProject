@@ -253,7 +253,7 @@ TLVPayloadData TLV_frame::parseTLVPayload(std::vector<uint8_t>& data, TLVHeaderD
         /*
         TODO: Check K for peaks
         */
-        float K = 375.0f;  // adjust based on your testing
+        float K = 395.0f;  // adjust based on your testing
         float adaptive_threshold = mean_floor + K;
         #ifdef DEBUG_UART_FRAME
         std::cout << "[DEBUG] Mean noise floor: " << mean_floor 
