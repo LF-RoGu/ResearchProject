@@ -59,8 +59,8 @@ static IWR6843     radarSensor;
 static XsensMti710 imuSensor;
 
 #ifndef VALIDATE_PRINT
-static ofstream csvRadar("_outFiles/radar_testReflectiveness14.csv");
-static ofstream csvImu  ("_outFiles/imu_testReflectiveness14.csv");
+static ofstream csvRadar("_outFiles/radar_testReflectiveness1.csv");
+static ofstream csvImu  ("_outFiles/imu_testReflectiveness1.csv");
 #endif
 
 /*=== threadIwr6843(): Radar acquisition & filtering ===*/
@@ -144,7 +144,7 @@ void threadIwr6843(void)
                         (closest_power > 2200U));                  // Minimum peak power:  
                                                                    //    • this is raw magnitude squared  
                                                                    //    • must exceed CFAR threshold (mean_noise + K)  
-                                                                   //    • lower toward 2500–2800U if you’re losing weak targets  
+                                                                   //    • lower toward 2000–2800U if you’re losing weak targets  
                                                                    //    • raise if too many false detections in clutter
 
                     if (is_valid && (i < pd.SideInfoPoint_str.size()))
