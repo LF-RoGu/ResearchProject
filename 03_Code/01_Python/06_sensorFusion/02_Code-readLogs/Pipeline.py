@@ -54,6 +54,29 @@ def create_named_subplots(fig, layout, names, projections):
     return axes
 
 # -------------------------------------------------------------
+# FUNCTION: average_imu_records
+# PURPOSE: Average numeric fields of a list of ImuRecord objects.
+# PARAMETERS:
+#   imu_records - list of ImuRecord instances
+# RETURNS:
+#   dict with averaged field values
+# -------------------------------------------------------------
+def average_imu_records(imu_records):
+    if not imu_records:
+        return None
+
+    # Collect all numeric attributes
+    numeric_fields = [field for field in vars(imu_records[0]).keys()
+                      if isinstance(getattr(imu_records[0], field), (int, float))]
+
+    avg_record = {}
+    for field in numeric_fields:
+        values = [getattr(record, field) for record in imu_records]
+        avg_record[field] = sum(values) / len(values)
+
+    return avg_record
+
+# -------------------------------------------------------------
 # FUNCTION: update_sim
 # PURPOSE: Simulation update logic for processing frames.
 # -------------------------------------------------------------
@@ -66,8 +89,14 @@ def update_sim(new_num_frame):
         curr_num_frame = -1
 
     for num_frame in range(curr_num_frame + 1, new_num_frame + 1, 1):
-        frame = radar_frames[num_frame]
-        frame_aggregator.updateBuffer(frame)
+        radar_frame_list = radar_frames[num_frame]
+        # Obtain imu data for the current frame
+        imu_frame_list = imu_frames[num_frame]
+
+        # Average the IMU records
+        imu_data_avg = average_imu_records(imu_frame_list)
+            
+        frame_aggregator.updateBuffer(radar_frame_list)
 
         point_cloud = frame_aggregator.getPoints()
 
@@ -76,16 +105,10 @@ def update_sim(new_num_frame):
         filtered_point_cloud = pointFilter.filterCartesianZ(filtered_point_cloud, FILTER_Z_MIN, FILTER_Z_MAX)
         filtered_point_cloud = pointFilter.filterSphericalPhi(filtered_point_cloud, FILTER_PHI_MIN, FILTER_PHI_MAX)
         filteredDoppler_point_cloud = pointFilter.filterDoppler(filtered_point_cloud, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
-    
-    # -------------------------------------------------------------
-    # VARIABLE: imu_info
-    # PURPOSE: Example (x,y,z) info generated randomly for testing.
-    # -------------------------------------------------------------
-    imu_info = np.random.uniform(low=-10.0, high=10.0, size=3)
 
     update_graphs(raw_points=point_cloud,
                   filtered_points=filteredDoppler_point_cloud,
-                  imu_info=imu_info)
+                  imu_info=imu_data_avg)
     curr_num_frame = new_num_frame
 
 # -------------------------------------------------------------
@@ -112,12 +135,14 @@ def update_graphs(raw_points, filtered_points, imu_info):
     #   readability over point clouds.
     # -------------------------------------------------------------
     def add_corner_text(ax, imu_info):
-        # Format the (x,y,z) text string with two decimal places.
-        text = "(x,y,z) = ({:.2f}, {:.2f}, {:.2f})".format(
-            imu_info[0],
-            imu_info[1],
-            imu_info[2]
-        )
+        # Build a single multi-line string, formatted to two decimals
+        text = (
+        "accel (x,y,z):  {accel_x:.2f}, {accel_y:.2f}, {accel_z:.2f}\n"
+        "free_accel(x,y,z):  {free_accel_x:.2f}, {free_accel_y:.2f}, {free_accel_z:.2f}\n"
+        "gyro  (x,y,z):  {gyro_x:.2f}, {gyro_y:.2f}, {gyro_z:.2f}\n"
+        "mag   (x,y,z):  {mag_x:.2f}, {mag_y:.2f}, {mag_z:.2f} \n"
+        "temperature: {temperature:.2f} °C\n"
+        ).format(**imu_info)
 
         # Add the formatted text to the bottom-right corner.
         # For 3D Axes, use x, y, z, s
