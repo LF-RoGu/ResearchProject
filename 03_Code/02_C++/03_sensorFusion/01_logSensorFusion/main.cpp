@@ -59,8 +59,8 @@ static IWR6843     radarSensor;
 static XsensMti710 imuSensor;
 
 #ifndef VALIDATE_PRINT
-static ofstream csvRadar("_outFiles/radar_testQuater.csv");
-static ofstream csvImu  ("_outFiles/imu_testQuater.csv");
+static ofstream csvRadar("_outFiles/radar_straightWall_3.csv");
+static ofstream csvImu  ("_outFiles/imu_straightWall_3.csv");
 #endif
 
 /*=== threadIwr6843(): Radar acquisition & filtering ===*/
