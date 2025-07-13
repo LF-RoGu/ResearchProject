@@ -237,6 +237,10 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
     l_filteredData = pointFilter.extract_points(filtered_var)
     l_clusterData = pointFilter.extract_points(cluster_var)
 
+    MMWAVE_FPS = 30
+    N_frames = FRAME_AGGREGATOR_NUM_PAST_FRAMES
+    DT = N_frames / MMWAVE_FPS
+
 
     def add_corner_text(ax, imu):
         text = (
@@ -321,6 +325,18 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
             priority = cluster_data['priority']
             doppler_avg = cluster_data['doppler_avg']
 
+            vx = cluster_data.get('mean_vx', 0.0)
+            vy = cluster_data.get('mean_vy', 0.0)
+
+            ax_cluster.quiver(
+                centroid[0], centroid[1], centroid[2],  # start
+                vx, vy, 0,                               # vector components
+                length=2.0, # Lenght of the arrow
+                normalize=True,
+                color='red',
+                arrow_length_ratio=0.2
+            )
+
             color = priority_colors.get(priority, 'gray')
             ax_cluster.scatter(points[:, 0], points[:, 1], points[:, 2],
                                c=color, s=8, alpha=0.7)
@@ -330,6 +346,14 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
                 f"ID:{cluster_data['cluster_id']} P:{priority} {doppler_avg:.2f} m/s",
                 fontsize=7,
                 color='purple'
+            )
+            ax_cluster.text(
+                centroid[0] + vx * DT,
+                centroid[1] + vy * DT,
+                centroid[2] + 0.2,
+                f"Vx:{vx:.2f} Vy:{vy:.2f}",
+                fontsize=7,
+                color='red'
             )
     else:
         ax_cluster.text(0, 0, 0, 'No Clusters Detected', fontsize=12, color='red')
@@ -360,7 +384,7 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
     
 
     # -----------------------------
-    # PLOT: Estimated Clusters (Bottom-Right)
+    # PLOT: Estimated Clusters
     # -----------------------------
     ax_estimation = axes['Estimated-Clusters']
     ax_estimation.clear()
@@ -372,10 +396,6 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
     ax_estimation.set_ylim(0, 15)
     ax_estimation.set_zlim(-2, 10)
     ax_estimation.view_init(elev=90, azim=-90)
-
-    MMWAVE_FPS = 30
-    N_frames = FRAME_AGGREGATOR_NUM_PAST_FRAMES
-    DT = N_frames / MMWAVE_FPS
 
 
     # Keep track so we only add legend labels once
