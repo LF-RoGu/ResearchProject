@@ -30,6 +30,18 @@ def filterCartesianY(inputPoints, y_min, y_max):
     filteredPoints = []
     try:
         for i in range(len(inputPoints)):
+            point_x = inputPoints[i]["x"]
+            if point_x >= y_min and point_x <= y_max:
+                filteredPoints.append(inputPoints[i])
+    except (ValueError, IndexError) as e:
+        print(f"Error filtering points: {e}")
+        return None
+    return filteredPoints
+
+def filterCartesianY(inputPoints, y_min, y_max):
+    filteredPoints = []
+    try:
+        for i in range(len(inputPoints)):
             point_y = inputPoints[i]["y"]
             if point_y >= y_min and point_y <= y_max:
                 filteredPoints.append(inputPoints[i])
