@@ -4,6 +4,7 @@ import math
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 from matplotlib.gridspec import GridSpec
+from collections import defaultdict
 
 from frameAggregator import FrameAggregator
 import pointFilter
@@ -30,7 +31,7 @@ from decodeFile import RadarCSVReader
 # DEBUG SWITCH: Toggle detailed cluster debug logs
 # -------------------------------------------------------------
 DEBUG_CLUSTER   = False  # Set to False to disable debug logs
-DEBUG_VXVY      = True
+DEBUG_VXVY      = False
 
 # -------------------------------------------------------------
 # CONSTANTS: Simulation parameters
@@ -45,19 +46,22 @@ FILTER_PHI_MIN                      = -85
 FILTER_PHI_MAX                      = 85
 FILTER_DOPPLER_MIN                  = 0.0
 FILTER_DOPPLER_MAX                  = 8.0
+CLUSTER_HISTORY_LENGTH              = 2  
 
 # -------------------------------------------------------------
 # OBJECTS: Processing stages
 # -------------------------------------------------------------
 cluster_processor_stage1 = dbCluster.ClusterProcessor(eps=2.0, min_samples=2)
-cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.0, min_samples=4)
+cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.0, min_samples=2)
 grid_processor           = occupancyGrid.OccupancyGridProcessor(grid_spacing=0.5)
+cluster_tracks          = defaultdict(list) # Holds tracked clusters: dict of { persistent_id : [centroid_history] }
 
 
 # -------------------------------------------------------------
 # DEBUG VAR: Variables for debugging
 # -------------------------------------------------------------
 # Global variable to hold clusters per frame
+prev_frame_clusters = []
 current_frame_clusters = []
 
 # -------------------------------------------------------------
@@ -95,6 +99,7 @@ def average_imu_records(imu_records):
 # -------------------------------------------------------------
 def update_sim(new_frame):
     global curr_num_frame
+    global prev_frame_clusters
 
     if new_frame < curr_num_frame:
         frame_aggregator.clearBuffer()
@@ -124,101 +129,95 @@ def update_sim(new_frame):
         if DEBUG_CLUSTER:
             print(f"\n[DEBUG] Stage 1: Points for clustering shape: {points_for_clustering.shape}")
             if points_for_clustering.size > 0:
-                print(f"[DEBUG] Stage 1: Example point: {points_for_clustering[0]}")  # [x,y,z,doppler]
+                print(f"[DEBUG] Stage 1: Example point: {points_for_clustering[0]}")
 
         cluster_pointCloud_stage1, _ = cluster_processor_stage1.cluster_points(points_for_clustering)
 
-        if DEBUG_CLUSTER:
-            print(f"[DEBUG] Stage 1: Number of clusters found: {len(cluster_pointCloud_stage1)}")
-            for cid, cdata in cluster_pointCloud_stage1.items():
-                print(f"\n[DEBUG] Stage 1 - Cluster {cid}: {cdata['points'].shape} points")
-                for pt in cdata['points']:
-                    print(f"   {pt}")  # [x,y,z,doppler]
-
         # ------------------------
-        # STAGE 2 CLUSTERING (optional)
+        # STAGE 2 CLUSTERING
         # ------------------------
         if len(cluster_pointCloud_stage1) > 0:
             points_stage1_flat = np.vstack([cdata['points'] for cdata in cluster_pointCloud_stage1.values()])
-
-            if DEBUG_CLUSTER:
-                print(f"\n[DEBUG] Stage 2: Points for clustering shape: {points_stage1_flat.shape}")
-                if points_stage1_flat.size > 0:
-                    print(f"[DEBUG] Stage 2: Example point: {points_stage1_flat[0]}")
-
             cluster_pointCloud_stage2, _ = cluster_processor_stage2.cluster_points(points_stage1_flat)
 
-            if DEBUG_CLUSTER:
-                print(f"[DEBUG] Stage 2: Number of clusters found: {len(cluster_pointCloud_stage2)}")
-                for cid, cdata in cluster_pointCloud_stage2.items():
-                    print(f"\n[DEBUG] Stage 2 - Cluster {cid}: {cdata['points'].shape} points")
-                    for pt in cdata['points']:
-                        print(f"   {pt}")
-
-            # ------------------------
-            # NEW: Compute mean (v_x, v_y) for each cluster
-            # ------------------------
             for cid, cdata in cluster_pointCloud_stage2.items():
-                points = cdata['points']   # shape (N, 4): [x,y,z,doppler]
-
+                points = cdata['points']
                 x = points[:, 0]
                 y = points[:, 1]
-                phis = np.arctan2(x, y)   # Y is North → atan2(x, y)
-
+                phis = np.arctan2(x, y)
                 dopplers = points[:, 3]
-
                 A = np.stack([np.cos(phis), np.sin(phis)], axis=1)
                 R = dopplers.reshape(-1, 1)
-
                 V, _, _, _ = np.linalg.lstsq(A, R, rcond=None)
-                v_x, v_y = V.flatten() # gives [v_x, v_y] as float type values
-
-                # ------------------------
-                # Validation of prediction of measurements for validation purposes
-                # ------------------------
-                predicted_R = v_x * np.cos(phis) + v_y * np.sin(phis)
-                mean_measured = np.mean(dopplers)
-                mean_predicted = np.mean(predicted_R)
-                rms_error = np.sqrt(np.mean((dopplers - predicted_R)**2))
+                v_x, v_y = V.flatten()
 
                 if DEBUG_VXVY:
-                    print(f"[DEBUG_VXVY] Cluster {cid} mean Cartesian speed vector: "
-                          f"Vx={v_x:.2f} m/s, Vy={v_y:.2f} m/s")
-                    print("----------------------------------------------------------")
-                    print(f"[DEBUG_VXVY] Cluster {cid}: mean Doppler measured = {mean_measured:.2f} m/s")
-                    print(f"[DEBUG_VXVY] Cluster {cid}: mean Doppler predicted = {mean_predicted:.2f} m/s")
-                    # Low RMS error → good single rigid-body motion
-                    # High RMS error → suspicious cluster
-                    print(f"[DEBUG_VXVY] Cluster {cid}: RMS Doppler error = {rms_error:.4f} m/s") 
+                    predicted_R = v_x * np.cos(phis) + v_y * np.sin(phis)
+                    mean_measured = np.mean(dopplers)
+                    mean_predicted = np.mean(predicted_R)
+                    rms_error = np.sqrt(np.mean((dopplers - predicted_R)**2))
+                    print(f"[DEBUG_VXVY] Cluster {cid} mean VxVy: Vx={v_x:.2f} Vy={v_y:.2f} m/s")
+                    print(f"[DEBUG_VXVY] Cluster {cid} mean Doppler: measured={mean_measured:.2f}, predicted={mean_predicted:.2f}, RMS error={rms_error:.4f}")
 
-                # Optional: add to cluster data if you want to store it
                 cdata['mean_vx'] = v_x
                 cdata['mean_vy'] = v_y
-                cdata['cluster_id'] = cid
 
             final_clusters = cluster_pointCloud_stage2
-
         else:
             final_clusters = {}
 
     # ------------------------
-    # STORE FINAL CLUSTERS
+    # DATA ASSOCIATION: match clusters to persistent IDs
     # ------------------------
     current_frame_clusters.clear()
+    if not prev_frame_clusters:
+        next_id = 0
+    else:
+        next_id = max(prev['persistent_id'] for prev in prev_frame_clusters) + 1
+
     for cid, cdata in final_clusters.items():
+        centroid = cdata['centroid']
+        matched_id = None
+        min_dist = np.inf
+
+        for prev in prev_frame_clusters:
+            dist = np.linalg.norm(centroid - prev['centroid'])
+            if dist < 1.0 and dist < min_dist:
+                matched_id = prev['persistent_id']
+                min_dist = dist
+
+        if matched_id is not None:
+            persistent_id = matched_id
+        else:
+            persistent_id = next_id
+            next_id += 1
+
+        # Save ID for use in plot and tracking
+        cdata['persistent_id'] = persistent_id
+
+        # Track the centroid history
+        cluster_tracks[persistent_id].append(centroid)
+        if len(cluster_tracks[persistent_id]) > CLUSTER_HISTORY_LENGTH:
+            cluster_tracks[persistent_id].pop(0)
+
         current_frame_clusters.append({
-            'cluster_id': cid,
+            'persistent_id': persistent_id,
+            'centroid': centroid,
             'points': cdata['points'],
-            'centroid': cdata['centroid'],
             'priority': cdata['priority'],
             'doppler_avg': cdata['doppler_avg'],
             'mean_vx': cdata.get('mean_vx', 0.0),
             'mean_vy': cdata.get('mean_vy', 0.0)
         })
 
-    # ------------------------
-    # UPDATE PLOTS
-    # ------------------------
+    # Save for next frame
+    prev_frame_clusters = current_frame_clusters.copy()
+    # Clean up: remove tracks for clusters no longer seen
+    active_ids = {c['persistent_id'] for c in current_frame_clusters}
+    inactive_ids = [pid for pid in cluster_tracks if pid not in active_ids]
+    for pid in inactive_ids:
+        del cluster_tracks[pid]
+
     update_graphs(
         raw_var=raw_pointCloud,
         filtered_var=filtered_pointCloud,
@@ -343,7 +342,7 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
 
             ax_cluster.text(
                 centroid[0] + 0.2, centroid[1] + 0.2, centroid[2] + 0.2,
-                f"ID:{cluster_data['cluster_id']} P:{priority} {doppler_avg:.2f} m/s",
+                f"ID:{cluster_data['persistent_id']} P:{priority} {doppler_avg:.2f} m/s",
                 fontsize=7,
                 color='purple'
             )
@@ -442,16 +441,75 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
             # Label the estimated centroid
             ax_estimation.text(
                 pred_centroid[0], pred_centroid[1], pred_centroid[2] + 0.1,
-                f"ID:{cluster_data['cluster_id']}",
+                f"ID:{cluster_data['persistent_id']}",
                 fontsize=7, color='purple'
             )
 
     # Add legend
-    ax_estimation.legend(loc='upper right', fontsize=7)
+    handles, labels = ax_estimation.get_legend_handles_labels()
+    if handles:
+        ax_estimation.legend(loc='upper right', fontsize=7)
 
 
-                 
+    # -------------------------------------------------------------
+    # PLOT: Cluster Trajectories 
+    # -------------------------------------------------------------
+    axes['Cluster-Trajectories'].clear()
+    axes['Cluster-Trajectories'].set_title("Cluster Trajectories")
+    axes['Cluster-Trajectories'].set_xlabel("X [m]")
+    axes['Cluster-Trajectories'].set_ylabel("Y [m]")
+    axes['Cluster-Trajectories'].set_zlabel("Z [m]")
+    axes['Cluster-Trajectories'].set_xlim(-10, 10)
+    axes['Cluster-Trajectories'].set_ylim(0, 15)
+    axes['Cluster-Trajectories'].set_zlim(-2, 10)
+    axes['Cluster-Trajectories'].view_init(elev=90, azim=-90)
 
+    # Plot each tracked cluster using its persistent ID
+    for pid, history in cluster_tracks.items():
+        history = np.array(history)
+        axes['Cluster-Trajectories'].plot(
+            history[:, 0], history[:, 1], history[:, 2],
+            marker='o', label=f"ID:{pid}"
+        )
+
+        # Optionally, draw a simple extension line to show heading
+        if len(history) >= 2:
+            last = history[-1]
+            prev = history[-2]
+
+            dx = last[0] - prev[0]
+            dy = last[1] - prev[1]
+
+            norm = np.hypot(dx, dy) + 1e-6  # Avoid div by zero
+            dx_unit = dx / norm
+            dy_unit = dy / norm
+
+            ext_length = 2.0  # meters for visual clarity
+
+            axes['Cluster-Trajectories'].quiver(
+                last[0], last[1], last[2],
+                dx_unit, dy_unit, 0,
+                length=ext_length,
+                normalize=False,
+                color='blue',
+                arrow_length_ratio=0.2
+            )
+
+            axes['Cluster-Trajectories'].text(
+                last[0] + dx_unit * ext_length,
+                last[1] + dy_unit * ext_length,
+                last[2] + 0.1,
+                f"m={dy/dx:.2f}" if abs(dx) > 1e-3 else "m=inf",
+                fontsize=7,
+                color='blue'
+            )
+
+    handles, labels = axes['Cluster-Trajectories'].get_legend_handles_labels()
+    if handles:
+        axes['Cluster-Trajectories'].legend(fontsize=7)
+
+
+           
 
 # -------------------------------------------------------------
 # HELPER: compute yaw from IMU quaternion
@@ -501,9 +559,9 @@ frame_aggregator = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 fig = plt.figure(figsize=(12, 9))
 axes = create_named_subplots(
     fig,
-    (2, 2),
-    names=["Raw-PointCloud", "Filter-PointCloud", "DB-Clustered-PointCloud", "Estimated-Clusters"],
-    projections=["3d", "3d", "3d", "3d"]
+    (2, 3),
+    names=["Raw-PointCloud", "Filter-PointCloud", "DB-Clustered-PointCloud", "Estimated-Clusters", "IMU-Direction", "Cluster-Trajectories"],
+    projections=["3d", "3d", "3d", "3d", "2d", "3d"]
 )
 
 # additional 2D axes for IMU direction arrows
