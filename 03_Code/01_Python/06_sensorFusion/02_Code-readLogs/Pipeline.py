@@ -171,7 +171,7 @@ def update_sim(new_frame):
                 R = dopplers.reshape(-1, 1)
 
                 V, _, _, _ = np.linalg.lstsq(A, R, rcond=None)
-                v_x, v_y = V.flatten()
+                v_x, v_y = V.flatten() # gives [v_x, v_y] as float type values
 
                 # ------------------------
                 # Validation of prediction of measurements for validation purposes
@@ -334,7 +334,7 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
     else:
         ax_cluster.text(0, 0, 0, 'No Clusters Detected', fontsize=12, color='red')
     # -------------------------------------------------------------
-    # 2D IMU‐Direction arrows (new)
+    # PLOT: 2D IMU‐Direction arrows
     # -------------------------------------------------------------
     ax_dir = axes['IMU-Direction']
     ax_dir.clear()
@@ -357,6 +357,79 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
     y2 =  math.cos(yaw)
     ax_dir.arrow(0, 0, x2, y2,
                  head_width=0.05, length_includes_head=True, color='g')
+    
+
+    # -----------------------------
+    # PLOT: Estimated Clusters (Bottom-Right)
+    # -----------------------------
+    ax_estimation = axes['Estimated-Clusters']
+    ax_estimation.clear()
+    ax_estimation.set_title('Estimated Clusters')
+    ax_estimation.set_xlabel('X [m]')
+    ax_estimation.set_ylabel('Y [m]')
+    ax_estimation.set_zlabel('Z [m]')
+    ax_estimation.set_xlim(-10, 10)
+    ax_estimation.set_ylim(0, 15)
+    ax_estimation.set_zlim(-2, 10)
+    ax_estimation.view_init(elev=90, azim=-90)
+
+    MMWAVE_FPS = 30
+    N_frames = FRAME_AGGREGATOR_NUM_PAST_FRAMES
+    DT = N_frames / MMWAVE_FPS
+
+
+    # Keep track so we only add legend labels once
+    legend_added = {'original': False, 'estimated': False}
+
+    if cluster_var and isinstance(cluster_var, dict):
+        for _, cluster_data in cluster_var.items():
+            points = cluster_data['points']
+            centroid = cluster_data['centroid']
+            vx = cluster_data.get('mean_vx', 0.0)
+            vy = cluster_data.get('mean_vy', 0.0)
+
+            # Predict next centroid
+            pred_centroid = estimated_next_position(centroid, vx, vy, DT)
+
+            # Shift all points
+            pred_points = np.copy(points)
+            pred_points[:, 0] += vx * DT
+            pred_points[:, 1] += vy * DT
+
+            # Original cluster: blue
+            ax_estimation.scatter(
+                points[:, 0], points[:, 1], points[:, 2],
+                c='blue', s=8, alpha=0.4,
+                label='Current Cluster' if not legend_added['original'] else ""
+            )
+            legend_added['original'] = True
+
+            # Estimated cluster: lime
+            ax_estimation.scatter(
+                pred_points[:, 0], pred_points[:, 1], pred_points[:, 2],
+                c='lime', s=8, alpha=0.7,
+                label='Estimated Next Position' if not legend_added['estimated'] else ""
+            )
+            legend_added['estimated'] = True
+
+            # Arrow for the vector
+            ax_estimation.quiver(
+                centroid[0], centroid[1], centroid[2], # start at current centroid
+                vx, vy, 0, # vector components in X,Y,Z
+                length=DT, normalize=False, color='red'
+            ) # The estimated motion direction for the cluster.
+
+            # Label the estimated centroid
+            ax_estimation.text(
+                pred_centroid[0], pred_centroid[1], pred_centroid[2] + 0.1,
+                f"ID:{cluster_data['cluster_id']}",
+                fontsize=7, color='purple'
+            )
+
+    # Add legend
+    ax_estimation.legend(loc='upper right', fontsize=7)
+
+
                  
 
 
@@ -377,6 +450,15 @@ def _compute_yaw(imu):
             2*(qw*qz + qx*qy),
             1 - 2*(qy*qy + qz*qz)
         )
+    
+# -------------------------------------------------------------
+# HELPER: compute estimation of next cluster
+# -------------------------------------------------------------
+def estimated_next_position(centroid, vx, vy, dt):
+    # Only X,Y because you’re using 2D motion
+    estimated = np.array(centroid[:2]) + dt * np.array([vx, vy])
+    # Keep Z as same
+    return np.array([estimated[0], estimated[1], centroid[2]])
 
 
 # -------------------------------------------------------------
@@ -400,8 +482,8 @@ fig = plt.figure(figsize=(12, 9))
 axes = create_named_subplots(
     fig,
     (2, 2),
-    names=["Raw-PointCloud", "Filter-PointCloud", "DB-Clustered-PointCloud"],
-    projections=["3d", "3d", "3d"]
+    names=["Raw-PointCloud", "Filter-PointCloud", "DB-Clustered-PointCloud", "Estimated-Clusters"],
+    projections=["3d", "3d", "3d", "3d"]
 )
 
 # additional 2D axes for IMU direction arrows
