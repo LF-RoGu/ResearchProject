@@ -21,10 +21,16 @@
 #include "mmWave-IWR6843/radar_sensor/IWR6843.h"
 #include "mmWave-IWR6843/radar_sensor/SensorData.h"
 #include "MTi-G-710/xsens_mti710.hpp"
+// TCP server
+#include <sstream>         // For std::ostringstream
+#include <sys/socket.h>    // For socket(), bind(), listen(), accept(), send()
+#include <netinet/in.h>    // For sockaddr_in, INADDR_ANY, AF_INET
+#include <arpa/inet.h>     // For htons()
 
 using namespace std;
 
 const char CSV_TAB = ',';
+static int client_fd = -1;  // TCP connection socket
 
 /* Uncomment to PRINT instead of logging to CSV */
 /* #define VALIDATE_PRINT */
@@ -57,11 +63,6 @@ static queue<MTiData>                 imuQueue;
 /* Sensor objects */
 static IWR6843     radarSensor;
 static XsensMti710 imuSensor;
-
-#ifndef VALIDATE_PRINT
-static ofstream csvRadar("_outFiles/radar_straightWall_3.csv");
-static ofstream csvImu  ("_outFiles/imu_straightWall_3.csv");
-#endif
 
 /*=== threadIwr6843(): Radar acquisition & filtering ===*/
 void threadIwr6843(void)
@@ -181,16 +182,6 @@ void threadIwr6843(void)
 /*=== threadMti710(): IMU acquisition ===*/
 void threadMti710(void)
 {
-    /* Step 1: initialize IMU */
-    if ((imuSensor.findXsensDevice() != DEVICE_FOUND_SUCCESS) ||
-        (imuSensor.openXsensPort()   != OPEN_PORT_SUCCESS))
-    {
-        cerr << "[ERROR] Unable to initialize IMU\n";
-        return;
-    }
-    imuSensor.configure();
-
-    /* Step 2: continuous read/parse */
     xsens_interface_t iface = XSENS_INTERFACE_RX(&XsensMti710::xsens_event_handler);
     uint8_t buf[256];
     for (;;)
@@ -216,38 +207,14 @@ void threadMti710(void)
 /*=== threadWriter(): synchronizes and logs data ===*/
 void threadWriter(void)
 {
-#ifndef VALIDATE_PRINT
-    /* Step 1: ensure files open */
-    if ((!csvRadar.is_open())  || (!csvImu.is_open()))
-    {
-        cerr << "[ERROR] Output files not open!\n";
-        return;
-    }
-    /* write CSV headers */
-    csvRadar << "frame_id,point_id,x,y,z,doppler,snr,noise\n";
-    csvImu   << "frame_id,imu_idx,"
-             << "quat_w,quat_x,quat_y,quat_z,"
-             << "accel_x,accel_y,accel_z,"
-             << "free_accel_x,free_accel_y,free_accel_z,"
-             << "delta_v_x,delta_v_y,delta_v_z,"
-             << "delta_q_w,delta_q_x,delta_q_y,delta_q_z,"
-             << "rate_x,rate_y,rate_z,"
-             << "quat_w,quat_x,quat_y,quat_z,"
-             << "mag_x,mag_y,mag_z,"
-             << "temperature,status_byte,packet_counter,time_fine\n";
-#else
-    cout << "[VALIDATE_PRINT] Writer in PRINT mode\n";
-#endif
-
     for (;;)
     {
-        /* Step 2: wait for at least one radar frame and one IMU sample */
+        /* Wait for radar + IMU data */
         unique_lock<mutex> lk(writeMutex);
         dataCV.wait(lk, []{
             return (!radarQueue.empty()) && (!imuQueue.empty());
         });
 
-        /* Step 3: dequeue radar frame */
         vector<ValidRadarPoint> radarPts = move(radarQueue.front());
         radarQueue.pop();
         lk.unlock();
@@ -255,20 +222,16 @@ void threadWriter(void)
         const size_t N = radarPts.size();
         const size_t imuNeeded = N * 2UL;
 
-        /* Step 4: wait until we have 2·N IMU samples */
-        {
-            unique_lock<mutex> lk2(writeMutex);
-            dataCV.wait(lk2, [&]{
-                return imuQueue.size() >= imuNeeded;
-            });
-        }
+        unique_lock<mutex> lk2(writeMutex);
+        dataCV.wait(lk2, [&]{
+            return imuQueue.size() >= imuNeeded;
+        });
 
-        /* Step 5: collect exactly 2·N IMU samples */
         vector<MTiData> imuSamples;
         imuSamples.reserve(imuNeeded);
         {
             lock_guard<mutex> lock(imuMutex);
-            for (size_t i = 0UL; i < imuNeeded; ++i)
+            for (size_t i = 0; i < imuNeeded; ++i)
             {
                 imuSamples.push_back(imuQueue.front());
                 imuQueue.pop();
@@ -277,87 +240,96 @@ void threadWriter(void)
 
         const uint32_t fid = radarPts.front().frameId;
 
-        /* Step 6: output radar points */
-#ifdef VALIDATE_PRINT
+        /* === NEW PART: send radar points to TCP === */
         for (const auto& pt : radarPts)
         {
-            cout << "[RADAR] frame=" << pt.frameId
-                 << " pt="   << pt.pointId
-                 << " x="    << pt.x
-                 << " y="    << pt.y
-                 << " z="    << pt.z
-                 << " dop="  << pt.doppler
-                 << " snr="  << pt.snr
-                 << " noise="<< pt.noise
-                 << "\n";
-        }
-#else
-        for (const auto& pt : radarPts)
-        {
-            csvRadar << pt.frameId  << CSV_TAB
-                     << pt.pointId  << CSV_TAB
-                     << pt.x        << CSV_TAB
-                     << pt.y        << CSV_TAB
-                     << pt.z        << CSV_TAB
-                     << pt.doppler  << CSV_TAB
-                     << pt.snr      << CSV_TAB
-                     << pt.noise    << "\n";
-        }
-        csvRadar.flush();
-#endif
+            std::ostringstream oss;
+            oss << "[RADAR] frame=" << pt.frameId
+                << " pt="   << pt.pointId
+                << " x="    << pt.x
+                << " y="    << pt.y
+                << " z="    << pt.z
+                << " dop="  << pt.doppler
+                << " snr="  << pt.snr
+                << " noise="<< pt.noise
+                << "\n";
 
-        /* Step 7: output 2·N IMU samples */
+            if (client_fd >= 0)
+            {
+                const std::string line = oss.str();
+                send(client_fd, line.c_str(), line.size(), 0);
+            }
+        }
+
+        /* === NEW PART: send IMU samples to TCP === */
         for (size_t i = 0UL; i < imuSamples.size(); ++i)
         {
             const MTiData& imu = imuSamples[i];
-#ifdef VALIDATE_PRINT
-            cout << "[IMU] frame=" << fid
-                 << " idx="  << (i + 1UL)
-                 << " accel=("
-                 << imu.acceleration[0] << ","
-                 << imu.acceleration[1] << ","
-                 << imu.acceleration[2] << ")  pkt="
-                 << imu.packet_counter
-                 << "\n";
-#else
-            csvImu << fid               << CSV_TAB
-                   << (i + 1UL)         << CSV_TAB
-                   << imu.quaternion[0] << CSV_TAB  // w
-                   << imu.quaternion[1] << CSV_TAB  // x
-                   << imu.quaternion[2] << CSV_TAB  // y
-                   << imu.quaternion[3] << CSV_TAB  // z
-                   << imu.acceleration[0]      << CSV_TAB
-                   << imu.acceleration[1]      << CSV_TAB
-                   << imu.acceleration[2]      << CSV_TAB
-                   << imu.free_acceleration[0] << CSV_TAB
-                   << imu.free_acceleration[1] << CSV_TAB
-                   << imu.free_acceleration[2] << CSV_TAB
-                   << imu.delta_v[0]           << CSV_TAB
-                   << imu.delta_v[1]           << CSV_TAB
-                   << imu.delta_v[2]           << CSV_TAB
-                   << imu.delta_q[0]           << CSV_TAB
-                   << imu.delta_q[1]           << CSV_TAB
-                   << imu.delta_q[2]           << CSV_TAB
-                   << imu.delta_q[3]           << CSV_TAB
-                   << imu.rate_of_turn[0]      << CSV_TAB
-                   << imu.rate_of_turn[1]      << CSV_TAB
-                   << imu.rate_of_turn[2]      << CSV_TAB
-                   << imu.quaternion[0]        << CSV_TAB
-                   << imu.quaternion[1]        << CSV_TAB
-                   << imu.quaternion[2]        << CSV_TAB
-                   << imu.quaternion[3]        << CSV_TAB
-                   << imu.magnetic[0]          << CSV_TAB
-                   << imu.magnetic[1]          << CSV_TAB
-                   << imu.magnetic[2]          << CSV_TAB
-                   << imu.temperature          << CSV_TAB
-                   << int(imu.status_byte)     << CSV_TAB
-                   << imu.packet_counter       << CSV_TAB
-                   << imu.time_fine            << "\n";
+            std::ostringstream oss;
+            oss << "[IMU] frame=" << fid
+                << " idx=" << (i + 1UL)
+                << " quat=("
+                << imu.quaternion[0] << ","
+                << imu.quaternion[1] << ","
+                << imu.quaternion[2] << ","
+                << imu.quaternion[3] << ") "
+                << " accel=("
+                << imu.acceleration[0] << ","
+                << imu.acceleration[1] << ","
+                << imu.acceleration[2] << ") "
+                << " pkt=" << imu.packet_counter
+                << "\n";
+
+            if (client_fd >= 0)
+            {
+                const std::string line = oss.str();
+                send(client_fd, line.c_str(), line.size(), 0);
+            }
         }
-        csvImu.flush();
-#endif
     }
 }
+
+
+/*=== threadTcpServer(): synchronizes and sends data ===*/
+void threadTcpServer()
+{
+    int server_fd;
+    struct sockaddr_in address;
+    int addrlen = sizeof(address);
+
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd == 0)
+    {
+        cerr << "[ERROR] TCP socket failed\n";
+        return;
+    }
+
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;  // Listen on all interfaces
+    address.sin_port = htons(9000);
+
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
+    {
+        cerr << "[ERROR] TCP bind failed\n";
+        return;
+    }
+
+    if (listen(server_fd, 1) < 0)
+    {
+        cerr << "[ERROR] TCP listen failed\n";
+        return;
+    }
+
+    cout << "[INFO] TCP Server waiting for client on port 9000...\n";
+    client_fd = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen);
+    if (client_fd < 0)
+    {
+        cerr << "[ERROR] TCP accept failed\n";
+        return;
+    }
+    cout << "[INFO] TCP Client connected!\n";
+}
+
 
 /*=== MAIN ===*/
 int main(void)
@@ -372,15 +344,22 @@ int main(void)
         cerr << "[ERROR] radarSensor.init() failed\n";
         return 1;
     }
-
-#ifndef VALIDATE_PRINT
-    cout << "[INFO] Opening output files...\n";
-    if ((!csvRadar.is_open()) || (!csvImu.is_open()))
+    /* Step 1: initialize IMU */
+    if ((imuSensor.findXsensDevice() != DEVICE_FOUND_SUCCESS) ||
+        (imuSensor.openXsensPort()   != OPEN_PORT_SUCCESS))
     {
-        cerr << "[ERROR] Failed to open CSVs\n";
+        cerr << "[ERROR] Unable to initialize IMU\n";
         return 1;
     }
-#endif
+    imuSensor.configure();
+
+    threadTcpServer();
+    // When we get here, the client is connected
+    if (client_fd < 0)
+    {
+        cerr << "[ERROR] No TCP client. Exiting.\n";
+        return 1;
+    }
 
     cout << "[INFO] Spawning threads...\n";
     thread thread_iwr6843(threadIwr6843);
@@ -391,11 +370,6 @@ int main(void)
     thread_iwr6843.join();
     thread_mti710.join();
     thread_logger.join();
-
-#ifndef VALIDATE_PRINT
-    csvRadar.close();
-    csvImu.close();
-#endif
 
     return 0;
 }
