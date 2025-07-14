@@ -56,14 +56,14 @@ cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.0, min_samples=2)
 grid_processor           = occupancyGrid.OccupancyGridProcessor(grid_spacing=0.5)
 cluster_tracks          = defaultdict(list) # Holds tracked clusters: dict of { persistent_id : [centroid_history] }
 
-
-# -------------------------------------------------------------
-# DEBUG VAR: Variables for debugging
-# -------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# GLOBALS: Backups and flags for cluster gap estimation
+# ---------------------------------------------------------------------------
+prev_cluster_snapshots = {}  # Stores last known clusters for each persistent ID
+missing_clusters = []        # Stores IDs missing in current frame for gap fill
 # Global variable to hold clusters per frame
 prev_frame_clusters = []
 current_frame_clusters = []
-
 # -------------------------------------------------------------
 # FUNCTION: create_named_subplots
 # PURPOSE: Create multiple named subplots with specified projections.
@@ -93,13 +93,25 @@ def average_imu_records(imu_records):
             for f in numeric_fields}
 
 
-# -------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# GLOBALS: Backups and flags for cluster gap estimation
+# ---------------------------------------------------------------------------
+prev_cluster_snapshots = {}  # Stores last known clusters for each persistent ID
+missing_clusters = []        # Stores IDs missing in current frame for gap fill
+
+# ---------------------------------------------------------------------------
 # FUNCTION: update_sim
-# PURPOSE: Simulation update logic for processing frames.
-# -------------------------------------------------------------
+# PURPOSE:
+#   - Processes new frames
+#   - Tracks persistent IDs using nearest neighbor
+#   - Updates backup snapshot
+#   - Detects missing clusters and flags them for estimation
+# ---------------------------------------------------------------------------
 def update_sim(new_frame):
     global curr_num_frame
     global prev_frame_clusters
+    global prev_cluster_snapshots
+    global missing_clusters
 
     if new_frame < curr_num_frame:
         frame_aggregator.clearBuffer()
@@ -107,7 +119,7 @@ def update_sim(new_frame):
 
     for fid in range(curr_num_frame + 1, new_frame + 1):
         imu_list = imu_frames[fid]
-        imu_avg  = average_imu_records(imu_list)
+        imu_avg = average_imu_records(imu_list)
 
         frame_aggregator.updateBuffer(radar_frames[fid])
         raw_pointCloud = frame_aggregator.getPoints()
@@ -125,12 +137,6 @@ def update_sim(new_frame):
         # STAGE 1 CLUSTERING
         # ------------------------
         points_for_clustering = pointFilter.extract_points(filtered_pointCloud)
-
-        if DEBUG_CLUSTER:
-            print(f"\n[DEBUG] Stage 1: Points for clustering shape: {points_for_clustering.shape}")
-            if points_for_clustering.size > 0:
-                print(f"[DEBUG] Stage 1: Example point: {points_for_clustering[0]}")
-
         cluster_pointCloud_stage1, _ = cluster_processor_stage1.cluster_points(points_for_clustering)
 
         # ------------------------
@@ -150,15 +156,6 @@ def update_sim(new_frame):
                 R = dopplers.reshape(-1, 1)
                 V, _, _, _ = np.linalg.lstsq(A, R, rcond=None)
                 v_x, v_y = V.flatten()
-
-                if DEBUG_VXVY:
-                    predicted_R = v_x * np.cos(phis) + v_y * np.sin(phis)
-                    mean_measured = np.mean(dopplers)
-                    mean_predicted = np.mean(predicted_R)
-                    rms_error = np.sqrt(np.mean((dopplers - predicted_R)**2))
-                    print(f"[DEBUG_VXVY] Cluster {cid} mean VxVy: Vx={v_x:.2f} Vy={v_y:.2f} m/s")
-                    print(f"[DEBUG_VXVY] Cluster {cid} mean Doppler: measured={mean_measured:.2f}, predicted={mean_predicted:.2f}, RMS error={rms_error:.4f}")
-
                 cdata['mean_vx'] = v_x
                 cdata['mean_vy'] = v_y
 
@@ -167,9 +164,10 @@ def update_sim(new_frame):
             final_clusters = {}
 
     # ------------------------
-    # DATA ASSOCIATION: match clusters to persistent IDs
+    # ASSOCIATION & TRACKING
     # ------------------------
     current_frame_clusters.clear()
+    active_ids = set()
     if not prev_frame_clusters:
         next_id = 0
     else:
@@ -192,15 +190,13 @@ def update_sim(new_frame):
             persistent_id = next_id
             next_id += 1
 
-        # Save ID for use in plot and tracking
         cdata['persistent_id'] = persistent_id
-
-        # Track the centroid history
         cluster_tracks[persistent_id].append(centroid)
         if len(cluster_tracks[persistent_id]) > CLUSTER_HISTORY_LENGTH:
             cluster_tracks[persistent_id].pop(0)
 
-        current_frame_clusters.append({
+        # Backup snapshot for possible gap fill
+        prev_cluster_snapshots[persistent_id] = {
             'persistent_id': persistent_id,
             'centroid': centroid,
             'points': cdata['points'],
@@ -208,15 +204,27 @@ def update_sim(new_frame):
             'doppler_avg': cdata['doppler_avg'],
             'mean_vx': cdata.get('mean_vx', 0.0),
             'mean_vy': cdata.get('mean_vy', 0.0)
-        })
+        }
 
-    # Save for next frame
+        active_ids.add(persistent_id)
+        current_frame_clusters.append(prev_cluster_snapshots[persistent_id])
+
+    # ------------------------
+    # GAP CHECK: mark missing IDs
+    # ------------------------
+    missing_clusters.clear()
+    for pid in prev_cluster_snapshots.keys():
+        if pid not in active_ids:
+            missing_clusters.append(pid)
+            centroid = prev_cluster_snapshots[pid]['centroid']
+            print(f"[DEBUG] Frame: {new_frame}...   Cluster ID {pid} missing. Last centroid = {centroid}")
+
+    # Remove inactive tracks not needed for estimation
+    for pid in list(cluster_tracks.keys()):
+        if pid not in active_ids and pid not in missing_clusters:
+            del cluster_tracks[pid]
+
     prev_frame_clusters = current_frame_clusters.copy()
-    # Clean up: remove tracks for clusters no longer seen
-    active_ids = {c['persistent_id'] for c in current_frame_clusters}
-    inactive_ids = [pid for pid in cluster_tracks if pid not in active_ids]
-    for pid in inactive_ids:
-        del cluster_tracks[pid]
 
     update_graphs(
         raw_var=raw_pointCloud,
@@ -226,6 +234,81 @@ def update_sim(new_frame):
     )
 
     curr_num_frame = new_frame
+
+# ---------------------------------------------------------------------------
+# FUNCTION: update_graphs
+# PURPOSE:
+#   - Handles normal cluster plotting.
+#   - Adds gap fill for clusters missing in current frame.
+# ---------------------------------------------------------------------------
+def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
+    ax_estimation = axes['Estimated-Clusters']
+    ax_estimation.clear()
+    ax_estimation.set_title('Estimated Clusters')
+    ax_estimation.set_xlim(-10, 10)
+    ax_estimation.set_ylim(0, 15)
+    ax_estimation.set_zlim(-2, 10)
+    ax_estimation.view_init(elev=90, azim=-90)
+
+    MMWAVE_FPS = 30
+    DT = FRAME_AGGREGATOR_NUM_PAST_FRAMES / MMWAVE_FPS
+    legend_added = {'original': False, 'estimated': False}
+
+    # -------------------------------------------------------------
+    # NORMAL ESTIMATES
+    # -------------------------------------------------------------
+    if cluster_var:
+        for _, cluster_data in cluster_var.items():
+            points = cluster_data['points']
+            centroid = cluster_data['centroid']
+            vx = cluster_data.get('mean_vx', 0.0)
+            vy = cluster_data.get('mean_vy', 0.0)
+
+            pred_points = np.copy(points)
+            pred_points[:, 0] += vx * DT
+            pred_points[:, 1] += vy * DT
+
+            ax_estimation.scatter(
+                points[:, 0], points[:, 1], points[:, 2],
+                c='blue', s=8, alpha=0.4,
+                label='Current Cluster' if not legend_added['original'] else ""
+            )
+            legend_added['original'] = True
+
+            ax_estimation.scatter(
+                pred_points[:, 0], pred_points[:, 1], pred_points[:, 2],
+                c='lime', s=8, alpha=0.7,
+                label='Estimated Next' if not legend_added['estimated'] else ""
+            )
+            legend_added['estimated'] = True
+
+    # -------------------------------------------------------------
+    # GAP FILL ESTIMATES
+    # -------------------------------------------------------------
+    for pid in missing_clusters:
+        snap = prev_cluster_snapshots[pid]
+        centroid = snap['centroid']
+        vx = snap['mean_vx']
+        vy = snap['mean_vy']
+
+        pred_points = np.copy(snap['points'])
+        pred_points[:, 0] += vx * DT
+        pred_points[:, 1] += vy * DT
+
+        ax_estimation.scatter(
+            pred_points[:, 0], pred_points[:, 1], pred_points[:, 2],
+            c='red', s=8, alpha=0.7,
+            label=f'Gap-Fill ID:{pid}'
+        )
+        ax_estimation.text(
+            centroid[0] + vx * DT, centroid[1] + vy * DT, centroid[2] + 0.1,
+            f"ID:{pid} (Estimated)",
+            fontsize=7, color='purple'
+        )
+
+    handles, labels = ax_estimation.get_legend_handles_labels()
+    if handles:
+        ax_estimation.legend(loc='upper right', fontsize=7)
 
 # -------------------------------------------------------------
 # FUNCTION: update_graphs
