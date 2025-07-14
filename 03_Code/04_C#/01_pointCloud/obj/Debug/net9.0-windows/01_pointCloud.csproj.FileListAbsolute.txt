@@ -1,0 +1,15 @@
+D:\OneDrive - FH Dortmund\FH-Dortmund\4 Semester\ResearchProject\03_Code\04_C#\01_pointCloud\bin\Debug\net9.0-windows\01_pointCloud.exe
+D:\OneDrive - FH Dortmund\FH-Dortmund\4 Semester\ResearchProject\03_Code\04_C#\01_pointCloud\bin\Debug\net9.0-windows\01_pointCloud.deps.json
+D:\OneDrive - FH Dortmund\FH-Dortmund\4 Semester\ResearchProject\03_Code\04_C#\01_pointCloud\bin\Debug\net9.0-windows\01_pointCloud.runtimeconfig.json
+D:\OneDrive - FH Dortmund\FH-Dortmund\4 Semester\ResearchProject\03_Code\04_C#\01_pointCloud\bin\Debug\net9.0-windows\01_pointCloud.dll
+D:\OneDrive - FH Dortmund\FH-Dortmund\4 Semester\ResearchProject\03_Code\04_C#\01_pointCloud\bin\Debug\net9.0-windows\01_pointCloud.pdb
+D:\OneDrive - FH Dortmund\FH-Dortmund\4 Semester\ResearchProject\03_Code\04_C#\01_pointCloud\obj\Debug\net9.0-windows\01_pointCloud.GeneratedMSBuildEditorConfig.editorconfig
+D:\OneDrive - FH Dortmund\FH-Dortmund\4 Semester\ResearchProject\03_Code\04_C#\01_pointCloud\obj\Debug\net9.0-windows\01_pointCloud.AssemblyInfoInputs.cache
+D:\OneDrive - FH Dortmund\FH-Dortmund\4 Semester\ResearchProject\03_Code\04_C#\01_pointCloud\obj\Debug\net9.0-windows\01_pointCloud.AssemblyInfo.cs
+D:\OneDrive - FH Dortmund\FH-Dortmund\4 Semester\ResearchProject\03_Code\04_C#\01_pointCloud\obj\Debug\net9.0-windows\01_pointCloud.csproj.CoreCompileInputs.cache
+D:\OneDrive - FH Dortmund\FH-Dortmund\4 Semester\ResearchProject\03_Code\04_C#\01_pointCloud\obj\Debug\net9.0-windows\01_pointCloud.sourcelink.json
+D:\OneDrive - FH Dortmund\FH-Dortmund\4 Semester\ResearchProject\03_Code\04_C#\01_pointCloud\obj\Debug\net9.0-windows\01_pointCloud.dll
+D:\OneDrive - FH Dortmund\FH-Dortmund\4 Semester\ResearchProject\03_Code\04_C#\01_pointCloud\obj\Debug\net9.0-windows\refint\01_pointCloud.dll
+D:\OneDrive - FH Dortmund\FH-Dortmund\4 Semester\ResearchProject\03_Code\04_C#\01_pointCloud\obj\Debug\net9.0-windows\01_pointCloud.pdb
+D:\OneDrive - FH Dortmund\FH-Dortmund\4 Semester\ResearchProject\03_Code\04_C#\01_pointCloud\obj\Debug\net9.0-windows\01_pointCloud.genruntimeconfig.cache
+D:\OneDrive - FH Dortmund\FH-Dortmund\4 Semester\ResearchProject\03_Code\04_C#\01_pointCloud\obj\Debug\net9.0-windows\ref\01_pointCloud.dll
