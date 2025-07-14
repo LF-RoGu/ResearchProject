@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("01_pointCloud")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f3e453fdbdd309e477150783719a4931d81ba283")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+32f89b30260886693b240f99f5b44481ac6a9361")]
 [assembly: System.Reflection.AssemblyProductAttribute("01_pointCloud")]
 [assembly: System.Reflection.AssemblyTitleAttribute("01_pointCloud")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
