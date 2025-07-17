@@ -7,6 +7,8 @@ from matplotlib.gridspec import GridSpec
 from collections import defaultdict
 
 from frameAggregator import FrameAggregator
+from kalmanFilter import KalmanFilter
+import selfSpeedEstimator
 import pointFilter
 import dbCluster
 import occupancyGrid
@@ -30,13 +32,14 @@ from decodeFile import RadarCSVReader
 # -------------------------------------------------------------
 # DEBUG SWITCH: Toggle detailed cluster debug logs
 # -------------------------------------------------------------
-DEBUG_CLUSTER   = False  # Set to False to disable debug logs
-DEBUG_VXVY      = False
+DEBUG_CLUSTER           = False  # Set to False to disable debug logs
+DEBUG_VXVY              = False
+DEBUG_MISSING_CLUSTER   = False
 
 # -------------------------------------------------------------
 # CONSTANTS: Simulation parameters
 # -------------------------------------------------------------
-FRAME_AGGREGATOR_NUM_PAST_FRAMES    = 5
+FRAME_AGGREGATOR_NUM_PAST_FRAMES    = 10
 FILTER_SNR_MIN                      = 12
 FILTER_Z_MIN                        = -2
 FILTER_Z_MAX                        = 2
@@ -44,9 +47,13 @@ FILTER_Y_MIN                        = 0.6
 FILTER_Y_MAX                        = 15
 FILTER_PHI_MIN                      = -85
 FILTER_PHI_MAX                      = 85
-FILTER_DOPPLER_MIN                  = 0.0
+FILTER_DOPPLER_MIN                  = 0.01
 FILTER_DOPPLER_MAX                  = 8.0
 CLUSTER_HISTORY_LENGTH              = 2  
+
+#Defining the self-speed's Kalman filter process variance and measurement variance
+KALMAN_FILTER_PROCESS_VARIANCE = 0.05
+KALMAN_FILTER_MEASUREMENT_VARIANCE = 0.1
 
 # -------------------------------------------------------------
 # OBJECTS: Processing stages
@@ -55,6 +62,8 @@ cluster_processor_stage1 = dbCluster.ClusterProcessor(eps=2.0, min_samples=2)
 cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.0, min_samples=2)
 grid_processor           = occupancyGrid.OccupancyGridProcessor(grid_spacing=0.5)
 cluster_tracks          = defaultdict(list) # Holds tracked clusters: dict of { persistent_id : [centroid_history] }
+kalmanRadar = KalmanFilter(process_variance=KALMAN_FILTER_PROCESS_VARIANCE, measurement_variance=KALMAN_FILTER_MEASUREMENT_VARIANCE)
+kalmanIMU = KalmanFilter(process_variance=KALMAN_FILTER_PROCESS_VARIANCE, measurement_variance=KALMAN_FILTER_MEASUREMENT_VARIANCE)
 
 # ---------------------------------------------------------------------------
 # GLOBALS: Backups and flags for cluster gap estimation
@@ -149,15 +158,57 @@ def update_sim(new_frame):
             cluster_pointCloud_stage2, _ = cluster_processor_stage2.cluster_points(points_stage1_flat)
 
             for cid, cdata in cluster_pointCloud_stage2.items():
-                points = cdata['points']
+                points = cdata['points'] # shape (N, 4): [x,y,z,doppler]
                 x = points[:, 0]
                 y = points[:, 1]
-                phis = np.arctan2(x, y)
-                dopplers = points[:, 3]
+                """
+                Calculation to obtain the azimuth angle (phi) in radians from the radar to the detected target.
+                The azimuth angle is calculated using the arctangent of the y and x coordinates.
+                So you get each point's bearing in the 2D plane.
+                    -Angles is computed point by point.
+                """
+                phis = np.arctan2(x, y) # Y is Forward Heading → atan2(x, y)
+                dopplers = points[:, 3] # Doppler speed of each point in the cluster
+                """
+                A is a matrix of unit vectors along each Line of Sight (LOS) to the target.
+                Each row corresponds to a point in the cluster, with the first column being cos(phi)
+                """
                 A = np.stack([np.cos(phis), np.sin(phis)], axis=1)
                 R = dopplers.reshape(-1, 1)
-                V, _, _, _ = np.linalg.lstsq(A, R, rcond=None)
+                # Residuals -> Should be close to 0 for rigid, coherent clusters Rank ->  number of linearly independent rows/columns in A
+                V, residuals, rank, s = np.linalg.lstsq(A, R, rcond=None)
                 v_x, v_y = V.flatten()
+
+                # ------------------------
+                # Validation of prediction of measurements for validation purposes
+                # ------------------------
+                predicted_R = v_x * np.cos(phis) + v_y * np.sin(phis)
+                mean_measured = np.mean(dopplers)
+                mean_predicted = np.mean(predicted_R)
+                rms_error = np.sqrt(np.mean((dopplers - predicted_R)**2))
+
+                if DEBUG_VXVY:
+                    speed_mag = np.sqrt(v_x**2 + v_y**2)
+                    direction_rad = np.arctan2(v_y, v_x)
+                    direction_deg = (np.degrees(direction_rad) + 360) % 360
+
+                    print("==========================================================")
+                    print(f"[DEBUG_VXVY] Cluster {cid}")
+                    print(f"→ Mean Cartesian Speed Vector: Vx = {v_x:.2f} m/s, Vy = {v_y:.2f} m/s")
+                    print(f"→ Speed Magnitude: {speed_mag:.2f} m/s")
+                    print(f"→ Direction (angle from X+ axis): {direction_deg:.2f}°")
+                    print("----------------------------------------------------------")
+                    print(f"→ Doppler Measured (mean):   {mean_measured:.2f} m/s")
+                    print(f"→ Doppler Predicted (mean):  {mean_predicted:.2f} m/s")
+                    print(f"→ Doppler RMS Error:         {rms_error:.4f} m/s")
+
+                    doppler_sign_mismatch = np.sign(mean_measured) != np.sign(mean_predicted)
+                    if doppler_sign_mismatch:
+                        print(f"[DEBUG_VXVY] Doppler sign mismatch → possible velocity ambiguity or cluster error")
+                    else:
+                        print(f"[DEBUG_VXVY] Doppler signs agree → direction likely valid")
+                    print("==========================================================")
+
                 cdata['mean_vx'] = v_x
                 cdata['mean_vy'] = v_y
 
@@ -217,7 +268,7 @@ def update_sim(new_frame):
 
     # ------------------------
     # GAP CHECK: Mark missing IDs for single-frame or multi-frame fill
-    # -------------------------------------------------------------
+    # ------------------------
     missing_clusters.clear()
     for pid in prev_cluster_snapshots.keys():
         if pid not in active_ids:
@@ -226,7 +277,8 @@ def update_sim(new_frame):
                 # Store snapshot only once when first missing
                 missing_cluster_snapshots[pid] = prev_cluster_snapshots[pid].copy()
             centroid = prev_cluster_snapshots[pid]['centroid']
-            print(f"[DEBUG] Frame {new_frame} | Cluster ID {pid} missing | Last centroid = {centroid}")
+            if DEBUG_MISSING_CLUSTER:
+                print(f"[DEBUG] Frame {new_frame} | Cluster ID {pid} missing | Last centroid = {centroid}")
 
     # Clean up tracks that are neither active nor persistent
     for pid in list(cluster_tracks.keys()):
@@ -235,12 +287,28 @@ def update_sim(new_frame):
 
     prev_frame_clusters = current_frame_clusters.copy()
 
+    # ------------------------
+    # Self-Speed Estimation
+    # ------------------------
+    Ve = selfSpeedEstimator.estimate_self_speed(filtered_pointCloud)
+    Ve_filtered = kalmanRadar.update(Ve)
+
+    accel_x = imu_avg['free_accel_x']
+    accel_y = imu_avg['free_accel_y']
+    Ve_imu = np.sqrt(accel_x**2 + accel_y**2)
+    Ve_imu_filtered = kalmanIMU.update(Ve_imu)
+
     update_graphs(
         raw_var=raw_pointCloud,
         filtered_var=filtered_pointCloud,
         cluster_var=final_clusters,
         imu_var=imu_avg
     )
+
+    print("-----------------------------------------------------------------")
+    print("[Pipeline] Frame {} Estimated Self Speed = {:.2f} m/s".format(new_frame, Ve))
+    print("[Pipeline] Frame {} Kalman Self Speed    = {:.2f} m/s".format(new_frame, Ve_filtered))
+    print("[Pipeline] Frame {} Kalman IMU Speed     = {:.2f} m/s".format(new_frame, Ve_imu_filtered))
 
     curr_num_frame = new_frame
 
@@ -307,12 +375,13 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
         ax_estimation.scatter(
             pred_points[:, 0], pred_points[:, 1], pred_points[:, 2],
             c='red', s=8, alpha=0.7,
-            label=f'Gap-Fill ID:{pid}'
+            label=f'Gap-Fill ID:{pid} \nVx={vx:.2f}, Vy={vy:.2f}"'
         )
         ax_estimation.text(
             centroid[0] + vx * DT, centroid[1] + vy * DT, centroid[2] + 0.1,
-            f"ID:{pid} (Gap-Fill)",
-            fontsize=7, color='purple'
+            f"ID:{pid} (Gap)\nVx={vx:.2f}, Vy={vy:.2f}",
+            fontsize=7, 
+            color='purple'
         )
 
     # ------------------------
@@ -334,8 +403,9 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
         )
         ax_estimation.text(
             centroid[0] + vx * DT, centroid[1] + vy * DT, centroid[2] + 0.1,
-            f"ID:{pid} (Persist)",
-            fontsize=7, color='magenta'
+            f"ID:{pid} (Persist)\nVx={vx:.2f}, Vy={vy:.2f}",
+            fontsize=7, 
+            color='purple'
         )
 
         # Update snapshot position for next estimate
@@ -372,6 +442,7 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
         ax.text(0.95, 0.02, 0.0, text,
                 transform=ax.transAxes,
                 fontsize=10,
+                color='purple',
                 ha='right', va='bottom',
                 bbox={'boxstyle': 'round,pad=0.3',
                       'facecolor': 'white',
@@ -398,7 +469,9 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
         for pt in arr:
             if len(pt) >= 4:
                 ax.text(pt[0], pt[1], pt[2] + 0.05,
-                        f"{pt[3]:.2f} m/s", fontsize=7)
+                        f"{pt[3]:.2f} m/s", 
+                        fontsize=7,
+                        color='purple')
         if imu_var is not None:
             add_corner_text(ax, imu_var)
 
@@ -479,10 +552,18 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
     # -------------------------------------------------------------
     # PLOT: 2D IMU‐Direction arrows
     # -------------------------------------------------------------
+
+    # Estimate linear velocity from forward acceleration (assuming +Y body axis)
+    accel_x = imu_var.get('free_accel_x', 0.0)
+    accel_y = imu_var.get('free_accel_y', 0.0)
+    accel_imu = np.sqrt(accel_x**2 + accel_y**2)
+    frame_linear_velocity = kalmanIMU.update(accel_imu)
+
     ax_dir = axes['IMU-Direction']
     ax_dir.clear()
     ax_dir.set_title(
-        f"IMU 2D Heading: {math.degrees(_compute_yaw(imu_var)):.1f}°"
+        f"IMU 2D Heading: {math.degrees(_compute_yaw(imu_var)):.1f}° \n "
+        f"Estimated Linear Velocity: {frame_linear_velocity:.2f} m/s"
     )
     ax_dir.set_xlim(-1, 1)
     ax_dir.set_ylim(-1, 1)
@@ -561,7 +642,7 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
             # Label the estimated centroid
             ax_estimation.text(
                 pred_centroid[0], pred_centroid[1], pred_centroid[2] + 0.1,
-                f"ID:{cluster_data['persistent_id']}",
+                f"ID:{cluster_data['persistent_id']} (Gap-Fill)\nVx={vx:.2f} Vy={vy:.2f}",
                 fontsize=7, color='purple'
             )
 

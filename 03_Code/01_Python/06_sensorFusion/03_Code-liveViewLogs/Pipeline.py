@@ -16,7 +16,7 @@ from itertools import groupby
 # -------------------------------------------------------------
 # PARAMETERS
 # -------------------------------------------------------------
-USE_CSV_SIMULATOR = True  # Flip False for real TCP sensor
+USE_CSV_SIMULATOR = False  # Flip False for real TCP sensor
 CSV_FILENAME = "radar_driveAround_3.csv"
 
 # Root and logs folders
