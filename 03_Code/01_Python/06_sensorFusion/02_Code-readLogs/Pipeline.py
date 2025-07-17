@@ -30,7 +30,7 @@ from decodeFile import RadarCSVReader
 # DEBUG SWITCH: Toggle detailed cluster debug logs
 # -------------------------------------------------------------
 DEBUG_CLUSTER   = False  # Set to False to disable debug logs
-DEBUG_VXVY      = True
+DEBUG_VXVY      = False
 
 # -------------------------------------------------------------
 # CONSTANTS: Simulation parameters
@@ -50,7 +50,7 @@ FILTER_DOPPLER_MAX                  = 8.0
 # OBJECTS: Processing stages
 # -------------------------------------------------------------
 cluster_processor_stage1 = dbCluster.ClusterProcessor(eps=2.0, min_samples=2)
-cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.0, min_samples=4)
+cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.0, min_samples=3)
 grid_processor           = occupancyGrid.OccupancyGridProcessor(grid_spacing=0.5)
 
 
@@ -163,14 +163,23 @@ def update_sim(new_frame):
 
                 x = points[:, 0]
                 y = points[:, 1]
-                phis = np.arctan2(x, y)   # Y is North → atan2(x, y)
-
+                """
+                Calculation to obtain the azimuth angle (phi) in radians from the radar to the detected target.
+                The azimuth angle is calculated using the arctangent of the y and x coordinates.
+                So you get each point's bearing in the 2D plane.
+                    -Angles is computed point by point.
+                """
+                phis = np.arctan2(x, y)   # Y is Forward Heading → atan2(x, y)
+                # Doppler speed of each point in the cluster
                 dopplers = points[:, 3]
-
-                A = np.stack([np.cos(phis), np.sin(phis)], axis=1)
-                R = dopplers.reshape(-1, 1)
-
-                V, _, _, _ = np.linalg.lstsq(A, R, rcond=None)
+                """
+                A is a matrix of unit vectors along each Line of Sight (LOS) to the target.
+                Each row corresponds to a point in the cluster, with the first column being cos(phi)
+                """
+                A = np.stack([np.cos(phis), np.sin(phis)], axis=1) # Shape (N, 2)
+                R = dopplers.reshape(-1, 1) # Shape (N, 1)
+                # Residuals -> Should be close to 0 for rigid, coherent clusters Rank ->  number of linearly independent rows/columns in A
+                V, residuals, rank, s = np.linalg.lstsq(A, R, rcond=None)
                 v_x, v_y = V.flatten()
 
                 # ------------------------
@@ -182,14 +191,27 @@ def update_sim(new_frame):
                 rms_error = np.sqrt(np.mean((dopplers - predicted_R)**2))
 
                 if DEBUG_VXVY:
-                    print(f"[DEBUG_VXVY] Cluster {cid} mean Cartesian speed vector: "
-                          f"Vx={v_x:.2f} m/s, Vy={v_y:.2f} m/s")
+                    speed_mag = np.sqrt(v_x**2 + v_y**2)
+                    direction_rad = np.arctan2(v_y, v_x)
+                    direction_deg = (np.degrees(direction_rad) + 360) % 360
+
+                    print("==========================================================")
+                    print(f"[DEBUG_VXVY] Cluster {cid}")
+                    print(f"→ Mean Cartesian Speed Vector: Vx = {v_x:.2f} m/s, Vy = {v_y:.2f} m/s")
+                    print(f"→ Speed Magnitude: {speed_mag:.2f} m/s")
+                    print(f"→ Direction (angle from X+ axis): {direction_deg:.2f}°")
                     print("----------------------------------------------------------")
-                    print(f"[DEBUG_VXVY] Cluster {cid}: mean Doppler measured = {mean_measured:.2f} m/s")
-                    print(f"[DEBUG_VXVY] Cluster {cid}: mean Doppler predicted = {mean_predicted:.2f} m/s")
-                    # Low RMS error → good single rigid-body motion
-                    # High RMS error → suspicious cluster
-                    print(f"[DEBUG_VXVY] Cluster {cid}: RMS Doppler error = {rms_error:.4f} m/s") 
+                    print(f"→ Doppler Measured (mean):   {mean_measured:.2f} m/s")
+                    print(f"→ Doppler Predicted (mean):  {mean_predicted:.2f} m/s")
+                    print(f"→ Doppler RMS Error:         {rms_error:.4f} m/s")
+
+                    doppler_sign_mismatch = np.sign(mean_measured) != np.sign(mean_predicted)
+                    if doppler_sign_mismatch:
+                        print(f"⚠️ [DEBUG_VXVY] Doppler sign mismatch → possible velocity ambiguity or cluster error")
+                    else:
+                        print(f"✅ [DEBUG_VXVY] Doppler signs agree → direction likely valid")
+                    print("==========================================================")
+
 
                 # Optional: add to cluster data if you want to store it
                 cdata['mean_vx'] = v_x
@@ -237,7 +259,6 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
     l_filteredData = pointFilter.extract_points(filtered_var)
     l_clusterData = pointFilter.extract_points(cluster_var)
 
-
     def add_corner_text(ax, imu):
         text = (
             "accel (x,y,z):  {accel_x:.2f}, {accel_y:.2f}, {accel_z:.2f}\n"
@@ -248,6 +269,7 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
         ).format(**imu)
         ax.text(0.95, 0.02, 0.0, text,
                 transform=ax.transAxes,
+                color='black',
                 fontsize=10,
                 ha='right', va='bottom',
                 bbox={'boxstyle': 'round,pad=0.3',
@@ -275,13 +297,13 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
         for pt in arr:
             if len(pt) >= 4:
                 ax.text(pt[0], pt[1], pt[2] + 0.05,
-                        f"{pt[3]:.2f} m/s", fontsize=7)
+                        f"{pt[3]:.2f} m/s", 
+                        color='purple',
+                        fontsize=7)
         if imu_var is not None:
             add_corner_text(ax, imu_var)
 
-    # -------------------------------------------------------------
-    # PLOT: Raw-PointCloud with Doppler labels
-    # -------------------------------------------------------------
+    # Plot Raw Point Cloud
     plot_3d_points(
         axes["Raw-PointCloud"],
         'Raw-PointCloud',
@@ -289,20 +311,16 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
         imu_var=imu_var
     )
 
-    # -------------------------------------------------------------
-    # PLOT: Filter-PointCloud with Doppler labels
-    # -------------------------------------------------------------
+    # Plot Filtered Point Cloud
     plot_3d_points(
         axes["Filter-PointCloud"],
         'Filter-PointCloud',
         np.array(l_filteredData),
         imu_var=imu_var
     )
-    # -------------------------------------------------------------
-    # PLOT: DB-Clustered-PointCloud with Doppler labels
-    # -------------------------------------------------------------
-    priority_colors = {1: 'red', 2: 'orange', 3: 'green'}
 
+    # Plot Clustered Point Cloud
+    priority_colors = {1: 'red', 2: 'orange', 3: 'green'}
     ax_cluster = axes['DB-Clustered-PointCloud']
     ax_cluster.clear()
     ax_cluster.set_title('DB-Clustered-PointCloud')
@@ -325,17 +343,27 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
             ax_cluster.scatter(points[:, 0], points[:, 1], points[:, 2],
                                c=color, s=8, alpha=0.7)
 
+            # Annotate cluster info
             ax_cluster.text(
                 centroid[0] + 0.2, centroid[1] + 0.2, centroid[2] + 0.2,
                 f"ID:{cluster_data['cluster_id']} P:{priority} {doppler_avg:.2f} m/s",
                 fontsize=7,
                 color='purple'
             )
+
+            # ✅ Add velocity vector arrow
+            v_x = cluster_data.get('mean_vx', 0.0)
+            v_y = cluster_data.get('mean_vy', 0.0)
+            if v_x != 0.0 or v_y != 0.0:
+                ax_cluster.quiver(
+                    centroid[0], centroid[1], centroid[2],  # start point
+                    v_x, v_y, 0.0,                          # direction (X, Y, Z)
+                    length=1.0, normalize=True, color='blue'
+                )
     else:
         ax_cluster.text(0, 0, 0, 'No Clusters Detected', fontsize=12, color='red')
-    # -------------------------------------------------------------
-    # 2D IMU‐Direction arrows (new)
-    # -------------------------------------------------------------
+
+    # 2D IMU Heading View
     ax_dir = axes['IMU-Direction']
     ax_dir.clear()
     ax_dir.set_title(
@@ -349,15 +377,13 @@ def update_graphs(raw_var, filtered_var, cluster_var, imu_var):
     yaw   = _compute_yaw(imu_var)
     x_dir = math.cos(yaw)
     y_dir = math.sin(yaw)
-    # draw body X-axis (red)
     ax_dir.arrow(0, 0, x_dir, y_dir,
                  head_width=0.05, length_includes_head=True, color='r')
-    # draw body Y-axis (green)
     x2 = -math.sin(yaw)
     y2 =  math.cos(yaw)
     ax_dir.arrow(0, 0, x2, y2,
                  head_width=0.05, length_includes_head=True, color='g')
-                 
+              
 
 
 # -------------------------------------------------------------
