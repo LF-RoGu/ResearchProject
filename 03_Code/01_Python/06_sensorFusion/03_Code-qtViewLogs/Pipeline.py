@@ -96,12 +96,12 @@ class ClusterViewer(QtWidgets.QMainWindow):
     def on_slider_changed(self, frame_idx):
         self.frame_aggregator.clearBuffer()
         for offset in range(FRAME_AGGREGATOR_NUM_PAST_FRAMES + 1):
-            # TODO: Here to add IMU
             idx = max(0, frame_idx - offset)
             self.frame_aggregator.updateBuffer(radar_frames[idx])
         raw_pc = self.frame_aggregator.getPoints()
         self.draw_points(self.plots["plot1"], raw_pc)
 
+        # --- filtering & stage1/stage2 clustering (plots 2–4) as before ---
         pointCloud = pointFilter.filterSNRmin(raw_pc, FILTER_SNR_MIN)
         pointCloud = pointFilter.filterCartesianZ(pointCloud, FILTER_Z_MIN, FILTER_Z_MAX)
         pointCloud = pointFilter.filterCartesianY(pointCloud, FILTER_Y_MIN, FILTER_Y_MAX)
@@ -113,119 +113,62 @@ class ClusterViewer(QtWidgets.QMainWindow):
         clusters_stage1, _ = cluster_processor_stage1.cluster_points(pc_for_clustering)
         self.draw_clusters(self.plots["plot3"], clusters_stage1)
 
-        if len(clusters_stage1) > 0:
-            points_stage1_flat = np.concatenate([clusteredData['points'] for clusteredData in clusters_stage1.values()], axis=0)
-            clusters_stage2, _ = cluster_processor_stage2.cluster_points(points_stage1_flat)
+        if clusters_stage1:
+            pts_flat = np.concatenate([c['points'] for c in clusters_stage1.values()], axis=0)
+            clusters_stage2, _ = cluster_processor_stage2.cluster_points(pts_flat)
 
-            # Check for euclidean nearest cluster
+            # TODO: stamp each cluster with current frame so linear regression can use it
+            for cid, cdata in clusters_stage2.items():
+                cdata['frame'] = frame_idx
+
             clusters_stage2 = self.tracker.associate_new_clusters(clusters_stage2)
-
-            self.tracker.update(clusters_stage2)
-            # Get active tracks
+            self.tracker.update(clusters_stage2, frame_idx)
             clusters_stage2 = self.tracker.get_active_tracks()
-            # Add predicted clusters from tracker for those that were not matched
-            predicted_clusters = self.tracker.get_predicted_clusters()
-            for cid, pred_data in predicted_clusters.items():
+            for cid, centroid in self.tracker.get_predicted_clusters().items():
                 if cid not in clusters_stage2:
-                    clusters_stage2[cid] = pred_data  # Add predicted cluster to be drawn
-            
+                    clusters_stage2[cid] = {
+                        'centroid': centroid,
+                        'points': np.zeros((0, 4)),   # empty array so downstream code won’t break
+                        # you can optionally carry over other fields (e.g. last doppler_avg)
+                    }
+
             self.draw_clusters(self.plots["plot4"], clusters_stage2, tracked=True)
 
-            finalCluster = dict(clusters_stage2)  # make a copy
-            predicted_clusters = self.tracker.get_predicted_clusters()
-            for cid, pred_data in predicted_clusters.items():
-                if cid not in finalCluster:
-                    finalCluster[cid] = pred_data
-
-            if len(clusters_stage1) > 0:
-                points_stage1_flat = np.concatenate([clusteredData['points'] for clusteredData in clusters_stage1.values()], axis=0)
-                clusters_stage2, _ = cluster_processor_stage2.cluster_points(points_stage1_flat)
-
-                # Check for euclidean nearest cluster
-                clusters_stage2 = self.tracker.associate_new_clusters(clusters_stage2)
-
-                self.tracker.update(clusters_stage2)
-                # Get active tracks
-                clusters_stage2 = self.tracker.get_active_tracks()
-                # Add predicted clusters from tracker for those that were not matched
-                predicted_clusters = self.tracker.get_predicted_clusters()
-                for cid, pred_data in predicted_clusters.items():
-                    if cid not in clusters_stage2:
-                        clusters_stage2[cid] = pred_data  # Add predicted cluster to be drawn
-                
-                self.draw_clusters(self.plots["plot4"], clusters_stage2, tracked=True)
-
-            finalCluster = dict(clusters_stage2)  # make a copy
-            predicted_clusters = self.tracker.get_predicted_clusters()
-            for cid, pred_data in predicted_clusters.items():
-                if cid not in finalCluster:
-                    finalCluster[cid] = pred_data
-
+            # Build finalCluster with Doppler‐based vx,vy + residual
+            finalCluster = dict(clusters_stage2)
             for cid, data in finalCluster.items():
-                points = data.get('points')
-                if points is None or len(points) < 2:
+                pts = data.get('points', None)
+                if pts is None or len(pts) < 2:
+                    data.update({'vx': 0.0, 'vy': 0.0, 'residual': 0.0})
                     continue
 
-                x = points[:, 0]
-                y = points[:, 1]
-                dopplers = points[:, 3]
-
+                x = pts[:,0]; y = pts[:,1]; dopplers = pts[:,3]
                 phis = np.arctan2(x, y)
                 A = np.stack([np.cos(phis), np.sin(phis)], axis=1)
-                R = dopplers.reshape(-1, 1)
-
+                R = dopplers.reshape(-1,1)
                 try:
-                    V, residuals, rank, s = np.linalg.lstsq(A, R, rcond=None)
-                    v_x, v_y = V.flatten()
-                    data['vx'] = float(v_x)
-                    data['vy'] = float(v_y)
-                    data['residual'] = float(residuals[0]) if residuals.size > 0 else 0.0
+                    V, residuals, *_ = np.linalg.lstsq(A, R, rcond=None)
+                    v_flat = V.flatten()  # TODO: flatten before float conversion
+                    data['vx'], data['vy'] = float(v_flat[0]), float(v_flat[1])
+                    data['residual']      = float(residuals[0]) if residuals.size else 0.0
                 except Exception as e:
-                    print(f"[Warning] Velocity estimation failed for cluster {cid}: {e}")
-                    data['vx'] = 0.0
-                    data['vy'] = 0.0
-                    data['residual'] = -1.0
+                    print(f"[DEBUG] Doppler‐fit failed for {cid}: {e}")
+                    data.update({'vx':0.0, 'vy':0.0, 'residual':-1.0})
 
-                # ------------------------------
-                # Step 1: Get historical velocity from tracker
-                # ------------------------------
-                track = self.tracker.tracks.get(cid)
-                if track and len(track.history) >= 2:
-                    c0 = track.history[-2]['centroid']
-                    c1 = track.history[-1]['centroid']
-                    vx_hist = c1[0] - c0[0]
-                    vy_hist = c1[1] - c0[1]
-                    # Store historical velocities
-                    delta_frames = track.history[-1]['frame_idx'] - track.history[-2]['frame_idx']
-                    if delta_frames > 0:
-                        vx_hist = (c1[0] - c0[0]) / delta_frames
-                        vy_hist = (c1[1] - c0[1]) / delta_frames
-                    else:
-                        vx_hist = vy_hist = 0.0
-
-                    # ------------------------------
-                    # Step 2: Compute error
-                    # ------------------------------
-                    vx_doppler = data['vx']
-                    vy_doppler = data['vy']
-                    error = np.linalg.norm([vx_doppler - vx_hist, vy_doppler - vy_hist])
-                    data['vx_error'] = error
-
-                    # Optional: Correct if error is large
-                    if error > 1.0:  # you can tweak this threshold
-                        data['vx'] = vx_hist
-                        data['vy'] = vy_hist
-                        data['corrected'] = True
-                    else:
-                        data['corrected'] = False
+                # TODO: compute linear‐regression slopes from history frames
+                hist = self.tracker.tracks[cid].history
+                if len(hist) >= 2:
+                    frames = np.array([h['frame'] for h in hist])
+                    xs     = np.array([h['centroid'][0] for h in hist])
+                    ys     = np.array([h['centroid'][1] for h in hist])
+                    slope_x, _ = np.polyfit(frames, xs, 1)
+                    slope_y, _ = np.polyfit(frames, ys, 1)
+                    data['lx'], data['ly'] = float(slope_x), float(slope_y)
                 else:
-                    # If not enough history, just flag
-                    data['vx_hist'] = 0.0
-                    data['vy_hist'] = 0.0
-                    data['vx_error'] = -1.0
-                    data['corrected'] = False
-            
+                    data['lx'], data['ly'] = 0.0, 0.0
+
             self.draw_clusters(self.plots["plot5"], finalCluster, tracked=True)
+
 
 
 
@@ -247,50 +190,44 @@ class ClusterViewer(QtWidgets.QMainWindow):
             pts = data['points']
 
             # Plot the points
-            scatter = pg.ScatterPlotItem(x=pts[:, 0], y=pts[:, 1], size=6,
-                                        pen=None, brush=pg.mkBrush(100 + cid * 40, 150, 255))
+            scatter = pg.ScatterPlotItem(
+                x=pts[:,0], y=pts[:,1], size=6,
+                pen=None, brush=pg.mkBrush(100 + cid*40, 150, 255)
+            )
             plot.addItem(scatter)
 
-            # Get centroid
-            centroid = data['centroid']
-            cx, cy = centroid[0], centroid[1]
+            # Centroid
+            cx, cy = data['centroid'][:2]
 
-            # Use the actual estimated values
-            vx = data.get("vx", 0.0)
-            vy = data.get("vy", 0.0)
-            doppler = data.get("doppler_avg", 0.0)
-            residual = data.get("residual", 0.0)
+            # use both Doppler‐based and linear‐regression velocities
+            vx, vy = data.get('vx',0.0), data.get('vy',0.0)
+            lx, ly = data.get('lx',0.0), data.get('ly',0.0)
+            doppler = data.get('doppler_avg',0.0)
+            res     = data.get('residual',0.0)
 
-            # Construct text label
-            error = data.get("vx_error", -1.0)
-            vx_hist = data.get("vx_hist", 0.0)
-            vy_hist = data.get("vy_hist", 0.0)
-            corrected = data.get("corrected", False)
+            # Construct the label
+            txt = (
+                f"ID {cid}\n"
+                f"D={doppler:.2f}\n"
+                f"vx={vx:.2f}, vy={vy:.2f}\n"
+                f"lx={lx:.2f}, ly={ly:.2f}\n"
+                f"res={res:.2f}"
+            )
 
-            text = f"ID {cid}\nD={doppler:.2f}\n"
-            text += f"vx={vx:.2f}, vy={vy:.2f}\n"
-            text += f"hx={vx_hist:.2f}, hy={vy_hist:.2f}\n"
-            text += f"err={error:.2f}"
-            if corrected:
-                text += " (CORR)"
-
-
-            # Add missed counter info if tracked
             if tracked:
-                track = self.tracker.tracks.get(cid)
-                if track:
-                    text += f"\nMissed={track.missing_counter}"
+                miss = self.tracker.tracks[cid].missing_counter
+                txt += f"\nMissed={miss}"
 
-            # Plot text label next to the cluster
-            label = pg.TextItem(text=text, anchor=(0, 0), color='w')
+            label = pg.TextItem(text=txt, anchor=(0,0), color='w')
             label.setPos(cx + 0.5, cy + 0.3)
             plot.addItem(label)
 
-            # Optional: cross marker for tracked centroids
-            if tracked:
+            if tracked and self.tracker.tracks[cid].missing_counter > 0:
                 cross = pg.TextItem(text="X", color='r')
                 cross.setPos(cx, cy)
                 plot.addItem(cross)
+
+
 
 
 

@@ -12,12 +12,12 @@ class ClusterTracker:
     def __init__(self):
         self.tracks = {}
 
-    def update(self, current_clusters):
+    def update(self, current_clusters, frame_idx):
         matched_ids = set()
         for cid, cdata in current_clusters.items():
             if cid not in self.tracks:
                 self.tracks[cid] = ClusterHistory(cid, MAX_MISSES_ALLOWED)
-            self.tracks[cid].add_observation(cdata)
+            self.tracks[cid].add_observation(cdata, frame_idx)
             matched_ids.add(cid)
 
         for cid, track in self.tracks.items():

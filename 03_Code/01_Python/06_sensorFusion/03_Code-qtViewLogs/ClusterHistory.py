@@ -16,8 +16,10 @@ class ClusterHistory:
         self.missing_counter = 0
         self.max_missing = max_missing
 
-    def add_observation(self, cluster_data):
-        self.history.append(cluster_data)
+    def add_observation(self, cluster_data, frame_idx):
+        data = dict(cluster_data)
+        data['frame_idx'] = frame_idx
+        self.history.append(data)
         self.missing_counter = 0
 
     def predict_next_centroid(self):
