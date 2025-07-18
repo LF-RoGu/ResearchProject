@@ -10,10 +10,11 @@ MAX_HISTORY_FRAMES = 10
 # Cluster Tracking Classes
 # ---------------------------
 class ClusterHistory:
-    def __init__(self, cluster_id):
+    def __init__(self, cluster_id, max_missing):
         self.cluster_id = cluster_id
         self.history = deque(maxlen=MAX_HISTORY_FRAMES)
         self.missing_counter = 0
+        self.max_missing = max_missing
 
     def add_observation(self, cluster_data):
         self.history.append(cluster_data)
