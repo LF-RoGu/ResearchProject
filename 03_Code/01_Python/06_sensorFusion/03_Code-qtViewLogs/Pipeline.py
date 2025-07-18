@@ -13,7 +13,6 @@ from ClusterTracker import ClusterTracker
 # ------------------------------
 NUM_FRAMES = 30
 
-
 # ------------------------------
 # Data Generators & Filters
 # ------------------------------
@@ -79,6 +78,62 @@ def apply_doppler_filter(clusters):
         if -0.3 < c['doppler'] < 0.3
     }
 
+# ------------------------------
+# Custom preprocessing for Plot 1
+# ------------------------------
+
+def modify_for_plot1(clusters):
+    """
+    Take the raw clusters and apply any specialized
+    transformations you need for Plot 1.
+
+    TODO: Replace this placeholder logic with your own filter or transformation.
+    """
+    # Example: keep only clusters with centroid x >= 5
+    return {
+        cid: data
+        for cid, data in clusters.items()
+        if data['centroid'][0] >= 5
+    }
+
+# ------------------------------
+# Dedicated plotting for Plot 1
+# ------------------------------
+
+def plot1(plot_widget, clusters, predictions):
+    """
+    A dedicated plotting routine for Plot 1.
+    """
+    plot_widget.clear()
+    plot_widget.setTitle("Custom Plot 1 View")
+
+    # Draw cluster points
+    for cid, data in clusters.items():
+        pts = data['points']
+        if pts.shape[0] > 0:
+            scatter = pg.ScatterPlotItem(
+                x=pts[:, 0], y=pts[:, 1], size=8,
+                pen=None,
+                brush=pg.mkBrush(0, 200, 0, 150)
+            )
+            plot_widget.addItem(scatter)
+
+        # Centroid label
+        cx, cy, _ = data['centroid']
+        text = pg.TextItem(f"ID {cid}", anchor=(0.5, -0.2), color='w')
+        text.setPos(cx, cy)
+        plot_widget.addItem(text)
+
+    # Draw predicted next centroids
+    for cid, (px, py, _pz) in predictions.items():
+        pred_scatter = pg.ScatterPlotItem(
+            x=[px], y=[py], symbol='x', size=14,
+            pen=pg.mkPen('r', width=2)
+        )
+        plot_widget.addItem(pred_scatter)
+        label = pg.TextItem(text=f"Pred {cid}", color='r')
+        label.setPos(px + 0.3, py + 0.3)
+        plot_widget.addItem(label)
 
 # ------------------------------
 # Main Viewer Class
@@ -100,18 +155,52 @@ class ClusterViewer(QWidget):
         self.trackers = {}
 
         # Prepare six different filtered datasets
-        self.data_sets = {
-            "plot1": [generate_raw_data(f) for f in range(NUM_FRAMES)],
-            "plot2": [apply_snr_filter(generate_raw_data(f)) for f in range(NUM_FRAMES)],
-            "plot3": [apply_z_filter(generate_raw_data(f)) for f in range(NUM_FRAMES)],
-            "plot4": [apply_y_filter(generate_raw_data(f)) for f in range(NUM_FRAMES)],
-            "plot5": [apply_phi_filter(generate_raw_data(f)) for f in range(NUM_FRAMES)],
-            "plot6": [apply_doppler_filter(generate_raw_data(f)) for f in range(NUM_FRAMES)],
-        }
+        self.data_sets = {}
+        for name in [
+            "plot1", "plot2", "plot3",
+            "plot4", "plot5", "plot6"
+        ]:
+            frames = []
+            for f in range(NUM_FRAMES):
+                clusters = generate_raw_data(f)
 
-        self.trackers = {plot: ClusterTracker() for plot in self.data_sets}
+                if name == "plot1":
+                    # Dataset 1: raw data with custom preprocessing
+                    clusters = modify_for_plot1(clusters)
+                    # TODO: Add any further modifications for Plot 1 here
 
-        # Create 2x3 plots
+                elif name == "plot2":
+                    # Dataset 2: SNR‐filtered
+                    clusters = apply_snr_filter(clusters)
+                    # TODO: Add custom logic for Plot 2
+
+                elif name == "plot3":
+                    # Dataset 3: Z‐axis filtered
+                    clusters = apply_z_filter(clusters)
+                    # TODO: Add custom logic for Plot 3
+
+                elif name == "plot4":
+                    # Dataset 4: Y‐axis filtered
+                    clusters = apply_y_filter(clusters)
+                    # TODO: Add custom logic for Plot 4
+
+                elif name == "plot5":
+                    # Dataset 5: Phi‐angle filtered
+                    clusters = apply_phi_filter(clusters)
+                    # TODO: Add custom logic for Plot 5
+
+                elif name == "plot6":
+                    # Dataset 6: Doppler‐filtered
+                    clusters = apply_doppler_filter(clusters)
+                    # TODO: Add custom logic for Plot 6
+
+                frames.append(clusters)
+            self.data_sets[name] = frames
+
+        # Initialize trackers for each dataset
+        self.trackers = {name: ClusterTracker() for name in self.data_sets}
+
+        # Create 2x3 grid of plots
         idx = 1
         for row in range(2):
             for col in range(3):
@@ -124,7 +213,7 @@ class ClusterViewer(QWidget):
                 self.plots[f"plot{idx}"] = plot
                 idx += 1
 
-        # Slider
+        # Frame slider controls
         controls = QHBoxLayout()
         self.slider_label = QLabel("Frame: 0")
         self.slider = QSlider(Qt.Horizontal)
@@ -145,27 +234,37 @@ class ClusterViewer(QWidget):
 
     def update_all_plots(self):
         for name, plot in self.plots.items():
-            tracker = self.trackers[name]
+            # Fetch and update data
             frame_data = self.data_sets[name][self.current_frame]
+
+            # Update tracker
+            tracker = self.trackers[name]
             tracker.update(frame_data)
             predicted = tracker.get_predictions()
-            self.draw_plot(plot, frame_data, predicted)
+
+            # Choose plotting function
+            if name == "plot1":
+                plot1(plot, frame_data, predicted)
+            else:
+                self.draw_plot(plot, frame_data, predicted)
 
     def draw_plot(self, plot, detected, predicted):
         plot.clear()
 
+        # Draw detected clusters
         for cid, data in detected.items():
             pts = data['points']
             if pts.shape[0] > 0:
-                scatter = pg.ScatterPlotItem(x=pts[:, 0], y=pts[:, 1], size=6,
-                                            pen=None,
-                                            brush=pg.mkBrush(100 + cid * 50, 150, 255))
+                scatter = pg.ScatterPlotItem(
+                    x=pts[:, 0], y=pts[:, 1], size=6,
+                    pen=None,
+                    brush=pg.mkBrush(100 + cid * 50, 150, 255)
+                )
                 plot.addItem(scatter)
 
             cx, cy, _ = data['centroid']
             doppler = data.get('doppler', 0)
 
-            # Check to avoid warnings on empty point sets
             if pts.shape[0] > 0:
                 vx = np.mean(pts[:, 0])
                 vy = np.mean(pts[:, 1])
@@ -177,17 +276,17 @@ class ClusterViewer(QWidget):
             label.setPos(cx + 0.5, cy + 0.3)
             plot.addItem(label)
 
-        # Draw predicted cluster centroids (those that disappeared)
+        # Draw predicted centroids
         for cid, pred in predicted.items():
             px, py, _ = pred
-            pred_scatter = pg.ScatterPlotItem([px], [py], symbol='x',
-                                            pen=pg.mkPen('r'), size=14)
+            pred_scatter = pg.ScatterPlotItem(
+                x=[px], y=[py], symbol='x', size=14,
+                pen=pg.mkPen('r')
+            )
             plot.addItem(pred_scatter)
-
             label = pg.TextItem(text=f"Pred {cid}", color='r')
             label.setPos(px + 0.3, py + 0.3)
             plot.addItem(label)
-
 
 # ------------------------------
 # Launch Application
