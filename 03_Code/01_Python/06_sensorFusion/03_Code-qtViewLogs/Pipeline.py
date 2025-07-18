@@ -44,6 +44,8 @@ imuLoader = ImuCSVReader(
 imu_frames   = imuLoader.load_all()
 radar_frames = radarLoader.load_all()
 
+CLUSTER_DEBUG = False
+
 # Simulated radar_frames
 class RadarPoint:
     def __init__(self, x, y, z, doppler, snr, noise):
@@ -204,6 +206,16 @@ class ClusterViewer(QtWidgets.QMainWindow):
             lx, ly = data.get('lx',0.0), data.get('ly',0.0)
             doppler = data.get('doppler_avg',0.0)
             res     = data.get('residual',0.0)
+
+            if CLUSTER_DEBUG:
+                print(
+                    f"[Cluster {cid}]  "
+                    f"centroid={data['centroid']}  "
+                    f"points={len(data['points'])}  "
+                    f"D={data.get('doppler_avg', 0):.2f}  "
+                    f"vx={data['vx']:.2f}, vy={data['vy']:.2f}  "
+                    f"lx={data['lx']:.2f}, ly={data['ly']:.2f}"
+                )
 
             # Construct the label
             txt = (
