@@ -88,6 +88,7 @@ def plot1(plot_widget, clusters, predictions):
     for cid,data in clusters.items():
         clusterPoints = data['points']
         clusterDoppler = data['doppler_avg']
+        clusterHits    = data.get('hits', 0)
         if clusterPoints.shape[0]>0:
             scatter = pg.ScatterPlotItem(
                 x=clusterPoints[:,0], y=clusterPoints[:,1], size=8,
@@ -96,7 +97,14 @@ def plot1(plot_widget, clusters, predictions):
             plot_widget.addItem(scatter)
         # unpack centroid (x,y ignore others)
         cx, cy = data['centroid'][:2]
-        label = pg.TextItem(f"ID: {cid}\nDoppler: {clusterDoppler:.2f}\nCx,Cy: ({cx:.2f}, {cy:.2f})", anchor=(0.5,-0.2), color='w')
+        label = pg.TextItem(
+            f"ID: {cid}\n"
+            f"Doppler: {clusterDoppler:.2f}\n"
+            f"Hits: {clusterHits}\n"
+            f"Cx,Cy: ({cx:.2f}, {cy:.2f})",
+            anchor=(0.5, -0.2),
+            color='w'
+        )
         label.setPos(cx, cy)
         plot_widget.addItem(label)
     for cid,(px,py, *_ ) in predictions.items():
@@ -209,22 +217,18 @@ class ClusterViewer(QWidget):
                 # 1) update the tracker with the fresh Stage-2 clusters
                 self.trackers[name].update(clusterProcessor_final)
 
-                for tid, trk in self.trackers[name].tracks.items():
-                    if(trk['missed'] > TRACKER_MAX_MISSES - 1):
-                        # print missed tracks for debugging
-                        # this is useful to see which tracks are being pruned
-                        # and how many frames they have been missing
-                        # (e.g., if you want to adjust TRACKER_MAX_MISSES)
-                        print(f"[Tracker] ID={tid}, missed={trk['missed']}")
-                    if(trk['hits'] > 3):
-                        # print successful matches for debugging
-                        print(f"[Tracker] ID={tid}, hits={trk['hits']}")
-
                 # 2) pull out the tracks (persistent IDs) and their data
                 clusters = self.trackers[name].get_active_tracks()
 
                 # 3) get predictions for any tracks that missed this frame
                 preds = self.trackers[name].get_predictions()
+
+                # TODO: Perform odometry calculation here
+                for tid, trk_data in clusters.items():
+                    history = trk_data['history']    # a list of np.array centroids
+                    currentDoppler = trk_data['doppler_avg']
+                    hits    = trk_data['hits']
+                    missed  = trk_data['missed']
 
                 # 4) draw using persistent track IDs
                 plot1(plot_item, clusters, preds)
