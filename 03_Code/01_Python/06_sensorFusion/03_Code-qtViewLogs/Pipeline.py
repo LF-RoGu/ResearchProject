@@ -22,7 +22,9 @@ FILTER_SNR_MIN                  = 12
 FILTER_Z_MIN, FILTER_Z_MAX      = -2, 2
 FILTER_Y_MIN, FILTER_Y_MAX      = 0.6, 15
 FILTER_PHI_MIN, FILTER_PHI_MAX  = -85, 85
-FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX = 0.0, 8.0
+FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX = 0.01, 8.0
+TRACKER_MAX_MISSES  = 10     # how many frames a track can disappear before deletion
+TRACKER_DIST_THRESH = 0.5   # max movement (meters) allowed per frame for matching
 # -------------------------------------------------------------
 
 # Instantiate readers and global aggregators
@@ -32,7 +34,7 @@ _radarAgg         = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 _imuAgg           = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 
 # Two‐stage DBSCAN processors
-cluster_processor_stage1 = dbCluster.ClusterProcessor(eps=2.0, min_samples=2)
+cluster_processor_stage1 = dbCluster.ClusterProcessor(eps=2.0, min_samples=5)
 cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.0, min_samples=2)
 
 # ------------------------------
@@ -45,7 +47,7 @@ def generate_raw_data(frame_idx):
         y = cid * 2 + frame_idx * 0.15
         z = 0
         pts = np.random.randn(20,3)*0.4 + [x,y,z]
-        clusters[cid] = {'centroid':[x,y,z],'points':pts,'doppler':np.random.uniform(-1,1)}
+        clusters[cid] = {'centroid':[x,y,z],'points':pts,'doppler_avg':np.random.uniform(-1,1)}
     return clusters
 
 def apply_snr_filter(clusters):
@@ -74,7 +76,7 @@ def apply_phi_filter(clusters):
 
 def apply_doppler_filter(clusters):
     return {
-        cid:c for cid,c in clusters.items() if -0.3 < c['doppler'] < 0.3
+        cid:c for cid,c in clusters.items() if -0.3 < c['doppler_avg'] < 0.3
     }
 
 # ------------------------------
@@ -82,18 +84,19 @@ def apply_doppler_filter(clusters):
 # ------------------------------
 def plot1(plot_widget, clusters, predictions):
     plot_widget.clear()
-    plot_widget.setTitle("Custom Plot 1 View")
+    plot_widget.setTitle("Point Cloud")
     for cid,data in clusters.items():
-        pts = data['points']
-        if pts.shape[0]>0:
+        clusterPoints = data['points']
+        clusterDoppler = data['doppler_avg']
+        if clusterPoints.shape[0]>0:
             scatter = pg.ScatterPlotItem(
-                x=pts[:,0], y=pts[:,1], size=8,
+                x=clusterPoints[:,0], y=clusterPoints[:,1], size=8,
                 pen=None, brush=pg.mkBrush(0,200,0,150)
             )
             plot_widget.addItem(scatter)
         # unpack centroid (x,y ignore others)
         cx, cy = data['centroid'][:2]
-        label = pg.TextItem(f"ID {cid}", anchor=(0.5,-0.2), color='w')
+        label = pg.TextItem(f"ID: {cid}\nDoppler: {clusterDoppler:.2f}\nCx,Cy: ({cx:.2f}, {cy:.2f})", anchor=(0.5,-0.2), color='w')
         label.setPos(cx, cy)
         plot_widget.addItem(label)
     for cid,(px,py, *_ ) in predictions.items():
@@ -121,8 +124,16 @@ class ClusterViewer(QWidget):
         self.radarDataSetLength = len(self.radar_frames)
         self.currentFrame = -1
 
-        # One tracker per plot
-        self.trackers = {f"plot{i}": ClusterTracker() for i in range(1,7)}
+        # Plot will now use spatial matching with tuned parameters; others remain default
+        self.trackers = {
+            f"plot{i}": (
+                ClusterTracker(
+                    max_misses=TRACKER_MAX_MISSES,
+                    dist_threshold=TRACKER_DIST_THRESH
+                ) if i == 1 else ClusterTracker()
+            )
+            for i in range(1, 7)
+        }
 
         # Build UI
         main_layout = QVBoxLayout(self)
@@ -168,53 +179,78 @@ class ClusterViewer(QWidget):
         # ------------------------
         # FILTERING PIPELINE (Plot 1 only)
         # ------------------------
-        raw_pc = _radarAgg.getPoints()  # list of dicts
-        pc = pointFilter.filterSNRmin( raw_pc, FILTER_SNR_MIN)
-        pc = pointFilter.filterCartesianZ(pc, FILTER_Z_MIN, FILTER_Z_MAX)
-        pc = pointFilter.filterCartesianY(pc, FILTER_Y_MIN, FILTER_Y_MAX)
-        pc = pointFilter.filterSphericalPhi(pc, FILTER_PHI_MIN, FILTER_PHI_MAX)
-        filtered_pc = pointFilter.filterDoppler(pc, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
+        rawPointCloud = _radarAgg.getPoints()  # list of dicts
+        pointCloud = pointFilter.filterSNRmin( rawPointCloud, FILTER_SNR_MIN)
+        pointCloud = pointFilter.filterCartesianZ(pointCloud, FILTER_Z_MIN, FILTER_Z_MAX)
+        pointCloud = pointFilter.filterCartesianY(pointCloud, FILTER_Y_MIN, FILTER_Y_MAX)
+        pointCloud = pointFilter.filterSphericalPhi(pointCloud, FILTER_PHI_MIN, FILTER_PHI_MAX)
+        filteredPointCloud = pointFilter.filterDoppler(pointCloud, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
 
         # ------------------------
         # STAGE 1 CLUSTERING
         # ------------------------
-        pts1 = pointFilter.extract_points(filtered_pc)
-        cluster_s1, _ = cluster_processor_stage1.cluster_points(pts1)
+        clusterProcessor_stage1 = pointFilter.extract_points(filteredPointCloud)
+        clusterProcessor_stage1, _ = cluster_processor_stage1.cluster_points(clusterProcessor_stage1)
 
         # ------------------------
         # STAGE 2 CLUSTERING
         # ------------------------
-        if len(cluster_s1)>0:
-            pts_flat = np.vstack([cdata['points'] for cdata in cluster_s1.values()])
-            clusters_p1, _ = cluster_processor_stage2.cluster_points(pts_flat)
+        if len(clusterProcessor_stage1)>0:
+            clusterProcessor_flat = np.vstack([cdata['points'] for cdata in clusterProcessor_stage1.values()])
+            clusterProcessor_final, _ = cluster_processor_stage2.cluster_points(clusterProcessor_flat)
         else:
-            clusters_p1 = {}
+            clusterProcessor_final = {}
 
         # now draw each plot
         for name, plot_item in self.plots.items():
+
             if name == "plot1":
-                clusters = clusters_p1
+                # Plot 1: real clusters → spatial tracker 
+                # 1) update the tracker with the fresh Stage-2 clusters
+                self.trackers[name].update(clusterProcessor_final)
+
+                for tid, trk in self.trackers[name].tracks.items():
+                    if(trk['missed'] > TRACKER_MAX_MISSES - 1):
+                        # print missed tracks for debugging
+                        # this is useful to see which tracks are being pruned
+                        # and how many frames they have been missing
+                        # (e.g., if you want to adjust TRACKER_MAX_MISSES)
+                        print(f"[Tracker] ID={tid}, missed={trk['missed']}")
+                    if(trk['hits'] > 3):
+                        # print successful matches for debugging
+                        print(f"[Tracker] ID={tid}, hits={trk['hits']}")
+
+                # 2) pull out the tracks (persistent IDs) and their data
+                clusters = self.trackers[name].get_active_tracks()
+
+                # 3) get predictions for any tracks that missed this frame
+                preds = self.trackers[name].get_predictions()
+
+                # 4) draw using persistent track IDs
+                plot1(plot_item, clusters, preds)
+
             else:
+                # Plots 2–6: synthetic, unchanged
                 synth = generate_raw_data(self.currentFrame)
-                if name=="plot2":
+                if name == "plot2":
                     clusters = apply_snr_filter(synth)
-                elif name=="plot3":
+                elif name == "plot3":
                     clusters = apply_z_filter(synth)
-                elif name=="plot4":
+                elif name == "plot4":
                     clusters = apply_y_filter(synth)
-                elif name=="plot5":
+                elif name == "plot5":
                     clusters = apply_phi_filter(synth)
                 else:  # plot6
                     clusters = apply_doppler_filter(synth)
 
-            tracker = self.trackers[name]
-            tracker.update(clusters)
-            preds = tracker.get_predictions()
+                # update this plot’s (label-based) tracker and get predictions
+                tracker = self.trackers[name]
+                tracker.update(clusters)
+                preds = tracker.get_predictions()
 
-            if name=="plot1":
-                plot1(plot_item, clusters, preds)
-            else:
+                # draw with the old draw_plot
                 self.draw_plot(plot_item, clusters, preds)
+
 
     def draw_plot(self, plot_widget, detected, predicted):
         plot_widget.clear()
