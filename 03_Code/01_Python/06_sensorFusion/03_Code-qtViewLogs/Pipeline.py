@@ -32,6 +32,12 @@ TRACKER_DIST_THRESH = 0.5   # max movement (meters) allowed per frame for matchi
 # Global variables for current (P) and previous (Q) frame clusters
 P = None  # clusters for current frame t
 Q = None  # clusters for previous frame t-1
+icp_history = {
+    'result_vectors':    [],
+    'motion_vectors':    [],
+    'world_transforms':  [],
+    'ego_transforms':    []
+}
 
 # Instantiate readers and global aggregators
 radarLoader       = RadarCSVReader("radar_straightWall_1.csv", "04_Logs-10072025_v2")
@@ -229,6 +235,7 @@ class ClusterViewer(QWidget):
 
     def update_all_plots(self):
         global P, Q
+        global icp_history
         # Filtern Pipeline information (Plot 1 only)
         rawPointCloud = _radarAgg.getPoints()  # list of dicts
         pointCloud = pointFilter.filterSNRmin( rawPointCloud, FILTER_SNR_MIN)
@@ -300,9 +307,14 @@ class ClusterViewer(QWidget):
                 print("-----------------------------------------------")
 
                 resultVectors = icp.icp_translation_vector(P, Q)
+                icp_history['result_vectors'].append(resultVectors)
                 motionVectors = icp.icp_get_transformation_average(resultVectors)
+                icp_history['motion_vectors'].append(motionVectors)
                 worldMotion = icp.icp_transformation_matrix(motionVectors)
-                icp.icp_ego_motion_matrix(motionVectors)
+                icp_history['world_transforms'].append(worldMotion)
+                Tego = icp.icp_ego_motion_matrix(motionVectors)
+                icp_history['ego_transforms'].append(Tego)
+                
                 # TODO: Perform odometry calculation here
                 for tid, trk_data in clusters.items():
                     history = trk_data['history']    # a list of np.array centroids
