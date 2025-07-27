@@ -3,7 +3,7 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QSlider
+    QLabel, QSlider, QPushButton
 )
 from PyQt5.QtCore import Qt
 
@@ -13,6 +13,9 @@ import helper
 from frameAggregator import FrameAggregator
 import dbCluster
 import pointFilter
+import icp
+
+import pprint
 
 # -------------------------------------------------------------
 # PARAMETERS
@@ -25,7 +28,10 @@ FILTER_PHI_MIN, FILTER_PHI_MAX  = -85, 85
 FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX = 0.01, 8.0
 TRACKER_MAX_MISSES  = 10     # how many frames a track can disappear before deletion
 TRACKER_DIST_THRESH = 0.5   # max movement (meters) allowed per frame for matching
-# -------------------------------------------------------------
+
+# Global variables for current (P) and previous (Q) frame clusters
+P = None  # clusters for current frame t
+Q = None  # clusters for previous frame t-1
 
 # Instantiate readers and global aggregators
 radarLoader       = RadarCSVReader("radar_straightWall_1.csv", "04_Logs-10072025_v2")
@@ -37,47 +43,23 @@ _imuAgg           = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 cluster_processor_stage1 = dbCluster.ClusterProcessor(eps=2.0, min_samples=5)
 cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.0, min_samples=2)
 
-# ------------------------------
-# Synthetic data generator + filters (unchanged)
-# ------------------------------
-def generate_raw_data(frame_idx):
-    clusters = {}
-    for cid in range(3):
-        x = cid * 3 + frame_idx * 0.2
-        y = cid * 2 + frame_idx * 0.15
-        z = 0
-        pts = np.random.randn(20,3)*0.4 + [x,y,z]
-        clusters[cid] = {'centroid':[x,y,z],'points':pts,'doppler_avg':np.random.uniform(-1,1)}
-    return clusters
 
-def apply_snr_filter(clusters):
-    return {
-        cid:{**c,'points':c['points'][np.linalg.norm(c['points'],axis=1)>0.5]}
-        for cid,c in clusters.items()
-    }
-
-def apply_z_filter(clusters):
-    return {
-        cid:{**c,'points':c['points'][(c['points'][:,2]>-0.5)&(c['points'][:,2]<0.5)]}
-        for cid,c in clusters.items()
-    }
-
-def apply_y_filter(clusters):
-    return {
-        cid:{**c,'points':c['points'][(c['points'][:,1]>1)&(c['points'][:,1]<10)]}
-        for cid,c in clusters.items()
-    }
-
-def apply_phi_filter(clusters):
-    return {
-        cid:{**c,'points':c['points'][np.abs(np.arctan2(c['points'][:,1],c['points'][:,0]))<np.pi/4]}
-        for cid,c in clusters.items()
-    }
-
-def apply_doppler_filter(clusters):
-    return {
-        cid:c for cid,c in clusters.items() if -0.3 < c['doppler_avg'] < 0.3
-    }
+def pretty_print_clusters(clusters, label="Clusters"):
+    """
+    Nicely prints a summary of `clusters` dict: ID, centroid, doppler, hits, and point count.
+    """
+    if clusters is None:
+        print(f"{label}: None")
+        return
+    print(f"{label} ({len(clusters)} clusters):")
+    for cid, data in clusters.items():
+        centroid = data.get('centroid')
+        dop = data.get('doppler_avg')
+        hits = data.get('hits', None)
+        missed = data.get('missed', None)
+        pts = data.get('points')
+        pt_count = len(pts) if pts is not None else 0
+        print(f" - ID {cid}: centroid={centroid}, doppler={dop:.2f}, hits={hits}, missed={missed}, points={pt_count}")
 
 # ------------------------------
 # Plot-1’s custom view (unchanged)
@@ -118,12 +100,50 @@ def plot1(plot_widget, clusters, predictions):
         plot_widget.addItem(lbl)
 
 # ------------------------------
+# Plot-2’s custom view (unchanged)
+# ------------------------------
+def plot2(plot_widget, clusters, predictions):
+    plot_widget.clear()
+    plot_widget.setTitle("Point Cloud")
+    for cid,data in clusters.items():
+        clusterPoints = data['points']
+        clusterDoppler = data['doppler_avg']
+        clusterHits    = data.get('hits', 0)
+        if clusterPoints.shape[0]>0:
+            scatter = pg.ScatterPlotItem(
+                x=clusterPoints[:,0], y=clusterPoints[:,1], size=8,
+                pen=None, brush=pg.mkBrush(0,200,0,150)
+            )
+            plot_widget.addItem(scatter)
+        # unpack centroid (x,y ignore others)
+        cx, cy = data['centroid'][:2]
+        label = pg.TextItem(
+            f"ID: {cid}\n"
+            f"Doppler: {clusterDoppler:.2f}\n"
+            f"Hits: {clusterHits}\n"
+            f"Cx,Cy: ({cx:.2f}, {cy:.2f})",
+            anchor=(0.5, -0.2),
+            color='w'
+        )
+        label.setPos(cx, cy)
+        plot_widget.addItem(label)
+    for cid,(px,py, *_ ) in predictions.items():
+        pred_sc = pg.ScatterPlotItem(
+            x=[px], y=[py], symbol='x', size=14,
+            pen=pg.mkPen('r',width=2)
+        )
+        plot_widget.addItem(pred_sc)
+        lbl = pg.TextItem(f"Pred {cid}", color='r')
+        lbl.setPos(px+0.3, py+0.3)
+        plot_widget.addItem(lbl)
+
+# ------------------------------
 # Main Viewer
 # ------------------------------
 class ClusterViewer(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("6-Panel Cluster Viewer")
+        self.setWindowTitle("Panel Cluster Viewer")
         self.resize(1200,900)
 
         # Load data once
@@ -140,7 +160,7 @@ class ClusterViewer(QWidget):
                     dist_threshold=TRACKER_DIST_THRESH
                 ) if i == 1 else ClusterTracker()
             )
-            for i in range(1, 7)
+            for i in range(1, 3)
         }
 
         # Build UI
@@ -148,7 +168,7 @@ class ClusterViewer(QWidget):
         self.plot_widget = pg.GraphicsLayoutWidget()
         main_layout.addWidget(self.plot_widget)
         self.plots = {}
-        for idx in range(1,7):
+        for idx in range(1,3):
             row, col = divmod(idx-1,3)
             p = self.plot_widget.addPlot(row=row,col=col)
             p.setXRange(-2,20); p.setYRange(-2,20)
@@ -156,13 +176,26 @@ class ClusterViewer(QWidget):
             p.setTitle(f"Plot {idx}")
             self.plots[f"plot{idx}"] = p
 
+        
+        # Control bar: label, slider, buttons
         ctrl = QHBoxLayout()
         self.slider_label = QLabel("Frame: 0")
         self.slider       = QSlider(Qt.Horizontal)
         self.slider.setMinimum(0)
         self.slider.setMaximum(self.radarDataSetLength-1)
         self.slider.valueChanged.connect(self.on_slider_changed)
-        ctrl.addWidget(self.slider_label); ctrl.addWidget(self.slider)
+
+        self.prev_btn = QPushButton("<")
+        self.next_btn = QPushButton(">")
+        self.prev_btn.clicked.connect(lambda: self.change_slider(-1))
+        self.next_btn.clicked.connect(lambda: self.change_slider(+1))
+
+        ctrl.addWidget(self.slider_label)
+        ctrl.addWidget(self.slider)
+        ctrl.addWidget(self.prev_btn)
+        ctrl.addWidget(self.next_btn)
+        main_layout.addLayout(ctrl)
+
         main_layout.addLayout(ctrl)
 
         # Start at frame 0
@@ -181,12 +214,22 @@ class ClusterViewer(QWidget):
             _imuAgg.updateBuffer(  self.imu_frames[f])
         self.currentFrame  = newFrame
         self.slider_label.setText(f"Frame: {newFrame}")
+        # Call plots to be drawn
         self.update_all_plots()
 
+    def change_slider(self, delta):
+        """
+        Move the frame slider by delta (±1) and clamp to [min, max].
+        """
+        new_val = self.slider.value() + delta
+        new_val = max(self.slider.minimum(),
+                      min(self.slider.maximum(), new_val))
+        self.slider.setValue(new_val)
+
+
     def update_all_plots(self):
-        # ------------------------
-        # FILTERING PIPELINE (Plot 1 only)
-        # ------------------------
+        global P, Q
+        # Filtern Pipeline information (Plot 1 only)
         rawPointCloud = _radarAgg.getPoints()  # list of dicts
         pointCloud = pointFilter.filterSNRmin( rawPointCloud, FILTER_SNR_MIN)
         pointCloud = pointFilter.filterCartesianZ(pointCloud, FILTER_Z_MIN, FILTER_Z_MAX)
@@ -194,25 +237,61 @@ class ClusterViewer(QWidget):
         pointCloud = pointFilter.filterSphericalPhi(pointCloud, FILTER_PHI_MIN, FILTER_PHI_MAX)
         filteredPointCloud = pointFilter.filterDoppler(pointCloud, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
 
-        # ------------------------
-        # STAGE 1 CLUSTERING
-        # ------------------------
+        # Stage 1 clustering
         clusterProcessor_stage1 = pointFilter.extract_points(filteredPointCloud)
         clusterProcessor_stage1, _ = cluster_processor_stage1.cluster_points(clusterProcessor_stage1)
 
-        # ------------------------
-        # STAGE 2 CLUSTERING
-        # ------------------------
+        # Stage 2 clustering
         if len(clusterProcessor_stage1)>0:
             clusterProcessor_flat = np.vstack([cdata['points'] for cdata in clusterProcessor_stage1.values()])
             clusterProcessor_final, _ = cluster_processor_stage2.cluster_points(clusterProcessor_flat)
         else:
             clusterProcessor_final = {}
 
+        # Store value that was stored in P into Q
+        #Q = P
+        # Obtain the current cluster set of points
+        #P = clusterProcessor_final
+
+
         # now draw each plot
         for name, plot_item in self.plots.items():
 
             if name == "plot1":
+                # Plot 1: real clusters → spatial tracker 
+                # 1) update the tracker with the fresh Stage-2 clusters
+                self.trackers[name].update(clusterProcessor_final)
+
+                # 2) pull out the tracks (persistent IDs) and their data
+                clusters = self.trackers[name].get_active_tracks()
+
+                # 3) get predictions for any tracks that missed this frame
+                preds = self.trackers[name].get_predictions()
+
+                # Store value that was stored in P into Q
+                Q = P
+                # Obtain the current cluster set of points
+                P = clusters
+
+                print(f"Current frame: {self.currentFrame}")
+                pretty_print_clusters(P, "[P] Current Clusters (Frame t)")
+                pretty_print_clusters(Q, "[Q] Previous Clusters (Frame t-1)")
+                print("-----------------------------------------------")
+
+                resultVectors = icp.icp_translation_vector(P, Q)
+                icp.icp_get_transformation_average(resultVectors)
+
+                # TODO: Perform odometry calculation here
+                for tid, trk_data in clusters.items():
+                    history = trk_data['history']    # a list of np.array centroids
+                    currentDoppler = trk_data['doppler_avg']
+                    hits    = trk_data['hits']
+                    missed  = trk_data['missed']
+
+                # 4) draw using persistent track IDs
+                plot1(plot_item, clusters, preds)
+                
+            if name == "plot2":
                 # Plot 1: real clusters → spatial tracker 
                 # 1) update the tracker with the fresh Stage-2 clusters
                 self.trackers[name].update(clusterProcessor_final)
@@ -231,56 +310,7 @@ class ClusterViewer(QWidget):
                     missed  = trk_data['missed']
 
                 # 4) draw using persistent track IDs
-                plot1(plot_item, clusters, preds)
-
-            else:
-                # Plots 2–6: synthetic, unchanged
-                synth = generate_raw_data(self.currentFrame)
-                if name == "plot2":
-                    clusters = apply_snr_filter(synth)
-                elif name == "plot3":
-                    clusters = apply_z_filter(synth)
-                elif name == "plot4":
-                    clusters = apply_y_filter(synth)
-                elif name == "plot5":
-                    clusters = apply_phi_filter(synth)
-                else:  # plot6
-                    clusters = apply_doppler_filter(synth)
-
-                # update this plot’s (label-based) tracker and get predictions
-                tracker = self.trackers[name]
-                tracker.update(clusters)
-                preds = tracker.get_predictions()
-
-                # draw with the old draw_plot
-                self.draw_plot(plot_item, clusters, preds)
-
-
-    def draw_plot(self, plot_widget, detected, predicted):
-        plot_widget.clear()
-        for cid,data in detected.items():
-            pts = data['points']
-            if pts.shape[0]>0:
-                scatter = pg.ScatterPlotItem(
-                    x=pts[:,0], y=pts[:,1], size=6,
-                    pen=None, brush=pg.mkBrush(100+cid*50,150,255)
-                )
-                plot_widget.addItem(scatter)
-            cx, cy = data['centroid'][:2]
-            dop = data.get('doppler',0.0)
-            text = f"ID {cid}\nD={dop:.2f}"
-            lbl = pg.TextItem(text,anchor=(0,0),color='w')
-            lbl.setPos(cx+0.5, cy+0.3)
-            plot_widget.addItem(lbl)
-        for cid,(px,py, *_ ) in predicted.items():
-            psc = pg.ScatterPlotItem(
-                x=[px], y=[py], symbol='x', size=14,
-                pen=pg.mkPen('r')
-            )
-            plot_widget.addItem(psc)
-            lbl = pg.TextItem(f"Pred {cid}", color='r')
-            lbl.setPos(px+0.3,py+0.3)
-            plot_widget.addItem(lbl)
+                plot2(plot_item, clusters, preds)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
