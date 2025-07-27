@@ -301,8 +301,8 @@ class ClusterViewer(QWidget):
 
                 resultVectors = icp.icp_translation_vector(P, Q)
                 motionVectors = icp.icp_get_transformation_average(resultVectors)
-                icp.icp_transformation_matrix(motionVectors)
-
+                worldMotion = icp.icp_transformation_matrix(motionVectors)
+                icp.icp_ego_motion_matrix(motionVectors)
                 # TODO: Perform odometry calculation here
                 for tid, trk_data in clusters.items():
                     history = trk_data['history']    # a list of np.array centroids

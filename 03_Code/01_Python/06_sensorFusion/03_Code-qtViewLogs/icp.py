@@ -144,8 +144,31 @@ def icp_transformation_matrix(motionVectors):
     rotations = motionVectors.get('rotation_avg')
     if translations is None or rotations is None:
         return None
-    tx, ty = float(translations[0]), float(translations[1])
-    cos, sine = np.cos(rotations), np.sin(rotations)
-    return np.array([[cos, -sine, tx],
-                     [sine,  cos, ty],
-                     [0,  0,  1]])
+    tx = float(translations[0])
+    ty = float(translations[1])
+    cos = np.cos(rotations)
+    sine = np.sin(rotations)
+    transformation_icp = np.array([[cos, -sine, tx], [sine,  cos, ty], [0,  0,  1]])
+    return transformation_icp
+
+def icp_ego_motion_matrix(avg):
+    """
+    Returns the ego-motion (inverse ICP) matrix:
+      T_ego = [[R^T, -R^T * t], [0,0,1]]
+    """
+    translations = avg.get('translation_avg')
+    rotations = avg.get('rotation_avg')
+    if translations is None or rotations is None:
+        return None
+    tx = float(translations[0])
+    ty = float(translations[1])
+    cos = np.cos(rotations)
+    sine = np.sin(rotations)
+    # rotation matrix
+    R = np.array([[cos, -sine], [sine, cos]])
+    Rt = R.T
+    t_ego = -Rt.dot(np.array([tx, ty]))
+
+    transformation_ego = np.array([[Rt[0,0], Rt[0,1], t_ego[0]], [Rt[1,0], Rt[1,1], t_ego[1]], [0, 0, 1]])
+    
+    return transformation_ego
