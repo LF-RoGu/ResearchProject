@@ -268,19 +268,6 @@ class ClusterViewer(QWidget):
                 # 3) get predictions for any tracks that missed this frame
                 preds = self.trackers[name].get_predictions()
 
-                # Store value that was stored in P into Q
-                Q = P
-                # Obtain the current cluster set of points
-                P = clusters
-
-                print(f"Current frame: {self.currentFrame}")
-                pretty_print_clusters(P, "[P] Current Clusters (Frame t)")
-                pretty_print_clusters(Q, "[Q] Previous Clusters (Frame t-1)")
-                print("-----------------------------------------------")
-
-                resultVectors = icp.icp_translation_vector(P, Q)
-                icp.icp_get_transformation_average(resultVectors)
-
                 # TODO: Perform odometry calculation here
                 for tid, trk_data in clusters.items():
                     history = trk_data['history']    # a list of np.array centroids
@@ -301,6 +288,20 @@ class ClusterViewer(QWidget):
 
                 # 3) get predictions for any tracks that missed this frame
                 preds = self.trackers[name].get_predictions()
+
+                # Store value that was stored in P into Q
+                Q = P
+                # Obtain the current cluster set of points
+                P = clusters
+
+                print(f"Current frame: {self.currentFrame}")
+                pretty_print_clusters(P, "[P] Current Clusters (Frame t)")
+                pretty_print_clusters(Q, "[Q] Previous Clusters (Frame t-1)")
+                print("-----------------------------------------------")
+
+                resultVectors = icp.icp_translation_vector(P, Q)
+                motionVectors = icp.icp_get_transformation_average(resultVectors)
+                icp.icp_transformation_matrix(motionVectors)
 
                 # TODO: Perform odometry calculation here
                 for tid, trk_data in clusters.items():

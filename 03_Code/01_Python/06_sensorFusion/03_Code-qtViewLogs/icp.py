@@ -122,3 +122,30 @@ def icp_get_transformation_average(transformations):
         'translation_avg': average_translations,
         'rotation_avg':    average_rotations
     }
+
+def icp_transformation_matrix(motionVectors):
+    """
+    Builds the homogeneous 2D transformation matrix from averaged
+    translation and rotation.
+
+    This matrix will provide the world motion.
+
+    Args:
+      avg: dict with keys 'translation_avg' (array-like [tx, ty, ...])
+           and 'rotation_avg' (theta in radians).
+
+    Returns:
+      3x3 numpy array:
+        [[cosθ, -sinθ, tx],
+         [sinθ,  cosθ, ty],
+         [0,      0,   1]]
+    """
+    translations = motionVectors.get('translation_avg')
+    rotations = motionVectors.get('rotation_avg')
+    if translations is None or rotations is None:
+        return None
+    tx, ty = float(translations[0]), float(translations[1])
+    cos, sine = np.cos(rotations), np.sin(rotations)
+    return np.array([[cos, -sine, tx],
+                     [sine,  cos, ty],
+                     [0,  0,  1]])
