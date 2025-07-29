@@ -144,6 +144,89 @@ def plot2(plot_widget, clusters, predictions):
         plot_widget.addItem(lbl)
 
 # ------------------------------
+# Plot-3’s custom view (unchanged)
+# ------------------------------
+def plot3(plot_widget, ego_matrix):
+    """
+    Dedicated panel for visualizing ego-motion rotation.
+    - Draws a yellow arrow showing rotation
+    - Prints the 2x2 rotation matrix R^T
+    """
+    plot_widget.clear()
+    plot_widget.setTitle("Ego-Motion Rotation")
+    plot_widget.enableAutoRange(False)
+    plot_widget.setXRange(-2, 2)
+    plot_widget.setYRange(-2, 2)
+    plot_widget.setAspectLocked(True)
+    plot_widget.showGrid(x=True, y=True)
+
+    if ego_matrix is None:
+        txt = pg.TextItem("No Ego-Motion Data", color='r')
+        txt.setPos(0, 0)
+        plot_widget.addItem(txt)
+        return
+
+    Rt = ego_matrix[0:2, 0:2]
+    v = np.array([1.0, 0.0])
+    u = Rt.dot(v)
+
+    plot_widget.plot([0, u[0]], [0, u[1]], pen=pg.mkPen('y', width=3))
+
+    mat_text = (
+        f"Rᵀ =\n"
+        f"[{Rt[0,0]:.3f} {Rt[0,1]:.3f}]\n"
+        f"[{Rt[1,0]:.3f} {Rt[1,1]:.3f}]"
+    )
+    txt = pg.TextItem(mat_text, color='y')
+    txt.setPos(-1.5, -1.5)
+    plot_widget.addItem(txt)
+
+# ------------------------------
+# Plot-4’s custom view (unchanged)
+# ------------------------------
+def plot4(plot_widget, ego_matrix, translation_history):
+    """
+    Dedicated panel for visualizing ego-motion translation.
+    - Plots 'x' marks showing translation over time
+    - Uses the full 3x3 ego_matrix to extract position
+    """
+    plot_widget.clear()
+    plot_widget.setTitle("Ego-Motion Translation")
+    plot_widget.enableAutoRange(False)
+    plot_widget.setXRange(-10, 10)
+    plot_widget.setYRange(-10, 10)
+    plot_widget.setAspectLocked(True)
+    plot_widget.showGrid(x=True, y=True)
+
+    if ego_matrix is None:
+        txt = pg.TextItem("No Ego-Motion Data", color='r')
+        txt.setPos(0, 0)
+        plot_widget.addItem(txt)
+        return
+
+    # Extract the translation component from Tego
+    tx = ego_matrix[0, 2]
+    ty = ego_matrix[1, 2]
+
+    # Store translation history
+    translation_history.append((tx, ty))
+
+    # Plot the history as 'x' marks
+    if len(translation_history) > 0:
+        xs, ys = zip(*translation_history)
+        scatter = pg.ScatterPlotItem(
+            x=xs, y=ys, symbol='x', size=10,
+            pen=pg.mkPen('b', width=2)
+        )
+        plot_widget.addItem(scatter)
+
+    # Show the latest translation value as text
+    txt = pg.TextItem(f"Translation:\nX={tx:.2f}, Y={ty:.2f}", color='b')
+    txt.setPos(tx, ty)
+    plot_widget.addItem(txt)
+
+
+# ------------------------------
 # Main Viewer
 # ------------------------------
 class ClusterViewer(QWidget):
@@ -166,7 +249,7 @@ class ClusterViewer(QWidget):
                     dist_threshold=TRACKER_DIST_THRESH
                 ) if i == 1 else ClusterTracker()
             )
-            for i in range(1, 3)
+            for i in range(1, 5)
         }
 
         # Build UI
@@ -174,7 +257,7 @@ class ClusterViewer(QWidget):
         self.plot_widget = pg.GraphicsLayoutWidget()
         main_layout.addWidget(self.plot_widget)
         self.plots = {}
-        for idx in range(1,3):
+        for idx in range(1,5):
             row, col = divmod(idx-1,3)
             p = self.plot_widget.addPlot(row=row,col=col)
             p.setXRange(-2,20); p.setYRange(-2,20)
@@ -266,13 +349,13 @@ class ClusterViewer(QWidget):
 
             if name == "plot1":
                 # Plot 1: real clusters → spatial tracker 
-                # 1) update the tracker with the fresh Stage-2 clusters
+                #  update the tracker with the fresh Stage-2 clusters
                 self.trackers[name].update(clusterProcessor_final)
 
-                # 2) pull out the tracks (persistent IDs) and their data
+                #  pull out the tracks (persistent IDs) and their data
                 clusters = self.trackers[name].get_active_tracks()
 
-                # 3) get predictions for any tracks that missed this frame
+                #  get predictions for any tracks that missed this frame
                 preds = self.trackers[name].get_predictions()
 
                 # TODO: Perform odometry calculation here
@@ -282,18 +365,36 @@ class ClusterViewer(QWidget):
                     hits    = trk_data['hits']
                     missed  = trk_data['missed']
 
-                # 4) draw using persistent track IDs
                 plot1(plot_item, clusters, preds)
                 
             if name == "plot2":
                 # Plot 1: real clusters → spatial tracker 
-                # 1) update the tracker with the fresh Stage-2 clusters
+                # update the tracker with the fresh Stage-2 clusters
                 self.trackers[name].update(clusterProcessor_final)
 
-                # 2) pull out the tracks (persistent IDs) and their data
+                # pull out the tracks (persistent IDs) and their data
                 clusters = self.trackers[name].get_active_tracks()
 
-                # 3) get predictions for any tracks that missed this frame
+                # get predictions for any tracks that missed this frame
+                preds = self.trackers[name].get_predictions()
+
+                # TODO: Perform odometry calculation here
+                for tid, trk_data in clusters.items():
+                    history = trk_data['history']    # a list of np.array centroids
+                    currentDoppler = trk_data['doppler_avg']
+                    hits    = trk_data['hits']
+                    missed  = trk_data['missed']
+
+                plot2(plot_item, clusters, preds)
+            if name == "plot3":
+                # Plot 1: real clusters → spatial tracker 
+                # update the tracker with the fresh Stage-2 clusters
+                self.trackers[name].update(clusterProcessor_final)
+
+                # pull out the tracks (persistent IDs) and their data
+                clusters = self.trackers[name].get_active_tracks()
+
+                # get predictions for any tracks that missed this frame
                 preds = self.trackers[name].get_predictions()
 
                 # Store value that was stored in P into Q
@@ -301,10 +402,10 @@ class ClusterViewer(QWidget):
                 # Obtain the current cluster set of points
                 P = clusters
 
-                print(f"Current frame: {self.currentFrame}")
-                pretty_print_clusters(P, "[P] Current Clusters (Frame t)")
-                pretty_print_clusters(Q, "[Q] Previous Clusters (Frame t-1)")
-                print("-----------------------------------------------")
+                #print(f"Current frame: {self.currentFrame}")
+                #pretty_print_clusters(P, "[P] Current Clusters (Frame t)")
+                #pretty_print_clusters(Q, "[Q] Previous Clusters (Frame t-1)")
+                #print("-----------------------------------------------")
 
                 resultVectors = icp.icp_translation_vector(P, Q)
                 icp_history['result_vectors'].append(resultVectors)
@@ -314,16 +415,40 @@ class ClusterViewer(QWidget):
                 icp_history['world_transforms'].append(worldMotion)
                 Tego = icp.icp_ego_motion_matrix(motionVectors)
                 icp_history['ego_transforms'].append(Tego)
-                
-                # TODO: Perform odometry calculation here
-                for tid, trk_data in clusters.items():
-                    history = trk_data['history']    # a list of np.array centroids
-                    currentDoppler = trk_data['doppler_avg']
-                    hits    = trk_data['hits']
-                    missed  = trk_data['missed']
 
-                # 4) draw using persistent track IDs
-                plot2(plot_item, clusters, preds)
+                plot3(plot_item, Tego)
+            if name == "plot4":
+                # Plot 1: real clusters → spatial tracker 
+                # update the tracker with the fresh Stage-2 clusters
+                self.trackers[name].update(clusterProcessor_final)
+
+                # pull out the tracks (persistent IDs) and their data
+                clusters = self.trackers[name].get_active_tracks()
+
+                # get predictions for any tracks that missed this frame
+                preds = self.trackers[name].get_predictions()
+
+                # Store value that was stored in P into Q
+                Q = P
+                # Obtain the current cluster set of points
+                P = clusters
+
+                resultVectors = icp.icp_translation_vector(P, Q)
+                icp_history['result_vectors'].append(resultVectors)
+                motionVectors = icp.icp_get_transformation_average(resultVectors)
+                icp_history['motion_vectors'].append(motionVectors)
+                worldMotion = icp.icp_transformation_matrix(motionVectors)
+                icp_history['world_transforms'].append(worldMotion)
+                Tego = icp.icp_ego_motion_matrix(motionVectors)
+                icp_history['ego_transforms'].append(Tego)
+
+                print("Avg Translation:", motionVectors['translation_avg'])
+                print("Avg Rotation:", motionVectors['rotation_avg'])
+
+
+                if not hasattr(self, "translation_history"):
+                    self.translation_history = []
+                plot4(plot_item, Tego, self.translation_history)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
