@@ -47,9 +47,11 @@ icp_history = {
     'ego_transforms':    []
 }
 
+folderName = "07_Logs-30072025"  # Folder where CSV files are stored
+testType = "straightWall_1.csv"  # Type of test data
 # Instantiate readers and global aggregators
-radarLoader       = RadarCSVReader("radar_straightWall_1.csv", "05_Logs-10072025_v2")
-imuLoader         = ImuCSVReader(  "imu_straightWall_1.csv",   "05_Logs-10072025_v2")
+radarLoader       = RadarCSVReader("radar_" + testType, folderName)
+imuLoader         = ImuCSVReader("imu_" + testType,   folderName)
 _radarAgg         = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 _imuAgg           = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 
@@ -68,9 +70,9 @@ def pretty_print_clusters(clusters, label="Clusters"):
     print(f"{label} ({len(clusters)} clusters):")
     for cid, data in clusters.items():
         centroid = data.get('centroid')
-        dop = data.get('doppler_avg')
-        hits = data.get('hits', None)
-        missed = data.get('missed', None)
+        dop = data.get('doppler_average')
+        hits = data.get('hit_count', None)
+        missed = data.get('miss_count', None)
         pts = data.get('points')
         pt_count = len(pts) if pts is not None else 0
         print(f" - ID {cid}: centroid={centroid}, doppler={dop:.2f}, hits={hits}, missed={missed}, points={pt_count}")
@@ -284,6 +286,8 @@ def plot5(plot_widget, imu_average):
     lbl.setPos(tip_x, tip_y)
     plot_widget.addItem(lbl)
 
+    print(f"[IMU] Heading Angle: {shifted_deg:.2f}°")
+
 
 
 
@@ -293,7 +297,7 @@ def plot5(plot_widget, imu_average):
 class ClusterViewer(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Panel Cluster Viewer")
+        self.setWindowTitle("Pipeline Viewer")
         self.resize(1200,900)
 
         # Load data once
@@ -445,54 +449,54 @@ class ClusterViewer(QWidget):
                 clusters = self.trackers[name].get_active_tracks()
 
                 # Store value that was stored in P into Q
-                Q = P
+                Q = P # Obtained only last sample to avoid errors that could have been accumulated
                 # Obtain the current cluster set of points
                 P = clusters
-
-                #print(f"Current frame: {self.currentFrame}")
-                #pretty_print_clusters(P, "[P] Current Clusters (Frame t)")
-                #pretty_print_clusters(Q, "[Q] Previous Clusters (Frame t-1)")
-                #print("-----------------------------------------------")
 
                 resultVectors = icp.icp_translation_vector(P, Q)
                 icp_history['result_vectors'].append(resultVectors)
                 motionVectors = icp.icp_get_transformation_average(resultVectors)
                 icp_history['motion_vectors'].append(motionVectors)
-                worldMotion = icp.icp_transformation_matrix(motionVectors)
-                icp_history['world_transforms'].append(worldMotion)
+                Ticp = icp.icp_transformation_matrix(motionVectors)
+                icp_history['world_transforms'].append(Ticp)
                 Tego = icp.icp_ego_motion_matrix(motionVectors)
                 icp_history['ego_transforms'].append(Tego)
+
+                print(f"Current frame: {self.currentFrame}")
+                pretty_print_clusters(P, "[P] Current Clusters (Frame t)")
+                pretty_print_clusters(Q, "[Q] Previous Clusters (Frame t-1)")
+                print("-----------------------------------------------")
+
+                # Per-cluster translations
+                print("Translations:")
+                for cid, vec in resultVectors['translation'].items():
+                    print(f"  ID={cid}: Δx={vec[0]:.6f}, Δy={vec[1]:.6f}")
+
+                # Per-cluster rotations
+                print("Rotations:")
+                for cid, angle in resultVectors['rotation'].items():
+                    print(f"  ID={cid}: θ={np.degrees(angle):.6f}°")
+                
+
+                print("(Ticp): ")
+                print(Ticp)
+
+                if Ticp is not None:
+                    # Extract R from Ticp and compute angle
+                    Rt_icp = Ticp[0:2, 0:2]
+                    theta_icp = np.degrees(np.arctan2(Rt_icp[1, 0], Rt_icp[0, 0]))
+                    print(f"Rotation (θ) from Ticp: {theta_icp:.6f}°")
+
+                print("(Tego): ")
+                print(Tego)
+                
+                if Tego is not None:
+                    # Extract R from Tego and compute angle
+                    Rt_ego = Tego[0:2, 0:2]
+                    theta_ego = np.degrees(np.arctan2(Rt_ego[1, 0], Rt_ego[0, 0]))
+                    print(f"Rotation (θ) from Tego: {theta_ego:.6f}°")
 
                 plot3(plot_item, Tego)
-            if name == "plot4":
-                # Plot 1: real clusters → spatial tracker 
-                # update the tracker with the fresh Stage-2 clusters
-                self.trackers[name].update(clusterProcessor_final)
-
-                # pull out the tracks (persistent IDs) and their data
-                clusters = self.trackers[name].get_active_tracks()
-
-                # Store value that was stored in P into Q
-                Q = P
-                # Obtain the current cluster set of points
-                P = clusters
-
-                resultVectors = icp.icp_translation_vector(P, Q)
-                icp_history['result_vectors'].append(resultVectors)
-                motionVectors = icp.icp_get_transformation_average(resultVectors)
-                icp_history['motion_vectors'].append(motionVectors)
-                worldMotion = icp.icp_transformation_matrix(motionVectors)
-                icp_history['world_transforms'].append(worldMotion)
-                Tego = icp.icp_ego_motion_matrix(motionVectors)
-                icp_history['ego_transforms'].append(Tego)
-
-                #print("Avg Translation:", motionVectors['translation_avg'])
-                #print("Avg Rotation:", motionVectors['rotation_avg'])
-
-
-                if not hasattr(self, "translation_history"):
-                    self.translation_history = []
-                plot4(plot_item, Tego, self.translation_history)
             if name == "plot5":
                 plot5(plot_item, imuData)
 

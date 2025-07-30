@@ -38,10 +38,17 @@ class ClusterTracker:
         return tid
 
     def _fit_line_to_history(self, history_points):
-        # fit line y = m x + b to given list of [x,y] points
+        # history_points: list of [x,y] arrays, len ≥ 2
         pts = np.vstack(history_points)
-        slope, intercept = np.polyfit(pts[:,0], pts[:,1], 1)
-        return slope, intercept
+        xs, ys = pts[:,0], pts[:,1]
+
+        # build design matrix for y = m x + b
+        A = np.vstack([xs, np.ones_like(xs)]).T
+        # solve the normal equations A @ [m,b] = ys
+        m, b = np.linalg.lstsq(A, ys, rcond=None)[0]
+
+        return m, b
+
 
     def update(self, detections):
         # detections: dict of id -> {'centroid':[x,y], 'points':..., 'doppler_avg':...}

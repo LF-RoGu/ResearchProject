@@ -1,5 +1,10 @@
 import numpy as np
 
+# Global variable to store the last valid transformation
+_last_valid_transformation = {
+    'translation_avg': np.zeros(3),
+    'rotation_avg': 0.0
+}
 
 def _normalize_icp_input(icp):
     """
@@ -97,31 +102,75 @@ def icp_rotation_vector(tx, ty):
 
 def icp_get_transformation_average(transformations):
     """
-    Computes the average translation vector and average rotation angle
-    from the `translations` and `rotations` in the `transformations` dict
-    returned by `icp_translation_vector`.
-
-    Returns a dict with:
-      - 'translation_avg': np.ndarray of shape (3,)
-      - 'rotation_avg':    float (radians)
+    Computes weighted averages for translation and rotation from ICP data.
+    - Translation is weighted by the 'hits' count of each cluster.
+    - Rotation uses circular statistics for robustness.
+    - If no valid clusters are found, returns the last valid transformation.
     """
+    global _last_valid_transformation
+
     translations = transformations.get('translation', {})
-    rotations    = transformations.get('rotation', {})
-    if not translations or not rotations:
-        return {'translation_avg': None, 'rotation_avg': None}
+    rotations = transformations.get('rotation', {})
+    dataSetP = transformations.get('dataSetP', {})
 
-    # average translation vector
-    all_translations = np.stack(list(translations.values()), axis=0)
-    average_translations = np.mean(all_translations, axis=0)
+    if not translations and not rotations:
+        # Return the last valid transformation if available
+        return _last_valid_transformation
 
-    # average translation vector
-    all_rotations = np.stack(list(rotations.values()), axis=0)
-    average_rotations = np.mean(all_rotations, axis=0)
+    # ----- Weighted Translation -----
+    weighted_translations = []
+    weights_t = []
 
-    return {
+    for cid, tvec in translations.items():
+        if tvec is None:
+            continue
+        hits = dataSetP.get(cid, {}).get('hits', 1)
+        if hits is None:
+            hits = 1
+        tvec = np.asarray(tvec, dtype=float)
+        weighted_translations.append(tvec * hits)
+        weights_t.append(hits)
+
+    if weighted_translations:
+        weighted_translations = np.stack(weighted_translations, axis=0)
+        weights_t = np.array(weights_t, dtype=float)
+        average_translations = np.sum(weighted_translations, axis=0) / np.sum(weights_t)
+    else:
+        average_translations = np.zeros(3)
+
+    # ----- Weighted Circular Mean for Rotation -----
+    cos_vals = []
+    sin_vals = []
+    weights_r = []
+
+    for cid, angle in rotations.items():
+        if angle is None:
+            continue
+        hits = dataSetP.get(cid, {}).get('hits', 1)
+        if hits is None:
+            hits = 1
+        cos_vals.append(np.cos(angle) * hits)
+        sin_vals.append(np.sin(angle) * hits)
+        weights_r.append(hits)
+
+    if cos_vals and sin_vals:
+        cos_vals = np.array(cos_vals, dtype=float)
+        sin_vals = np.array(sin_vals, dtype=float)
+        weights_r = np.array(weights_r, dtype=float)
+        cos_mean = np.sum(cos_vals) / np.sum(weights_r)
+        sin_mean = np.sum(sin_vals) / np.sum(weights_r)
+        average_rotations = np.arctan2(sin_mean, cos_mean)
+    else:
+        average_rotations = 0.0
+
+    # Store the last valid transformation
+    _last_valid_transformation = {
         'translation_avg': average_translations,
-        'rotation_avg':    average_rotations
+        'rotation_avg': average_rotations
     }
+
+    return _last_valid_transformation
+
 
 def icp_transformation_matrix(motionVectors):
     """
