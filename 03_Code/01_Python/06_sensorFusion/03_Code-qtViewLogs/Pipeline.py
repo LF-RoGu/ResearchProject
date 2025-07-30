@@ -14,6 +14,7 @@ from frameAggregator import FrameAggregator
 import dbCluster
 import pointFilter
 import icp
+from kalmanFilter import KalmanFilter
 
 from ClusterTracker import (
     NUMBER_OF_PAST_SAMPLES,
@@ -48,7 +49,7 @@ icp_history = {
 }
 
 folderName = "07_Logs-30072025"  # Folder where CSV files are stored
-testType = "straightWall_1.csv"  # Type of test data
+testType = "straightWall_2.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarLoader       = RadarCSVReader("radar_" + testType, folderName)
 imuLoader         = ImuCSVReader("imu_" + testType,   folderName)
@@ -58,6 +59,9 @@ _imuAgg           = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 # Two‐stage DBSCAN processors
 cluster_processor_stage1 = dbCluster.ClusterProcessor(eps=2.0, min_samples=5)
 cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.0, min_samples=2)
+
+icp_rotation_filter = KalmanFilter(process_variance=0.1, measurement_variance=0.5)
+
 
 
 def pretty_print_clusters(clusters, label="Clusters"):
@@ -158,7 +162,11 @@ def plot3(plot_widget, ego_matrix):
     Dedicated panel for visualizing ego-motion rotation.
     - Draws a yellow arrow showing rotation
     - Prints the 2x2 rotation matrix R^T
+    - Displays the heading in degrees next to the arrow
     """
+    import pyqtgraph as pg
+    import numpy as np
+
     plot_widget.clear()
     plot_widget.setTitle("Ego-Motion Rotation")
     plot_widget.enableAutoRange(False)
@@ -174,11 +182,26 @@ def plot3(plot_widget, ego_matrix):
         return
 
     Rt = ego_matrix[0:2, 0:2]
-    v = np.array([1.0, 0.0])
-    u = Rt.dot(v)
 
-    plot_widget.plot([0, u[0]], [0, u[1]], pen=pg.mkPen('y', width=3))
+    # Convert to matching IMU convention
+    icp_angle = np.arctan2(Rt[1, 0], Rt[0, 0])
+    display_rad = np.pi - icp_angle
+    shifted_rad = display_rad - (np.pi / 2)
+    shifted_deg = (np.degrees(display_rad) - 90.0) % 360.0
 
+    # Arrow direction
+    u_x = np.cos(shifted_rad)
+    u_y = np.sin(shifted_rad)
+
+    # Draw arrow
+    plot_widget.plot([0, u_x], [0, u_y], pen=pg.mkPen('y', width=3))
+
+    # Show heading text next to arrow
+    lbl = pg.TextItem(f"{shifted_deg:.1f}°", color='y', anchor=(0.5, -0.2))
+    lbl.setPos(u_x, u_y)
+    plot_widget.addItem(lbl)
+
+    # Print rotation matrix
     mat_text = (
         f"Rᵀ =\n"
         f"[{Rt[0,0]:.3f} {Rt[0,1]:.3f}]\n"
@@ -187,6 +210,8 @@ def plot3(plot_widget, ego_matrix):
     txt = pg.TextItem(mat_text, color='y')
     txt.setPos(-1.5, -1.5)
     plot_widget.addItem(txt)
+
+    print(f"[ICP] Heading Angle: {shifted_deg:.2f}°")
 
 # ------------------------------
 # Plot-4’s custom view (unchanged)
@@ -455,10 +480,16 @@ class ClusterViewer(QWidget):
 
                 resultVectors = icp.icp_translation_vector(P, Q)
                 icp_history['result_vectors'].append(resultVectors)
+
                 motionVectors = icp.icp_get_transformation_average(resultVectors)
                 icp_history['motion_vectors'].append(motionVectors)
+
+                rawIcpRotation = np.degrees(motionVectors['rotation_avg'])
+                motionVectors['rotation_avg'] = np.radians(icp_rotation_filter.update(rawIcpRotation))
+
                 Ticp = icp.icp_transformation_matrix(motionVectors)
                 icp_history['world_transforms'].append(Ticp)
+
                 Tego = icp.icp_ego_motion_matrix(motionVectors)
                 icp_history['ego_transforms'].append(Tego)
 
@@ -495,6 +526,10 @@ class ClusterViewer(QWidget):
                     Rt_ego = Tego[0:2, 0:2]
                     theta_ego = np.degrees(np.arctan2(Rt_ego[1, 0], Rt_ego[0, 0]))
                     print(f"Rotation (θ) from Tego: {theta_ego:.6f}°")
+
+                # End of debug section.
+                
+                
 
                 plot3(plot_item, Tego)
             if name == "plot5":

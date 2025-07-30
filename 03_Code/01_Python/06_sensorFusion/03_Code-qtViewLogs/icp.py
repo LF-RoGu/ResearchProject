@@ -35,62 +35,83 @@ def _normalize_icp_input(icp):
 
 
 def icp_translation_vector(icpP, icpQ):
-    # Normalize inputs
     ptsP = _normalize_icp_input(icpP)
     ptsQ = _normalize_icp_input(icpQ)
 
-    # gather raw cluster data into dictionaries
     dataSetP = {}
     dataSetQ = {}
+    P_all = []
+    Q_all = []
+
     for cid, P_data in ptsP:
         if P_data is None:
             continue
+        pointsP = P_data.get('points')
         dataSetP[cid] = {
-            'points':   P_data.get('points'),
+            'points': pointsP,
             'centroid': P_data.get('centroid'),
-            'doppler':  P_data.get('doppler_avg'),
-            'hits':     P_data.get('hits'),
-            'missed':   P_data.get('missed'),
-            'history':  P_data.get('history')
+            'doppler': P_data.get('doppler_avg'),
+            'hits': P_data.get('hits'),
+            'missed': P_data.get('missed'),
+            'history': P_data.get('history')
         }
+        if cid in dict(ptsQ):
+            pointsQ = dict(ptsQ)[cid].get('points')
+            if pointsP is not None and pointsQ is not None:
+                # Store matched cluster points
+                P_all.append(pointsP)
+                Q_all.append(pointsQ)
+
     for cid, Q_data in ptsQ:
         if Q_data is None:
             continue
         dataSetQ[cid] = {
-            'points':   Q_data.get('points'),
+            'points': Q_data.get('points'),
             'centroid': Q_data.get('centroid'),
-            'doppler':  Q_data.get('doppler_avg'),
-            'hits':     Q_data.get('hits'),
-            'missed':   Q_data.get('missed'),
-            'history':  Q_data.get('history')
+            'doppler': Q_data.get('doppler_avg'),
+            'hits': Q_data.get('hits'),
+            'missed': Q_data.get('missed'),
+            'history': Q_data.get('history')
         }
 
-    # compute per-cluster translations and rotations
-    translations = {}
-    rotations    = {}
-    for cid in dataSetP:
-        if cid not in dataSetQ:
-            continue
-        P_cent = dataSetP[cid]['centroid']
-        Q_cent = dataSetQ[cid]['centroid']
-        # Skip clusters without valid centroids
-        if P_cent is None or Q_cent is None:
-            continue
-        P_cent = np.asarray(P_cent)
-        Q_cent = np.asarray(Q_cent)
-        t_vec  = P_cent - Q_cent
-        translations[cid] = t_vec
+    # Combine all matched cluster points
+    if not P_all or not Q_all:
+        return {
+            'dataSetP': dataSetP,
+            'dataSetQ': dataSetQ,
+            'translation': {},
+            'rotation': {}
+        }
+    P_all = np.vstack(P_all)
+    Q_all = np.vstack(Q_all)
 
-        # infer 2D rotation angle from the translation vector
-        tx, ty = t_vec[0], t_vec[1]
-        rotations[cid] = icp_rotation_vector(tx, ty)
+    # Compute SVD-based ICP transformation
+    centroid_P = np.mean(P_all[:, :2], axis=0)
+    centroid_Q = np.mean(Q_all[:, :2], axis=0)
+    P_centered = P_all[:, :2] - centroid_P
+    Q_centered = Q_all[:, :2] - centroid_Q
+
+    H = Q_centered.T @ P_centered
+    U, S, Vt = np.linalg.svd(H)
+    R = U @ Vt
+    if np.linalg.det(R) < 0:
+        Vt[-1, :] *= -1
+        R = U @ Vt
+
+    t = centroid_P - R @ centroid_Q
+
+    rotation_angle = np.arctan2(R[1, 0], R[0, 0])
+
+    translations = {0: np.array([t[0], t[1], 0.0])}
+    rotations = {0: rotation_angle}
 
     return {
-        'dataSetP':    dataSetP,
-        'dataSetQ':    dataSetQ,
+        'dataSetP': dataSetP,
+        'dataSetQ': dataSetQ,
         'translation': translations,
-        'rotation':    rotations
+        'rotation': rotations
     }
+
 
 
 def icp_rotation_vector(tx, ty):
