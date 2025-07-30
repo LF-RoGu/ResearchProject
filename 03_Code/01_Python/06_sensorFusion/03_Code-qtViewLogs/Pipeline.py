@@ -15,7 +15,15 @@ import dbCluster
 import pointFilter
 import icp
 
-import pprint
+from ClusterTracker import (
+    NUMBER_OF_PAST_SAMPLES,
+    LINE_FIT_UPDATE_PERIOD,
+    MAX_HISTORY_SEGMENT_LENGTH,
+    LINE_DISTANCE_THRESHOLD,
+    MAX_CONSECUTIVE_MISSES,
+    ClusterTracker
+)
+
 
 # -------------------------------------------------------------
 # PARAMETERS
@@ -114,13 +122,13 @@ def plot1(plot_widget, pointCloud):
 # ------------------------------
 # Plot-2’s custom view (unchanged)
 # ------------------------------
-def plot2(plot_widget, clusters, predictions):
+def plot2(plot_widget, clusters):
     plot_widget.clear()
     plot_widget.setTitle("Point Cloud - Clustered")
     for cid,data in clusters.items():
         clusterPoints = data['points']
-        clusterDoppler = data['doppler_avg']
-        clusterHits    = data.get('hits', 0)
+        clusterDoppler = data['doppler_average']
+        clusterHits    = data.get('hit_count', 0)
         if clusterPoints.shape[0]>0:
             scatter = pg.ScatterPlotItem(
                 x=clusterPoints[:,0], y=clusterPoints[:,1], size=8,
@@ -139,15 +147,6 @@ def plot2(plot_widget, clusters, predictions):
         )
         label.setPos(cx, cy)
         plot_widget.addItem(label)
-    for cid,(px,py, *_ ) in predictions.items():
-        pred_sc = pg.ScatterPlotItem(
-            x=[px], y=[py], symbol='x', size=14,
-            pen=pg.mkPen('r',width=2)
-        )
-        plot_widget.addItem(pred_sc)
-        lbl = pg.TextItem(f"Pred {cid}", color='r')
-        lbl.setPos(px+0.3, py+0.3)
-        plot_widget.addItem(lbl)
 
 # ------------------------------
 # Plot-3’s custom view (unchanged)
@@ -248,15 +247,20 @@ class ClusterViewer(QWidget):
         self.currentFrame = -1
 
         # Plot will now use spatial matching with tuned parameters; others remain default
-        self.trackers = {
-            f"plot{i}": (
-                ClusterTracker(
-                    max_misses=TRACKER_MAX_MISSES,
-                    dist_threshold=TRACKER_DIST_THRESH
-                ) if i == 1 else ClusterTracker()
-            )
-            for i in range(1, 5)
-        }
+        self.trackers = {}
+        for i in range(1, 5):
+            if i == 2:
+                # plot2 uses our line-fit tracker
+                self.trackers[f"plot{i}"] = ClusterTracker(
+                    maximum_misses        = MAX_CONSECUTIVE_MISSES,
+                    distance_threshold    = LINE_DISTANCE_THRESHOLD,
+                    line_fit_period       = LINE_FIT_UPDATE_PERIOD,
+                    maximum_history_length= NUMBER_OF_PAST_SAMPLES,
+                    maximum_segment_length= MAX_HISTORY_SEGMENT_LENGTH
+                )
+            else:
+                # other plots keep defaults
+                self.trackers[f"plot{i}"] = ClusterTracker()
 
         # Build UI
         main_layout = QVBoxLayout(self)
@@ -365,17 +369,7 @@ class ClusterViewer(QWidget):
                 # pull out the tracks (persistent IDs) and their data
                 clusters = self.trackers[name].get_active_tracks()
 
-                # get predictions for any tracks that missed this frame
-                preds = self.trackers[name].get_predictions()
-
-                # TODO: Perform odometry calculation here
-                for tid, trk_data in clusters.items():
-                    history = trk_data['history']    # a list of np.array centroids
-                    currentDoppler = trk_data['doppler_avg']
-                    hits    = trk_data['hits']
-                    missed  = trk_data['missed']
-
-                plot2(plot_item, clusters, preds)
+                plot2(plot_item, clusters)
             if name == "plot3":
                 # Plot 1: real clusters → spatial tracker 
                 # update the tracker with the fresh Stage-2 clusters
@@ -383,9 +377,6 @@ class ClusterViewer(QWidget):
 
                 # pull out the tracks (persistent IDs) and their data
                 clusters = self.trackers[name].get_active_tracks()
-
-                # get predictions for any tracks that missed this frame
-                preds = self.trackers[name].get_predictions()
 
                 # Store value that was stored in P into Q
                 Q = P
@@ -414,9 +405,6 @@ class ClusterViewer(QWidget):
 
                 # pull out the tracks (persistent IDs) and their data
                 clusters = self.trackers[name].get_active_tracks()
-
-                # get predictions for any tracks that missed this frame
-                preds = self.trackers[name].get_predictions()
 
                 # Store value that was stored in P into Q
                 Q = P
