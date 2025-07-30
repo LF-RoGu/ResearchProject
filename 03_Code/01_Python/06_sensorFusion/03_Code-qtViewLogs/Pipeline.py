@@ -40,8 +40,8 @@ icp_history = {
 }
 
 # Instantiate readers and global aggregators
-radarLoader       = RadarCSVReader("radar_straightWall_1.csv", "04_Logs-10072025_v2")
-imuLoader         = ImuCSVReader(  "imu_straightWall_1.csv",   "04_Logs-10072025_v2")
+radarLoader       = RadarCSVReader("radar_straightWall_1.csv", "05_Logs-10072025_v2")
+imuLoader         = ImuCSVReader(  "imu_straightWall_1.csv",   "05_Logs-10072025_v2")
 _radarAgg         = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 _imuAgg           = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 
@@ -70,47 +70,53 @@ def pretty_print_clusters(clusters, label="Clusters"):
 # ------------------------------
 # Plot-1’s custom view (unchanged)
 # ------------------------------
-def plot1(plot_widget, clusters, predictions):
+def plot1(plot_widget, pointCloud):
+    """
+    Render only the filtered point cloud (pointCloud),
+    which may be a list of {'x','y',…} dicts.
+    """
+    import pyqtgraph as pg
+
+    # 1) Clear previous items and set title
     plot_widget.clear()
-    plot_widget.setTitle("Point Cloud")
-    for cid,data in clusters.items():
-        clusterPoints = data['points']
-        clusterDoppler = data['doppler_avg']
-        clusterHits    = data.get('hits', 0)
-        if clusterPoints.shape[0]>0:
-            scatter = pg.ScatterPlotItem(
-                x=clusterPoints[:,0], y=clusterPoints[:,1], size=8,
-                pen=None, brush=pg.mkBrush(0,200,0,150)
-            )
-            plot_widget.addItem(scatter)
-        # unpack centroid (x,y ignore others)
-        cx, cy = data['centroid'][:2]
-        label = pg.TextItem(
-            f"ID: {cid}\n"
-            f"Doppler: {clusterDoppler:.2f}\n"
-            f"Hits: {clusterHits}\n"
-            f"Cx,Cy: ({cx:.2f}, {cy:.2f})",
-            anchor=(0.5, -0.2),
-            color='w'
-        )
-        label.setPos(cx, cy)
-        plot_widget.addItem(label)
-    for cid,(px,py, *_ ) in predictions.items():
-        pred_sc = pg.ScatterPlotItem(
-            x=[px], y=[py], symbol='x', size=14,
-            pen=pg.mkPen('r',width=2)
-        )
-        plot_widget.addItem(pred_sc)
-        lbl = pg.TextItem(f"Pred {cid}", color='r')
-        lbl.setPos(px+0.3, py+0.3)
-        plot_widget.addItem(lbl)
+    plot_widget.setTitle("Point Cloud - Filtered")
+
+    # 2) Bail out if empty
+    if not pointCloud:
+        return
+
+    # 3) Extract x/y coords from each dict
+    x, y = [], []
+    for p in pointCloud:
+        # safely skip any malformed entries
+        if isinstance(p, dict) and 'x' in p and 'y' in p:
+            x.append(p['x'])
+            y.append(p['y'])
+
+    # 4) Plot if we got any points
+    scatter = pg.ScatterPlotItem(
+        x=x,
+        y=y,
+        size=8,
+        pen=None,
+        brush=pg.mkBrush(0, 200, 0, 150)
+    )
+    plot_widget.addItem(scatter)
+
+    for p in pointCloud:
+        if isinstance(p, dict) and 'x' in p and 'y' in p and 'doppler' in p:
+            dop = p['doppler']
+            txt = pg.TextItem(f"{dop:.2f}", color='y', anchor=(0,1))
+            txt.setPos(p['x'] + 0.1, p['y'] + 0.1)
+            plot_widget.addItem(txt)
+
 
 # ------------------------------
 # Plot-2’s custom view (unchanged)
 # ------------------------------
 def plot2(plot_widget, clusters, predictions):
     plot_widget.clear()
-    plot_widget.setTitle("Point Cloud")
+    plot_widget.setTitle("Point Cloud - Clustered")
     for cid,data in clusters.items():
         clusterPoints = data['points']
         clusterDoppler = data['doppler_avg']
@@ -348,24 +354,8 @@ class ClusterViewer(QWidget):
         for name, plot_item in self.plots.items():
 
             if name == "plot1":
-                # Plot 1: real clusters → spatial tracker 
-                #  update the tracker with the fresh Stage-2 clusters
-                self.trackers[name].update(clusterProcessor_final)
 
-                #  pull out the tracks (persistent IDs) and their data
-                clusters = self.trackers[name].get_active_tracks()
-
-                #  get predictions for any tracks that missed this frame
-                preds = self.trackers[name].get_predictions()
-
-                # TODO: Perform odometry calculation here
-                for tid, trk_data in clusters.items():
-                    history = trk_data['history']    # a list of np.array centroids
-                    currentDoppler = trk_data['doppler_avg']
-                    hits    = trk_data['hits']
-                    missed  = trk_data['missed']
-
-                plot1(plot_item, clusters, preds)
+                plot1(plot_item, filteredPointCloud)
                 
             if name == "plot2":
                 # Plot 1: real clusters → spatial tracker 
@@ -442,8 +432,8 @@ class ClusterViewer(QWidget):
                 Tego = icp.icp_ego_motion_matrix(motionVectors)
                 icp_history['ego_transforms'].append(Tego)
 
-                print("Avg Translation:", motionVectors['translation_avg'])
-                print("Avg Rotation:", motionVectors['rotation_avg'])
+                #print("Avg Translation:", motionVectors['translation_avg'])
+                #print("Avg Rotation:", motionVectors['rotation_avg'])
 
 
                 if not hasattr(self, "translation_history"):
