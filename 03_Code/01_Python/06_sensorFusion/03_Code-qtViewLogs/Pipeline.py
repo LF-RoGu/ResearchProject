@@ -230,6 +230,62 @@ def plot4(plot_widget, ego_matrix, translation_history):
     txt.setPos(tx, ty)
     plot_widget.addItem(txt)
 
+def plot5(plot_widget, imu_average):
+    """
+    Display IMU heading on a unit circle, rotated so that
+    0° = West, 90° = North, 180° = East, 270° = South,
+    then shifted 90° clockwise (to the right).
+    """
+    import pyqtgraph as pg
+    import numpy as np
+
+    # 1) Clear and set up plot
+    plot_widget.clear()
+    plot_widget.setTitle("IMU Heading")
+    plot_widget.enableAutoRange(False)
+    plot_widget.setXRange(-1, 1)
+    plot_widget.setYRange(-1, 1)
+    plot_widget.setAspectLocked(True)
+    plot_widget.showGrid(x=True, y=True)
+
+    # 2) Handle no data
+    if imu_average is None:
+        txt = pg.TextItem("No IMU Data", color='r')
+        txt.setPos(0, 0)
+        plot_widget.addItem(txt)
+        return
+
+    # 3) Unpack averaged quaternion
+    w = imu_average.get('quat_w', 1.0)
+    x = imu_average.get('quat_x', 0.0)
+    y = imu_average.get('quat_y', 0.0)
+    z = imu_average.get('quat_z', 0.0)
+
+    # 4) Compute raw yaw: 0°=East, 90°=North
+    heading_rad = np.arctan2(2*(w*z + x*y), 1 - 2*(y*y + z*z))
+    heading_deg = np.degrees(heading_rad)  # raw yaw
+
+    # 5) Rotate to compass convention: 0°=West, 90°=North, etc.
+    display_rad = np.pi - heading_rad
+    display_deg = (180.0 - heading_deg) % 360.0
+
+    # 6) Shift arrow 90° clockwise (to the right)
+    shifted_rad = display_rad - (np.pi / 2)
+    shifted_deg = (display_deg - 90.0) % 360.0
+
+    # 7) Compute arrow tip on unit circle
+    tip_x = np.cos(shifted_rad)
+    tip_y = np.sin(shifted_rad)
+
+    # 8) Draw the arrow
+    plot_widget.plot([0, tip_x], [0, tip_y], pen=pg.mkPen('c', width=3))
+    # 9) Label with shifted heading
+    lbl = pg.TextItem(f"{shifted_deg:.1f}°", color='c', anchor=(0.5, -0.2))
+    lbl.setPos(tip_x, tip_y)
+    plot_widget.addItem(lbl)
+
+
+
 
 # ------------------------------
 # Main Viewer
@@ -274,6 +330,11 @@ class ClusterViewer(QWidget):
             p.setAspectLocked(True); p.showGrid(x=True,y=True)
             p.setTitle(f"Plot {idx}")
             self.plots[f"plot{idx}"] = p
+        p5 = self.plot_widget.addPlot(row=2, col=0, colspan=3)
+        p5.setXRange(-1,1); p5.setYRange(-1,1)
+        p5.setAspectLocked(True); p5.showGrid(x=True,y=True)
+        p5.setTitle("Plot 5: IMU Heading")
+        self.plots["plot5"] = p5
 
         
         # Control bar: label, slider, buttons
@@ -337,6 +398,12 @@ class ClusterViewer(QWidget):
         pointCloud = pointFilter.filterSphericalPhi(pointCloud, FILTER_PHI_MIN, FILTER_PHI_MAX)
         filteredPointCloud = pointFilter.filterDoppler(pointCloud, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
 
+        imu_records = []
+        for frame in _imuAgg.frames:
+            imu_records.extend(frame)
+        
+        imuData = helper.average_imu_records(imu_records)
+
         # Stage 1 clustering
         clusterProcessor_stage1 = pointFilter.extract_points(filteredPointCloud)
         clusterProcessor_stage1, _ = cluster_processor_stage1.cluster_points(clusterProcessor_stage1)
@@ -358,7 +425,6 @@ class ClusterViewer(QWidget):
         for name, plot_item in self.plots.items():
 
             if name == "plot1":
-
                 plot1(plot_item, filteredPointCloud)
                 
             if name == "plot2":
@@ -427,6 +493,8 @@ class ClusterViewer(QWidget):
                 if not hasattr(self, "translation_history"):
                     self.translation_history = []
                 plot4(plot_item, Tego, self.translation_history)
+            if name == "plot5":
+                plot5(plot_item, imuData)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
