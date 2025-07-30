@@ -59,8 +59,8 @@ static IWR6843     radarSensor;
 static XsensMti710 imuSensor;
 
 #ifndef VALIDATE_PRINT
-static ofstream csvRadar("_outFiles/radar_straightWall_3.csv");
-static ofstream csvImu  ("_outFiles/imu_straightWall_3.csv");
+static ofstream csvRadar("_outFiles/radar_driveAround_2.csv");
+static ofstream csvImu  ("_outFiles/imu_driveAround_2.csv");
 #endif
 
 /*=== threadIwr6843(): Radar acquisition & filtering ===*/
@@ -181,15 +181,6 @@ void threadIwr6843(void)
 /*=== threadMti710(): IMU acquisition ===*/
 void threadMti710(void)
 {
-    /* Step 1: initialize IMU */
-    if ((imuSensor.findXsensDevice() != DEVICE_FOUND_SUCCESS) ||
-        (imuSensor.openXsensPort()   != OPEN_PORT_SUCCESS))
-    {
-        cerr << "[ERROR] Unable to initialize IMU\n";
-        return;
-    }
-    imuSensor.configure();
-
     /* Step 2: continuous read/parse */
     xsens_interface_t iface = XSENS_INTERFACE_RX(&XsensMti710::xsens_event_handler);
     uint8_t buf[256];
@@ -372,6 +363,13 @@ int main(void)
         cerr << "[ERROR] radarSensor.init() failed\n";
         return 1;
     }
+    if ((imuSensor.findXsensDevice() != DEVICE_FOUND_SUCCESS) ||
+        (imuSensor.openXsensPort()   != OPEN_PORT_SUCCESS))
+    {
+        cerr << "[ERROR] Unable to initialize IMU\n";
+        return 1;
+    }
+    imuSensor.configure();
 
 #ifndef VALIDATE_PRINT
     cout << "[INFO] Opening output files...\n";
