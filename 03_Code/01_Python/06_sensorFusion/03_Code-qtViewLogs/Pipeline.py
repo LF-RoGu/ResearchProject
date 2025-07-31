@@ -51,8 +51,8 @@ icp_history = {
 cumulativeTego = np.eye(3)  # 4x4 identity (no translation/rotation yet)
 
 
-folderName = "07_Logs-30072025"  # Folder where CSV files are stored
-testType = "straightWall_2.csv"  # Type of test data
+folderName = "05_Logs-10072025_v2"  # Folder where CSV files are stored
+testType = "straightWall_1.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarLoader       = RadarCSVReader("radar_" + testType, folderName)
 imuLoader         = ImuCSVReader("imu_" + testType,   folderName)
@@ -214,7 +214,7 @@ def plot3(plot_widget, ego_matrix):
     txt.setPos(-1.5, -1.5)
     plot_widget.addItem(txt)
 
-    print(f"[ICP] Heading Angle: {shifted_deg:.2f}°")
+    #print(f"[ICP] Heading Angle: {shifted_deg:.2f}°")
 
 # ------------------------------
 # Plot-4’s custom view (unchanged)
@@ -314,7 +314,7 @@ def plot5(plot_widget, imu_average):
     lbl.setPos(tip_x, tip_y)
     plot_widget.addItem(lbl)
 
-    print(f"[IMU] Heading Angle: {shifted_deg:.2f}°")
+    #print(f"[IMU] Heading Angle: {shifted_deg:.2f}°")
 
 
 
@@ -497,23 +497,22 @@ class ClusterViewer(QWidget):
                 Tego, _, _ = icp.icp_ego_motion_matrix(motionVectors)
                 icp_history['ego_transforms'].append(Tego)
 
-                print("-----------------------------------------------")
-                print(f"Current frame: {self.currentFrame}")
+                logging.info("-----------------------------------------------")
+                logging.info(f"Current frame: {self.currentFrame}")
                 #pretty_print_clusters(P, "[P] Current Clusters (Frame t)")
                 #pretty_print_clusters(Q, "[Q] Previous Clusters (Frame t-1)")
                 
                 #print("(Ticp): ")
-                #print(Ticp)
+                logging.info(f"Tcip Matrix: {Ticp}")
 
                 #print("(Tego): ")
-                #print(Tego)
+                logging.info(f"Tego Matrix: {Tego}")
                 
                 if Tego is not None:
                     cumulativeTego = cumulativeTego @ Tego
                     # Extract R from Tego and compute angle
                     Rt_ego = Tego[0:2, 0:2]
                     theta_ego = np.degrees(np.arctan2(Rt_ego[1, 0], Rt_ego[0, 0]))
-                    #print(f"Rotation (θ) from Tego: {theta_ego:.6f}°")
 
                     tx, ty = Tego[0, 2], Tego[1, 2]
                     imu_heading_rad = np.arctan2(
@@ -521,29 +520,26 @@ class ClusterViewer(QWidget):
                         1 - 2 * (imuData['quat_y']**2 + imuData['quat_z']**2)
                     )
                     frame_distance = np.sqrt(tx**2 + ty**2)
-                    logging.info(
-                        f"[Frame] Translation: X={tx:.4f}, Y={ty:.4f}, Distance={frame_distance:.4f} m, "
-                        f"Heading: {theta_ego:.4f}°"
-                    )
                     # Compute forward and lateral drift
                     delta_forward_imu = tx * np.cos(imu_heading_rad) + ty * np.sin(imu_heading_rad)
                     delta_sideways_imu = -tx * np.sin(imu_heading_rad) + ty * np.cos(imu_heading_rad)
-                    #print(f"Translation raw: tx={tx:.4f}, ty={ty:.4f}")
-                    #print(f"Delta Forward (IMU-aligned): {delta_forward_imu:.4f} m")
-                    #print(f"Delta Sideways drift (IMU-aligned): {delta_sideways_imu:.4f} m")
+
+                    logging.info(f"[Drift] Translation raw: tx={tx:.4f}, ty={ty:.4f}")
+                    logging.info(f"[Drift]Rotation (θ) from Tego: {theta_ego:.6f}°")
+                    logging.info(f"[Drift] Delta Forward (IMU-aligned): {delta_forward_imu:.4f} m")
+                    logging.info(f"[Drift] Delta Sideways drift (IMU-aligned): {delta_sideways_imu:.4f} m")
 
                     # Extract translation
                     cum_tx, cum_ty = cumulativeTego[0, 2], cumulativeTego[1, 2]
                     # Extract heading
                     Rt_cum = cumulativeTego[0:2, 0:2]
                     cum_theta_deg = np.degrees(np.arctan2(Rt_cum[1, 0], Rt_cum[0, 0]))
-                    print(f"[Cumulative] Translation: X={cum_tx:.4f}, Y={cum_ty:.4f}")
-                    print(f"[Cumulative] Heading: {cum_theta_deg:.4f}°")
                     total_translation = np.linalg.norm([cum_tx, cum_ty])
                     print(f"[Cumulative] Distance covered so far: {total_translation:.2f} m")
-                    logging.info(f"Cumulative Translation: X={cum_tx:.4f}, Y={cum_ty:.4f}, "
-                        f"Distance={total_translation:.2f} m, "
-                        f"Heading={cum_theta_deg:.4f}°")
+                    logging.info(f"[Cumulative] Distance covered so far: {total_translation:.2f} m")
+                    logging.info(f"[Cumulative] Translation: X={cum_tx:.4f}, Y={cum_ty:.4f}, "
+                                 f"[Cumulative] Heading: {cum_theta_deg:.4f}°, "
+                                 f"[Cumulative] Distance={total_translation:.2f} m")
 
 
                 # End of debug section.
