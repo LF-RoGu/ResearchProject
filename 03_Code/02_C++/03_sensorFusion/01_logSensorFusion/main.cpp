@@ -63,7 +63,7 @@ static ofstream csvRadar("_outFiles/radar_path_1.csv");
 static ofstream csvImu  ("_outFiles/imu_path_1.csv");
 #endif
 
-const int UPDATE_POWER = 2100U; /* Minimum peak power for VALID radar points */
+const int UPDATE_POWER = 1800U; /* Minimum peak power for VALID radar points */
 
 /*=== threadIwr6843(): Radar acquisition & filtering ===*/
 void threadIwr6843(void)
