@@ -179,7 +179,7 @@ def icp_get_transformation_average(transformations):
         return _last_valid_transformation
     
     # ----- Dynamic Alpha -----
-    total_hits = sum(dataSetP.get(cid, {}).get('hits', 0) for cid in dataSetP)
+    total_hits = sum((cluster.get('hits') or 0) for cluster in dataSetP.values())
     weightedAlpha = min_alpha + (max_alpha - min_alpha) * min(total_hits, max_hits) / max_hits
 
     # ----- Weighted Translation -----
