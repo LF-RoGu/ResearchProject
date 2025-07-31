@@ -59,9 +59,11 @@ static IWR6843     radarSensor;
 static XsensMti710 imuSensor;
 
 #ifndef VALIDATE_PRINT
-static ofstream csvRadar("_outFiles/radar_driveAround_2.csv");
-static ofstream csvImu  ("_outFiles/imu_driveAround_2.csv");
+static ofstream csvRadar("_outFiles/radar_straigtWall_1.csv");
+static ofstream csvImu  ("_outFiles/imu_straightWall_1.csv");
 #endif
+
+const int UPDATE_POWER = 2300U; /* Minimum peak power for VALID radar points */
 
 /*=== threadIwr6843(): Radar acquisition & filtering ===*/
 void threadIwr6843(void)
@@ -141,7 +143,7 @@ void threadIwr6843(void)
                                                                    //    • bump to 0.2 m for ±4 bins if targets wander  
                                                                    //    • tighten (e.g. 0.1 m) if you know objects are point-like
                         &&                                          
-                        (closest_power > 2800U));                  // Minimum peak power:  
+                        (closest_power > UPDATE_POWER));                  // Minimum peak power:  
                                                                    //    • this is raw magnitude squared  
                                                                    //    • must exceed CFAR threshold (mean_noise + K)  
                                                                    //    • lower toward 2000–2800U if you’re losing weak targets  
