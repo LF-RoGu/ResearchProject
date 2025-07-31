@@ -60,7 +60,7 @@ _imuAgg           = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 cluster_processor_stage1 = dbCluster.ClusterProcessor(eps=2.0, min_samples=5)
 cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.0, min_samples=2)
 
-icp_rotation_filter = KalmanFilter(process_variance=0.1, measurement_variance=0.5)
+icp_rotation_filter = KalmanFilter(process_variance=0.01, measurement_variance=0.8)
 
 
 
@@ -490,33 +490,16 @@ class ClusterViewer(QWidget):
                 Ticp = icp.icp_transformation_matrix(motionVectors)
                 icp_history['world_transforms'].append(Ticp)
 
-                Tego = icp.icp_ego_motion_matrix(motionVectors)
+                Tego, _, _ = icp.icp_ego_motion_matrix(motionVectors)
                 icp_history['ego_transforms'].append(Tego)
 
+                print("-----------------------------------------------")
                 print(f"Current frame: {self.currentFrame}")
                 pretty_print_clusters(P, "[P] Current Clusters (Frame t)")
                 pretty_print_clusters(Q, "[Q] Previous Clusters (Frame t-1)")
-                print("-----------------------------------------------")
-
-                # Per-cluster translations
-                print("Translations:")
-                for cid, vec in resultVectors['translation'].items():
-                    print(f"  ID={cid}: Δx={vec[0]:.6f}, Δy={vec[1]:.6f}")
-
-                # Per-cluster rotations
-                print("Rotations:")
-                for cid, angle in resultVectors['rotation'].items():
-                    print(f"  ID={cid}: θ={np.degrees(angle):.6f}°")
                 
-
-                print("(Ticp): ")
-                print(Ticp)
-
-                if Ticp is not None:
-                    # Extract R from Ticp and compute angle
-                    Rt_icp = Ticp[0:2, 0:2]
-                    theta_icp = np.degrees(np.arctan2(Rt_icp[1, 0], Rt_icp[0, 0]))
-                    print(f"Rotation (θ) from Ticp: {theta_icp:.6f}°")
+                #print("(Ticp): ")
+                #print(Ticp)
 
                 print("(Tego): ")
                 print(Tego)
@@ -527,10 +510,21 @@ class ClusterViewer(QWidget):
                     theta_ego = np.degrees(np.arctan2(Rt_ego[1, 0], Rt_ego[0, 0]))
                     print(f"Rotation (θ) from Tego: {theta_ego:.6f}°")
 
+                    tx, ty = Tego[0, 2], Tego[1, 2]
+                    imu_heading_rad = np.arctan2(
+                        2 * (imuData['quat_w'] * imuData['quat_z'] + imuData['quat_x'] * imuData['quat_y']),
+                        1 - 2 * (imuData['quat_y']**2 + imuData['quat_z']**2)
+                    )
+                    # Compute forward and lateral drift
+                    delta_forward_imu = tx * np.cos(imu_heading_rad) + ty * np.sin(imu_heading_rad)
+                    delta_sideways_imu = -tx * np.sin(imu_heading_rad) + ty * np.cos(imu_heading_rad)
+                    print(f"Translation raw: tx={tx:.4f}, ty={ty:.4f}")
+                    print(f"Δ Forward (IMU-aligned): {delta_forward_imu:.4f} m")
+                    print(f"Δ Sideways drift (IMU-aligned): {delta_sideways_imu:.4f} m")
+
+
                 # End of debug section.
                 
-                
-
                 plot3(plot_item, Tego)
             if name == "plot5":
                 plot5(plot_item, imuData)

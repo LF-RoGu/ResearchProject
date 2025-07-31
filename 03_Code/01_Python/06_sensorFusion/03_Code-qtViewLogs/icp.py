@@ -241,4 +241,4 @@ def icp_ego_motion_matrix(avg):
 
     transformation_ego = np.array([[Rt[0,0], Rt[0,1], t_ego[0]], [Rt[1,0], Rt[1,1], t_ego[1]], [0, 0, 1]])
     
-    return transformation_ego
+    return transformation_ego, Rt, t_ego
