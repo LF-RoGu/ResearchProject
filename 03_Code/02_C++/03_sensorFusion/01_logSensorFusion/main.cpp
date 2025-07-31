@@ -59,11 +59,11 @@ static IWR6843     radarSensor;
 static XsensMti710 imuSensor;
 
 #ifndef VALIDATE_PRINT
-static ofstream csvRadar("_outFiles/radar_straigtWall_1.csv");
-static ofstream csvImu  ("_outFiles/imu_straightWall_1.csv");
+static ofstream csvRadar("_outFiles/radar_straigtWall_2.csv");
+static ofstream csvImu  ("_outFiles/imu_straightWall_2.csv");
 #endif
 
-const int UPDATE_POWER = 2300U; /* Minimum peak power for VALID radar points */
+const int UPDATE_POWER = 2100U; /* Minimum peak power for VALID radar points */
 
 /*=== threadIwr6843(): Radar acquisition & filtering ===*/
 void threadIwr6843(void)
