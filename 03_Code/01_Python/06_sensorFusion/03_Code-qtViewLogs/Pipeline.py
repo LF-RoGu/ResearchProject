@@ -519,8 +519,8 @@ class ClusterViewer(QWidget):
                     delta_forward_imu = tx * np.cos(imu_heading_rad) + ty * np.sin(imu_heading_rad)
                     delta_sideways_imu = -tx * np.sin(imu_heading_rad) + ty * np.cos(imu_heading_rad)
                     print(f"Translation raw: tx={tx:.4f}, ty={ty:.4f}")
-                    print(f"Δ Forward (IMU-aligned): {delta_forward_imu:.4f} m")
-                    print(f"Δ Sideways drift (IMU-aligned): {delta_sideways_imu:.4f} m")
+                    print(f"Delta Forward (IMU-aligned): {delta_forward_imu:.4f} m")
+                    print(f"Delta Sideways drift (IMU-aligned): {delta_sideways_imu:.4f} m")
 
 
                 # End of debug section.
