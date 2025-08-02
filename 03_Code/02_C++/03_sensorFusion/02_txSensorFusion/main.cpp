@@ -145,12 +145,12 @@ void threadIwr6843(void)
                     const bool is_valid =
                         ((closest_range >= 0.0F)                   // Ensure we actually found a peak
                         &&                                          
-                        (min_diff      < 0.4F)                     // Range‐bin tolerance:  
+                        (min_diff      < 0.2F)                     // Range‐bin tolerance:  
                                                                    //    • 0.047 m/bin ⇒ ±2 bins ≈0.1 m  
                                                                    //    • bump to 0.2 m for ±4 bins if targets wander  
                                                                    //    • tighten (e.g. 0.1 m) if you know objects are point-like
                         &&                                          
-                        (closest_power > 1800U));                  // Minimum peak power:  
+                        (closest_power > 2000U));                  // Minimum peak power:  
                                                                    //    • this is raw magnitude squared  
                                                                    //    • must exceed CFAR threshold (mean_noise + K)  
                                                                    //    • lower toward 2000–2800U if you’re losing weak targets  
@@ -318,11 +318,20 @@ void threadTcpServer()
     int server_fd;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
+    int opt = 1;
 
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd == 0)
     {
         cerr << "[ERROR] TCP socket failed\n";
+        return;
+    }
+
+    // Allow the port to be reused immediately after program restart
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
+    {
+        cerr << "[ERROR] setsockopt(SO_REUSEADDR) failed\n";
+        close(server_fd);
         return;
     }
 
@@ -333,12 +342,14 @@ void threadTcpServer()
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
     {
         cerr << "[ERROR] TCP bind failed\n";
+        close(server_fd);
         return;
     }
 
     if (listen(server_fd, 1) < 0)
     {
         cerr << "[ERROR] TCP listen failed\n";
+        close(server_fd);
         return;
     }
 
@@ -347,8 +358,10 @@ void threadTcpServer()
     if (client_fd < 0)
     {
         cerr << "[ERROR] TCP accept failed\n";
+        close(server_fd);
         return;
     }
+
     cout << "[INFO] TCP Client connected!\n";
 }
 
