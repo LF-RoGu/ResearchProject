@@ -34,7 +34,7 @@ from ClusterTracker import (
 # 1 = Radar only, 2 = IMU only, 3 = Both
 ENABLE_SENSORS = 1
 
-FRAME_AGGREGATOR_NUM_PAST_FRAMES = 10
+FRAME_AGGREGATOR_NUM_PAST_FRAMES = 7
 FILTER_SNR_MIN                  = 12
 FILTER_Z_MIN, FILTER_Z_MAX      = -2, 2
 FILTER_Y_MIN, FILTER_Y_MAX      = 0.6, 15
@@ -56,7 +56,7 @@ cumulativeTego = np.eye(3)  # 3x3 identity (no translation/rotation yet)
 
 
 folderName = "08_inDoorTest-02082025"  # Folder where CSV files are stored
-testType = "roomTest_1.csv"  # Type of test data
+testType = "roomTest_5.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarLoader = RadarCSVReader("radar_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 imuLoader   = ImuCSVReader("imu_" + testType, folderName) if ENABLE_SENSORS in (2, 3) else None
@@ -68,8 +68,6 @@ cluster_processor_stage1 = dbCluster.ClusterProcessor(eps=2.0, min_samples=5)
 cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.0, min_samples=2)
 
 icp_rotation_filter = KalmanFilter(process_variance=0.01, measurement_variance=0.8)
-
-
 
 def pretty_print_clusters(clusters, label="Clusters"):
     """
@@ -513,10 +511,10 @@ class ClusterViewer(QWidget):
                 #pretty_print_clusters(Q, "[Q] Previous Clusters (Frame t-1)")
                 
                 #print("(Ticp): ")
-                logging.info(f"Tcip Matrix: {Ticp}")
+                logging.info(f"Tcip Matrix: \n{Ticp}")
 
                 #print("(Tego): ")
-                logging.info(f"Tego Matrix: {Tego}")
+                logging.info(f"Tego Matrix: \n{Tego}")
                 
                 if Tego is not None:
                     cumulativeTego = np.dot(cumulativeTego, Tego)
