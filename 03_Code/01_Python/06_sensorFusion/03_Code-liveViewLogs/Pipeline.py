@@ -1,268 +1,409 @@
+import sys
+import numpy as np
+import pyqtgraph as pg
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout
+from PyQt5.QtCore import Qt, QTimer
 import socket
 import threading
 import queue
-import numpy as np
 import math
-import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtGui, QtWidgets
-import pointFilter
-import dbCluster
-from collections import deque
-from pathlib import Path
 import time
-import csv
-from itertools import groupby
 
-# -------------------------------------------------------------
-# PARAMETERS
-# -------------------------------------------------------------
-USE_CSV_SIMULATOR = True  # Flip False for real TCP sensor
-CSV_FILENAME = "radar_driveAround_3.csv"
+from ClusterTracker import ClusterTracker
+import helper
+from frameAggregator import FrameAggregator
+import dbCluster
+import pointFilter
+import icp
 
-# Root and logs folders
-ROOT_DIR = Path(r"E:\OneDrive - FH Dortmund\FH-Dortmund\4 Semester\ResearchProject")
-LOGS_DIR = ROOT_DIR / r"04_Logs\01_sensorFusion\04_Logs-10072025_v2"
-CSV_FILE_PATH = LOGS_DIR / CSV_FILENAME
+from collections import defaultdict
 
-FRAMES_PER_BATCH = 30   # or 2, 5, etc. to simulate pushing more frames at once
-CSV_REPLAY_INTERVAL = 0.1  # delay between batches
+# ---------------- PARAMETERS ----------------
+FRAME_AGGREGATOR_NUM_PAST_FRAMES = 10
+FILTER_SNR_MIN = 12
+FILTER_Z_MIN, FILTER_Z_MAX = -2, 2
+FILTER_Y_MIN, FILTER_Y_MAX = 0.6, 15
+FILTER_PHI_MIN, FILTER_PHI_MAX = -85, 85
+FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX = 0.01, 8.0
+TRACKER_MAX_MISSES = 10
+TRACKER_DIST_THRESH = 0.5
 
-FILTER_SNR_MIN   = 12
-FILTER_Z_MIN     = -2
-FILTER_Z_MAX     = 2
-FILTER_Y_MIN     = 0.6
-FILTER_Y_MAX     = 15
-FILTER_PHI_MIN   = -85
-FILTER_PHI_MAX   = 85
-FILTER_DOPPLER_MIN = 0.0
-FILTER_DOPPLER_MAX = 8.0
+TCP_IP = "192.168.135.97"
+TCP_PORT = 9000
 
-GRID_SPACING = 1.0  # meters
+# ---------------- Globals ----------------
+P = None
+Q = None
+icp_history = {
+    'result_vectors': [], 'motion_vectors': [],
+    'world_transforms': [], 'ego_transforms': []
+}
 
-cluster_processor_stage1 = dbCluster.ClusterProcessor(eps=2.0, min_samples=2)
+_radarAgg = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
+_imuAgg = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
+
+cluster_processor_stage1 = dbCluster.ClusterProcessor(eps=2.0, min_samples=5)
 cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.0, min_samples=2)
 
 data_queue = queue.Queue()
-imu_samples = deque(maxlen=10)
 
-# -------------------------------------------------------------
-# TCP READER THREAD
-# -------------------------------------------------------------
-def tcp_reader():
+filteredPointCloud_global = None
+
+class RadarPoint:
+    def __init__(self, x, y, z, doppler, snr, noise):
+        self.x = x
+        self.y = y
+        self.z = z
+        self.doppler = doppler
+        self.snr = snr
+        self.noise = noise
+
+# ---------------- TCP Reader ----------------
+def tcp_reader_nonblocking():
+    print("[INFO] Waiting for TCP connection...")
     tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tcp.connect(("192.168.63.97", 9000))
-    tcp_file = tcp.makefile('r')
+    connected = False
+    while not connected:
+        try:
+            tcp.connect((TCP_IP, TCP_PORT))
+            connected = True
+        except (ConnectionRefusedError, TimeoutError):
+            print("[INFO] Connection failed, retrying...")
+            time.sleep(1)
+
+    tcp.setblocking(False)
+    buffer = ""
     print("[INFO] TCP Connected!")
+
     while True:
-        line = tcp_file.readline()
-        if not line:
-            break
-        data_queue.put(line.strip())
+        try:
+            data = tcp.recv(4096).decode('utf-8')
+            if not data:
+                break
+            buffer += data
+            while "\n" in buffer:
+                line, buffer = buffer.split("\n", 1)
+                data_queue.put(line.strip())
+        except BlockingIOError:
+            time.sleep(0.01)
 
-# -------------------------------------------------------------
-# CSV SIMULATOR THREAD
-# -------------------------------------------------------------
-def csv_simulator():
-    print(f"[INFO] CSV Simulator using {CSV_FILE_PATH}")
-    while True:
-        with open(CSV_FILE_PATH, 'r') as f:
-            reader = csv.reader(f)
-            next(reader, None)  # skip header
-
-            # Group rows by frame_id (last column)
-            rows_sorted = sorted(reader, key=lambda row: row[-1])
-
-            for _, frame_group in groupby(rows_sorted, key=lambda row: row[-1]):
-                batch = []
-                for row in frame_group:
-                    if len(row) < 8:
-                        continue
-                    time_idx, id_idx, x, y, z, doppler, snr, frame = row
-                    try:
-                        _ = float(x)
-                        _ = float(y)
-                        _ = float(z)
-                        _ = float(doppler)
-                        _ = int(snr)
-                    except ValueError:
-                        continue
-
-                    radar_line = (
-                        f"[RADAR] time={time_idx} id={id_idx} "
-                        f"x={x} y={y} z={z} doppler={doppler} snr={snr}"
-                    )
-                    batch.append(radar_line)
-
-                # Combine multiple frames if FRAMES_PER_BATCH > 1
-                combined_batch = batch.copy()
-                for _ in range(FRAMES_PER_BATCH - 1):
-                    try:
-                        _, next_frame = next(groupby(rows_sorted, key=lambda row: row[-1]))
-                        for row in next_frame:
-                            if len(row) < 8:
-                                continue
-                            time_idx, id_idx, x, y, z, doppler, snr, frame = row
-                            radar_line = (
-                                f"[RADAR] time={time_idx} id={id_idx} "
-                                f"x={x} y={y} z={z} doppler={doppler} snr={snr}"
-                            )
-                            combined_batch.append(radar_line)
-                    except StopIteration:
-                        break
-
-                # Push the whole batch into queue
-                for line in combined_batch:
-                    data_queue.put(line)
-
-                # Wait before next batch
-                time.sleep(CSV_REPLAY_INTERVAL)
-
-        print("[INFO] Finished CSV, restarting playback...")
-# -------------------------------------------------------------
-# Start appropriate data reader
-# -------------------------------------------------------------
-if USE_CSV_SIMULATOR:
-    simulator_thread = threading.Thread(target=csv_simulator, daemon=True)
-    simulator_thread.start()
-else:
-    reader_thread = threading.Thread(target=tcp_reader, daemon=True)
-    reader_thread.start()
-
-# -------------------------------------------------------------
-# PARSERS & YAW
-# -------------------------------------------------------------
+# ---------------- Parsers ----------------
 def parse_radar(line):
     tokens = line.replace('[RADAR] ', '').split()
     return {
+        'frame': int(tokens[0].split('=')[1]),
+        'pointId': int(tokens[1].split('=')[1]),
         'x': float(tokens[2].split('=')[1]),
         'y': float(tokens[3].split('=')[1]),
         'z': float(tokens[4].split('=')[1]),
         'doppler': float(tokens[5].split('=')[1]),
-        'snr': int(tokens[6].split('=')[1])
+        'snr': int(tokens[6].split('=')[1]),
+        'noise': float(tokens[7].split('=')[1])
     }
 
 def parse_imu(line):
     tokens = line.replace('[IMU] ', '').split()
-    q = [float(x) for x in tokens[2].split('=')[1].strip('()').split(',')]
-    return {'quat': q}
+    quat = [float(x) for x in tokens[2].split('=')[1].strip('()').split(',')]
+    accel = [float(x) for x in tokens[3].split('=')[1].strip('()').split(',')]
+    return {
+        'frame': int(tokens[0].split('=')[1]),
+        'idx': int(tokens[1].split('=')[1]),
+        'quat': quat,
+        'accel': accel,
+        'packet': int(tokens[4].split('=')[1])
+    }
 
-def compute_yaw(imu):
-    qw, qx, qy, qz = imu['quat']
-    return math.atan2(2 * (qw*qz + qx*qy), 1 - 2 * (qy*qy + qz*qz))
+# ---------------- Plotting ----------------
+# (Keep plot1, plot2, plot3, plot4 as in your current file)
 
-# -------------------------------------------------------------
-# PYQTGRAPH SETUP
-# -------------------------------------------------------------
-app = QtWidgets.QApplication([])
-win = pg.GraphicsLayoutWidget(show=True, title="Live Radar & IMU Viewer")
-win.setBackground('w')
+# ---------------- Viewer ----------------
+class ClusterViewer(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Panel Cluster Viewer")
+        self.resize(1200, 900)
 
-# Panel 1: Raw radar points with Doppler
-plot_raw = win.addPlot(row=0, col=0, title="Raw Points with Doppler")
-plot_raw.getViewBox().setBackgroundColor('w')
-plot_raw.setXRange(-15, 15)
-plot_raw.setYRange(0, 15)
-plot_raw.showGrid(x=True, y=True, alpha=0.3)
-plot_raw.getAxis('bottom').setTickSpacing(levels=[(GRID_SPACING, 0)])
-plot_raw.getAxis('left').setTickSpacing(levels=[(GRID_SPACING, 0)])
-scatter_raw = pg.ScatterPlotItem(pen=None, brush='k', size=8)
-plot_raw.addItem(scatter_raw)
-text_items = []
+        self.radar_points_buffer = []
+        self.imu_buffer = []
+        self.currentFrame = 0
 
-# Panel 2: Filtered radar cloud
-plot_filtered = win.addPlot(row=0, col=1, title="Filtered Radar Points (X,Y)")
-plot_filtered.getViewBox().setBackgroundColor('w')
-plot_filtered.setXRange(-15, 15)
-plot_filtered.setYRange(0, 15)
-plot_filtered.showGrid(x=True, y=True, alpha=0.3)
-plot_filtered.getAxis('bottom').setTickSpacing(levels=[(GRID_SPACING, 0)])
-plot_filtered.getAxis('left').setTickSpacing(levels=[(GRID_SPACING, 0)])
-scatter_filtered = pg.ScatterPlotItem(pen=None, brush='k', size=8)
-plot_filtered.addItem(scatter_filtered)
+        self.trackers = {
+            f"plot{i}": (
+                ClusterTracker(max_misses=TRACKER_MAX_MISSES, dist_threshold=TRACKER_DIST_THRESH)
+                if i == 1 else ClusterTracker()
+            ) for i in range(1, 5)
+        }
 
-# Panel 3: IMU Heading
-plot_imu = win.addPlot(row=1, col=0, title="IMU Heading")
-plot_imu.getViewBox().setBackgroundColor('w')
-plot_imu.setXRange(-1, 1)
-plot_imu.setYRange(-1, 1)
-arrow = pg.ArrowItem(angle=0, pen='r', brush='r')
-plot_imu.addItem(arrow)
+        main_layout = QVBoxLayout(self)
+        self.plot_widget = pg.GraphicsLayoutWidget()
+        main_layout.addWidget(self.plot_widget)
+        self.plots = {}
+        for idx in range(1, 5):
+            row, col = divmod(idx-1, 3)
+            p = self.plot_widget.addPlot(row=row, col=col)
+            p.setXRange(-2, 20)
+            p.setYRange(-2, 20)
+            p.setAspectLocked(True)
+            p.showGrid(x=True, y=True)
+            p.setTitle(f"Plot {idx}")
+            self.plots[f"plot{idx}"] = p
 
-# Panel 4: Averaged IMU info
-plot_imu_text = win.addPlot(row=1, col=1, title="Averaged IMU (per frame)")
-plot_imu_text.getViewBox().setBackgroundColor('w')
-plot_imu_text.hideAxis('left')
-plot_imu_text.hideAxis('bottom')
-imu_text_item = pg.TextItem("", anchor=(0,0), color='k')
-plot_imu_text.addItem(imu_text_item)
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_all_plots)
+        self.timer.start(50)
 
-# -------------------------------------------------------------
-# LIVE UPDATE LOOP
-# -------------------------------------------------------------
-raw_points = []
-imu_samples = []
-frame_count = 0
+    def poll_tcp_data(self):
+        while not data_queue.empty():
+            line = data_queue.get()
+            if line.startswith("[RADAR]"):
+                self.radar_points_buffer.append(parse_radar(line))
+            elif line.startswith("[IMU]"):
+                self.imu_buffer.append(parse_imu(line))
 
-def update():
-    global raw_points, imu_samples, frame_count, text_items
+        if self.radar_points_buffer:
+            # --- Group by Frame ---
+            
+            frame_groups = defaultdict(list)
+            for p in self.radar_points_buffer:
+                frame_groups[p['frame']].append(
+                    RadarPoint(p['x'], p['y'], p['z'], p['doppler'], p['snr'], p['noise'])
+                )
 
-    while not data_queue.empty():
-        line = data_queue.get()
-        if line.startswith("[RADAR]"):
-            raw_points.append(parse_radar(line))
-        elif line.startswith("[IMU]"):
-            imu_samples.append(parse_imu(line))
+            # --- Send each frame separately to aggregator ---
+            for frame_id, radar_points in frame_groups.items():
+                _radarAgg.updateBuffer(radar_points)
 
-    if len(raw_points) < 1:
+            self.radar_points_buffer.clear()
+
+        if self.imu_buffer:
+            _imuAgg.updateBuffer(self.imu_buffer)
+            self.imu_buffer.clear()
+
+
+    def update_all_plots(self):
+        global P, Q, icp_history
+        global filteredPointCloud_global
+        self.poll_tcp_data()
+
+        rawPointCloud = _radarAgg.getPoints()
+        pointCloud = pointFilter.filterSNRmin(rawPointCloud, FILTER_SNR_MIN)
+        pointCloud = pointFilter.filterCartesianZ(pointCloud, FILTER_Z_MIN, FILTER_Z_MAX)
+        pointCloud = pointFilter.filterCartesianY(pointCloud, FILTER_Y_MIN, FILTER_Y_MAX)
+        pointCloud = pointFilter.filterSphericalPhi(pointCloud, FILTER_PHI_MIN, FILTER_PHI_MAX)
+        filteredPointCloud = pointFilter.filterDoppler(pointCloud, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
+
+        clusterProcessor_stage1 = pointFilter.extract_points(filteredPointCloud)
+        clusterProcessor_stage1, _ = cluster_processor_stage1.cluster_points(clusterProcessor_stage1)
+
+        if len(clusterProcessor_stage1) > 0:
+            clusterProcessor_flat = np.vstack([cdata['points'] for cdata in clusterProcessor_stage1.values()])
+            clusterProcessor_final, _ = cluster_processor_stage2.cluster_points(clusterProcessor_flat)
+        else:
+            clusterProcessor_final = {}
+
+        for name, plot_item in self.plots.items():
+            self.trackers[name].update(clusterProcessor_final)
+            clusters = self.trackers[name].get_active_tracks()
+            preds = self.trackers[name].get_predictions()
+
+            if name == "plot1":
+                plot1(plot_item, clusters, preds)
+            elif name == "plot2":
+                plot2(plot_item, clusters, preds)
+            elif name == "plot3":
+                Q = P
+                P = clusters
+                resultVectors = icp.icp_translation_vector(P, Q)
+                icp_history['result_vectors'].append(resultVectors)
+                motionVectors = icp.icp_get_transformation_average(resultVectors)
+                icp_history['motion_vectors'].append(motionVectors)
+                worldMotion = icp.icp_transformation_matrix(motionVectors)
+                icp_history['world_transforms'].append(worldMotion)
+                Tego = icp.icp_ego_motion_matrix(motionVectors)
+                icp_history['ego_transforms'].append(Tego)
+                plot3(plot_item, Tego)
+            elif name == "plot4":
+                Q = P
+                P = clusters
+                resultVectors = icp.icp_translation_vector(P, Q)
+                icp_history['result_vectors'].append(resultVectors)
+                motionVectors = icp.icp_get_transformation_average(resultVectors)
+                icp_history['motion_vectors'].append(motionVectors)
+                worldMotion = icp.icp_transformation_matrix(motionVectors)
+                icp_history['world_transforms'].append(worldMotion)
+                Tego = icp.icp_ego_motion_matrix(motionVectors)
+                icp_history['ego_transforms'].append(Tego)
+
+                if not hasattr(self, "translation_history"):
+                    self.translation_history = []
+                plot4(plot_item, Tego, self.translation_history)
+
+
+# ------------------------------
+# Plot-1’s custom view (unchanged)
+# ------------------------------
+def plot1(plot_widget, clusters, predictions):
+    plot_widget.clear()
+    plot_widget.setTitle("Point Cloud")
+    for cid,data in clusters.items():
+        clusterPoints = data['points']
+        clusterDoppler = data['doppler_avg']
+        clusterHits    = data.get('hits', 0)
+        if clusterPoints.shape[0]>0:
+            scatter = pg.ScatterPlotItem(
+                x=clusterPoints[:,0], y=clusterPoints[:,1], size=8,
+                pen=None, brush=pg.mkBrush(0,200,0,150)
+            )
+            plot_widget.addItem(scatter)
+        # unpack centroid (x,y ignore others)
+        cx, cy = data['centroid'][:2]
+        label = pg.TextItem(
+            f"ID: {cid}\n"
+            f"Doppler: {clusterDoppler:.2f}\n"
+            f"Hits: {clusterHits}\n"
+            f"Cx,Cy: ({cx:.2f}, {cy:.2f})",
+            anchor=(0.5, -0.2),
+            color='w'
+        )
+        label.setPos(cx, cy)
+        plot_widget.addItem(label)
+    for cid,(px,py, *_ ) in predictions.items():
+        pred_sc = pg.ScatterPlotItem(
+            x=[px], y=[py], symbol='x', size=14,
+            pen=pg.mkPen('r',width=2)
+        )
+        plot_widget.addItem(pred_sc)
+        lbl = pg.TextItem(f"Pred {cid}", color='r')
+        lbl.setPos(px+0.3, py+0.3)
+        plot_widget.addItem(lbl)
+
+# ------------------------------
+# Plot-2’s custom view (unchanged)
+# ------------------------------
+def plot2(plot_widget, clusters, predictions):
+    plot_widget.clear()
+    plot_widget.setTitle("Point Cloud")
+    for cid,data in clusters.items():
+        clusterPoints = data['points']
+        clusterDoppler = data['doppler_avg']
+        clusterHits    = data.get('hits', 0)
+        if clusterPoints.shape[0]>0:
+            scatter = pg.ScatterPlotItem(
+                x=clusterPoints[:,0], y=clusterPoints[:,1], size=8,
+                pen=None, brush=pg.mkBrush(0,200,0,150)
+            )
+            plot_widget.addItem(scatter)
+        # unpack centroid (x,y ignore others)
+        cx, cy = data['centroid'][:2]
+        label = pg.TextItem(
+            f"ID: {cid}\n"
+            f"Doppler: {clusterDoppler:.2f}\n"
+            f"Hits: {clusterHits}\n"
+            f"Cx,Cy: ({cx:.2f}, {cy:.2f})",
+            anchor=(0.5, -0.2),
+            color='w'
+        )
+        label.setPos(cx, cy)
+        plot_widget.addItem(label)
+    for cid,(px,py, *_ ) in predictions.items():
+        pred_sc = pg.ScatterPlotItem(
+            x=[px], y=[py], symbol='x', size=14,
+            pen=pg.mkPen('r',width=2)
+        )
+        plot_widget.addItem(pred_sc)
+        lbl = pg.TextItem(f"Pred {cid}", color='r')
+        lbl.setPos(px+0.3, py+0.3)
+        plot_widget.addItem(lbl)
+
+# ------------------------------
+# Plot-3’s custom view (unchanged)
+# ------------------------------
+def plot3(plot_widget, ego_matrix):
+    """
+    Dedicated panel for visualizing ego-motion rotation.
+    - Draws a yellow arrow showing rotation
+    - Prints the 2x2 rotation matrix R^T
+    """
+    plot_widget.clear()
+    plot_widget.setTitle("Ego-Motion Rotation")
+    plot_widget.enableAutoRange(False)
+    plot_widget.setXRange(-2, 2)
+    plot_widget.setYRange(-2, 2)
+    plot_widget.setAspectLocked(True)
+    plot_widget.showGrid(x=True, y=True)
+
+    if ego_matrix is None:
+        txt = pg.TextItem("No Ego-Motion Data", color='r')
+        txt.setPos(0, 0)
+        plot_widget.addItem(txt)
         return
 
-    frame_count += 1
-    if frame_count % 5 != 0:
+    Rt = ego_matrix[0:2, 0:2]
+    v = np.array([1.0, 0.0])
+    u = Rt.dot(v)
+
+    plot_widget.plot([0, u[0]], [0, u[1]], pen=pg.mkPen('y', width=3))
+
+    mat_text = (
+        f"Rᵀ =\n"
+        f"[{Rt[0,0]:.3f} {Rt[0,1]:.3f}]\n"
+        f"[{Rt[1,0]:.3f} {Rt[1,1]:.3f}]"
+    )
+    txt = pg.TextItem(mat_text, color='y')
+    txt.setPos(-1.5, -1.5)
+    plot_widget.addItem(txt)
+
+# ------------------------------
+# Plot-4’s custom view (unchanged)
+# ------------------------------
+def plot4(plot_widget, ego_matrix, translation_history):
+    """
+    Dedicated panel for visualizing ego-motion translation.
+    - Plots 'x' marks showing translation over time
+    - Uses the full 3x3 ego_matrix to extract position
+    """
+    plot_widget.clear()
+    plot_widget.setTitle("Ego-Motion Translation")
+    plot_widget.enableAutoRange(False)
+    plot_widget.setXRange(-10, 10)
+    plot_widget.setYRange(-10, 10)
+    plot_widget.setAspectLocked(True)
+    plot_widget.showGrid(x=True, y=True)
+
+    if ego_matrix is None:
+        txt = pg.TextItem("No Ego-Motion Data", color='r')
+        txt.setPos(0, 0)
+        plot_widget.addItem(txt)
         return
 
-    # Filter & Cluster
-    pts = raw_points
-    pts = pointFilter.filterSNRmin(pts, FILTER_SNR_MIN)
-    pts = pointFilter.filterCartesianZ(pts, FILTER_Z_MIN, FILTER_Z_MAX)
-    pts = pointFilter.filterCartesianY(pts, FILTER_Y_MIN, FILTER_Y_MAX)
-    pts = pointFilter.filterSphericalPhi(pts, FILTER_PHI_MIN, FILTER_PHI_MAX)
-    pts = pointFilter.filterDoppler(pts, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
+    # Extract the translation component from Tego
+    tx = ego_matrix[0, 2]
+    ty = ego_matrix[1, 2]
 
-    c1, _ = cluster_processor_stage1.cluster_points(np.array([[p['x'], p['y'], p['z'], p['doppler']] for p in pts]))
-    dense_points = np.vstack([c['points'] for c in c1.values()]) if c1 else np.empty((0,4))
-    c2, _ = cluster_processor_stage2.cluster_points(dense_points) if len(dense_points) > 0 else ({}, None)
+    # Store translation history
+    translation_history.append((tx, ty))
 
-    scatter_filtered.setData([p['x'] for p in pts], [p['y'] for p in pts])
+    # Plot the history as 'x' marks
+    if len(translation_history) > 0:
+        xs, ys = zip(*translation_history)
+        scatter = pg.ScatterPlotItem(
+            x=xs, y=ys, symbol='x', size=10,
+            pen=pg.mkPen('b', width=2)
+        )
+        plot_widget.addItem(scatter)
 
-    # IMU Arrow
-    if imu_samples:
-        avg_quat = np.mean([imu['quat'] for imu in imu_samples], axis=0)
-        yaw = compute_yaw({'quat': avg_quat})
-        vx = math.cos(yaw)
-        vy = math.sin(yaw)
-        angle_deg = np.degrees(np.arctan2(vy, vx))
-        arrow.setStyle(angle=angle_deg)
-        arrow.setPos(0, 0)
-        text = f"Avg Quaternion:\n[{', '.join(f'{q:.3f}' for q in avg_quat)}]"
-        imu_text_item.setText(text)
+    # Show the latest translation value as text
+    txt = pg.TextItem(f"Translation:\nX={tx:.2f}, Y={ty:.2f}", color='b')
+    txt.setPos(tx, ty)
+    plot_widget.addItem(txt)
 
-    # Raw points with Doppler
-    scatter_raw.setData([p['x'] for p in raw_points], [p['y'] for p in raw_points])
-    for t in text_items:
-        plot_raw.removeItem(t)
-    text_items.clear()
-    for p in raw_points:
-        t = pg.TextItem(f"{p['doppler']:.2f}", color='r', anchor=(0,0))
-        t.setPos(p['x'], p['y'])
-        plot_raw.addItem(t)
-        text_items.append(t)
 
-    raw_points.clear()
-    imu_samples.clear()
+if __name__ == "__main__":
+    tcp_thread = threading.Thread(target=tcp_reader_nonblocking, daemon=True)
+    tcp_thread.start()
 
-timer = QtCore.QTimer()
-timer.timeout.connect(update)
-timer.start(10)
+    app = QApplication(sys.argv)
+    viewer = ClusterViewer()
+    viewer.show()
+    sys.exit(app.exec_())
 
-print("[INFO] Running PyQtGraph app loop...")
-app.exec_()

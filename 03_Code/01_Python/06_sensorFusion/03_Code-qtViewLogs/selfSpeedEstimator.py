@@ -13,7 +13,6 @@ def estimate_self_speed(pointCloud):
         x = point.get("x", 0)
         y = point.get("y", 0)
         doppler = point.get("doppler", 0)
-        doppler = abs(doppler)  # Use absolute value of Doppler speed
 
         # Avoid division by zero in arctan
         if y == 0:
