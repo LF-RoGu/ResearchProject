@@ -6,7 +6,6 @@ from PyQt5.QtCore import Qt, QTimer
 import socket
 import threading
 import queue
-import math
 import time
 
 from ClusterTracker import ClusterTracker
@@ -17,6 +16,7 @@ import pointFilter
 import icp
 
 from collections import defaultdict
+from odoLog import logging
 
 # ---------------- PARAMETERS ----------------
 FRAME_AGGREGATOR_NUM_PAST_FRAMES = 10
@@ -24,20 +24,31 @@ FILTER_SNR_MIN = 12
 FILTER_Z_MIN, FILTER_Z_MAX = -2, 2
 FILTER_Y_MIN, FILTER_Y_MAX = 0.6, 15
 FILTER_PHI_MIN, FILTER_PHI_MAX = -85, 85
-FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX = 0.01, 8.0
+FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX = 0.00, 8.0
 TRACKER_MAX_MISSES = 10
 TRACKER_DIST_THRESH = 0.5
 
 TCP_IP = "192.168.135.97"
 TCP_PORT = 9000
 
-# ---------------- Globals ----------------
-P = None
-Q = None
+# ---------------- Flags ----------------
+# 0 = logs, 1 = live TCP
+VISUALIZATION_MODE = 1
+
+# 1 = radar only, 2 = IMU only, 3 = both
+ENABLE_SENSORS = 1
+
+# Global variables for current (P) and previous (Q) frame clusters
+P = None  # clusters for current frame t
+Q = None  # clusters for previous frame t-1
 icp_history = {
-    'result_vectors': [], 'motion_vectors': [],
-    'world_transforms': [], 'ego_transforms': []
+    'result_vectors':   [], 
+    'motion_vectors':   [],
+    'world_transforms': [], 
+    'ego_transforms':   []
 }
+
+cumulativeTego = np.eye(3)  # 3x3 identity (no translation/rotation yet)
 
 _radarAgg = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 _imuAgg = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
@@ -60,7 +71,7 @@ class RadarPoint:
 
 # ---------------- TCP Reader ----------------
 def tcp_reader_nonblocking():
-    print("[INFO] Waiting for TCP connection...")
+    logging.info("[INFO] Waiting for TCP connection...")
     tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     connected = False
     while not connected:
@@ -68,12 +79,12 @@ def tcp_reader_nonblocking():
             tcp.connect((TCP_IP, TCP_PORT))
             connected = True
         except (ConnectionRefusedError, TimeoutError):
-            print("[INFO] Connection failed, retrying...")
+            logging.info("[INFO] Connection failed, retrying...")
             time.sleep(1)
 
     tcp.setblocking(False)
     buffer = ""
-    print("[INFO] TCP Connected!")
+    logging.info("[INFO] TCP Connected!")
 
     while True:
         try:
@@ -112,9 +123,6 @@ def parse_imu(line):
         'accel': accel,
         'packet': int(tokens[4].split('=')[1])
     }
-
-# ---------------- Plotting ----------------
-# (Keep plot1, plot2, plot3, plot4 as in your current file)
 
 # ---------------- Viewer ----------------
 class ClusterViewer(QWidget):
@@ -155,35 +163,35 @@ class ClusterViewer(QWidget):
     def poll_tcp_data(self):
         while not data_queue.empty():
             line = data_queue.get()
-            if line.startswith("[RADAR]"):
+            if line.startswith("[RADAR]") and (ENABLE_SENSORS in [1, 3]):
                 self.radar_points_buffer.append(parse_radar(line))
-            elif line.startswith("[IMU]"):
+            elif line.startswith("[IMU]") and (ENABLE_SENSORS in [2, 3]):
                 self.imu_buffer.append(parse_imu(line))
 
-        if self.radar_points_buffer:
-            # --- Group by Frame ---
-            
+        if self.radar_points_buffer and (ENABLE_SENSORS in [1, 3]):
             frame_groups = defaultdict(list)
             for p in self.radar_points_buffer:
                 frame_groups[p['frame']].append(
                     RadarPoint(p['x'], p['y'], p['z'], p['doppler'], p['snr'], p['noise'])
                 )
-
-            # --- Send each frame separately to aggregator ---
             for frame_id, radar_points in frame_groups.items():
                 _radarAgg.updateBuffer(radar_points)
-
             self.radar_points_buffer.clear()
 
-        if self.imu_buffer:
+        if self.imu_buffer and (ENABLE_SENSORS in [2, 3]):
             _imuAgg.updateBuffer(self.imu_buffer)
             self.imu_buffer.clear()
 
-
     def update_all_plots(self):
+        
         global P, Q, icp_history
         global filteredPointCloud_global
-        self.poll_tcp_data()
+        global cumulativeTego
+        if VISUALIZATION_MODE == 1:
+            self.poll_tcp_data()
+        else:
+            # Future: handle reading from logs here
+            pass
 
         rawPointCloud = _radarAgg.getPoints()
         pointCloud = pointFilter.filterSNRmin(rawPointCloud, FILTER_SNR_MIN)
@@ -206,56 +214,80 @@ class ClusterViewer(QWidget):
             clusters = self.trackers[name].get_active_tracks()
             preds = self.trackers[name].get_predictions()
 
+            Q = P
+            P = clusters
+
             if name == "plot1":
                 plot1(plot_item, clusters, preds)
             elif name == "plot2":
                 plot2(plot_item, clusters, preds)
             elif name == "plot3":
-                Q = P
-                P = clusters
+                
                 resultVectors = icp.icp_translation_vector(P, Q)
                 icp_history['result_vectors'].append(resultVectors)
                 motionVectors = icp.icp_get_transformation_average(resultVectors)
                 icp_history['motion_vectors'].append(motionVectors)
-                worldMotion = icp.icp_transformation_matrix(motionVectors)
-                icp_history['world_transforms'].append(worldMotion)
-                Tego = icp.icp_ego_motion_matrix(motionVectors)
+                Tcip = icp.icp_transformation_matrix(motionVectors)
+                icp_history['world_transforms'].append(Tcip)
+                Tego, _, _ = icp.icp_ego_motion_matrix(motionVectors)
                 icp_history['ego_transforms'].append(Tego)
+
+                if Tego is not None:
+                    cumulativeTego = np.dot(cumulativeTego, Tego)
+
+                    logging.info(f"\n--- Frame Update #{len(icp_history['ego_transforms'])} ---")
+                    logging.info(f"[ICP] Ticp (Environment Transform):\n{Tcip}")
+                    logging.info(f"[EGO] Tego (Ego-Motion Transform):\n{Tego}")
+                    logging.info(f"[EGO] Cumulative Ego Transform:\n{cumulativeTego}")
+
+                    dx_step = Tego[0, 2]
+                    dy_step = Tego[1, 2]
+                    step_distance = np.sqrt(dx_step**2 + dy_step**2)
+
+                    if cumulativeTego is not None:
+                        dx_cumulative = cumulativeTego[0, 2]
+                        dy_cumulative = cumulativeTego[1, 2]
+                        cumulative_distance = np.sqrt(dx_cumulative**2 + dy_cumulative**2)
+
+                    # Optional: compare cumulative to product of all history matrices
+                    if len(icp_history['ego_transforms']) > 1:
+                        history_product = np.eye(3)
+                        for mat in icp_history['ego_transforms']:
+                            history_product = np.dot(history_product, mat)
+                        
+                        logging.info(f"History Product (Validation): {history_product}")
+
+                logging.info(
+                    f"[Distance] Step={step_distance:.4f} m | "
+                    f"Cumulative={cumulative_distance:.4f} m"
+                )
+
                 plot3(plot_item, Tego)
             elif name == "plot4":
-                Q = P
-                P = clusters
+
                 resultVectors = icp.icp_translation_vector(P, Q)
-                icp_history['result_vectors'].append(resultVectors)
                 motionVectors = icp.icp_get_transformation_average(resultVectors)
-                icp_history['motion_vectors'].append(motionVectors)
-                worldMotion = icp.icp_transformation_matrix(motionVectors)
-                icp_history['world_transforms'].append(worldMotion)
-                Tego = icp.icp_ego_motion_matrix(motionVectors)
-                icp_history['ego_transforms'].append(Tego)
+                Tcip = icp.icp_transformation_matrix(motionVectors)
+                Tego, _, _ = icp.icp_ego_motion_matrix(motionVectors)
 
                 if not hasattr(self, "translation_history"):
                     self.translation_history = []
                 plot4(plot_item, Tego, self.translation_history)
 
-
-# ------------------------------
-# Plot-1’s custom view (unchanged)
-# ------------------------------
+# ---------------- Plots ----------------
 def plot1(plot_widget, clusters, predictions):
     plot_widget.clear()
     plot_widget.setTitle("Point Cloud")
-    for cid,data in clusters.items():
+    for cid, data in clusters.items():
         clusterPoints = data['points']
         clusterDoppler = data['doppler_avg']
-        clusterHits    = data.get('hits', 0)
-        if clusterPoints.shape[0]>0:
+        clusterHits = data.get('hits', 0)
+        if clusterPoints.shape[0] > 0:
             scatter = pg.ScatterPlotItem(
-                x=clusterPoints[:,0], y=clusterPoints[:,1], size=8,
-                pen=None, brush=pg.mkBrush(0,200,0,150)
+                x=clusterPoints[:, 0], y=clusterPoints[:, 1], size=8,
+                pen=None, brush=pg.mkBrush(0, 200, 0, 150)
             )
             plot_widget.addItem(scatter)
-        # unpack centroid (x,y ignore others)
         cx, cy = data['centroid'][:2]
         label = pg.TextItem(
             f"ID: {cid}\n"
@@ -267,33 +299,29 @@ def plot1(plot_widget, clusters, predictions):
         )
         label.setPos(cx, cy)
         plot_widget.addItem(label)
-    for cid,(px,py, *_ ) in predictions.items():
+    for cid, (px, py, *_) in predictions.items():
         pred_sc = pg.ScatterPlotItem(
             x=[px], y=[py], symbol='x', size=14,
-            pen=pg.mkPen('r',width=2)
+            pen=pg.mkPen('r', width=2)
         )
         plot_widget.addItem(pred_sc)
         lbl = pg.TextItem(f"Pred {cid}", color='r')
         lbl.setPos(px+0.3, py+0.3)
         plot_widget.addItem(lbl)
 
-# ------------------------------
-# Plot-2’s custom view (unchanged)
-# ------------------------------
 def plot2(plot_widget, clusters, predictions):
     plot_widget.clear()
     plot_widget.setTitle("Point Cloud")
-    for cid,data in clusters.items():
+    for cid, data in clusters.items():
         clusterPoints = data['points']
         clusterDoppler = data['doppler_avg']
-        clusterHits    = data.get('hits', 0)
-        if clusterPoints.shape[0]>0:
+        clusterHits = data.get('hits', 0)
+        if clusterPoints.shape[0] > 0:
             scatter = pg.ScatterPlotItem(
-                x=clusterPoints[:,0], y=clusterPoints[:,1], size=8,
-                pen=None, brush=pg.mkBrush(0,200,0,150)
+                x=clusterPoints[:, 0], y=clusterPoints[:, 1], size=8,
+                pen=None, brush=pg.mkBrush(0, 200, 0, 150)
             )
             plot_widget.addItem(scatter)
-        # unpack centroid (x,y ignore others)
         cx, cy = data['centroid'][:2]
         label = pg.TextItem(
             f"ID: {cid}\n"
@@ -305,25 +333,17 @@ def plot2(plot_widget, clusters, predictions):
         )
         label.setPos(cx, cy)
         plot_widget.addItem(label)
-    for cid,(px,py, *_ ) in predictions.items():
+    for cid, (px, py, *_) in predictions.items():
         pred_sc = pg.ScatterPlotItem(
             x=[px], y=[py], symbol='x', size=14,
-            pen=pg.mkPen('r',width=2)
+            pen=pg.mkPen('r', width=2)
         )
         plot_widget.addItem(pred_sc)
         lbl = pg.TextItem(f"Pred {cid}", color='r')
         lbl.setPos(px+0.3, py+0.3)
         plot_widget.addItem(lbl)
 
-# ------------------------------
-# Plot-3’s custom view (unchanged)
-# ------------------------------
 def plot3(plot_widget, ego_matrix):
-    """
-    Dedicated panel for visualizing ego-motion rotation.
-    - Draws a yellow arrow showing rotation
-    - Prints the 2x2 rotation matrix R^T
-    """
     plot_widget.clear()
     plot_widget.setTitle("Ego-Motion Rotation")
     plot_widget.enableAutoRange(False)
@@ -353,15 +373,7 @@ def plot3(plot_widget, ego_matrix):
     txt.setPos(-1.5, -1.5)
     plot_widget.addItem(txt)
 
-# ------------------------------
-# Plot-4’s custom view (unchanged)
-# ------------------------------
 def plot4(plot_widget, ego_matrix, translation_history):
-    """
-    Dedicated panel for visualizing ego-motion translation.
-    - Plots 'x' marks showing translation over time
-    - Uses the full 3x3 ego_matrix to extract position
-    """
     plot_widget.clear()
     plot_widget.setTitle("Ego-Motion Translation")
     plot_widget.enableAutoRange(False)
@@ -376,14 +388,11 @@ def plot4(plot_widget, ego_matrix, translation_history):
         plot_widget.addItem(txt)
         return
 
-    # Extract the translation component from Tego
     tx = ego_matrix[0, 2]
     ty = ego_matrix[1, 2]
 
-    # Store translation history
     translation_history.append((tx, ty))
 
-    # Plot the history as 'x' marks
     if len(translation_history) > 0:
         xs, ys = zip(*translation_history)
         scatter = pg.ScatterPlotItem(
@@ -392,18 +401,19 @@ def plot4(plot_widget, ego_matrix, translation_history):
         )
         plot_widget.addItem(scatter)
 
-    # Show the latest translation value as text
     txt = pg.TextItem(f"Translation:\nX={tx:.2f}, Y={ty:.2f}", color='b')
     txt.setPos(tx, ty)
     plot_widget.addItem(txt)
 
-
+# ---------------- Main ----------------
 if __name__ == "__main__":
-    tcp_thread = threading.Thread(target=tcp_reader_nonblocking, daemon=True)
-    tcp_thread.start()
+    if VISUALIZATION_MODE == 1:
+        tcp_thread = threading.Thread(target=tcp_reader_nonblocking, daemon=True)
+        tcp_thread.start()
+    else:
+        logging.info("[INFO] Using log files for visualization...")
 
     app = QApplication(sys.argv)
     viewer = ClusterViewer()
     viewer.show()
     sys.exit(app.exec_())
-

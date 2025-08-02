@@ -48,7 +48,7 @@ icp_history = {
     'world_transforms':  [],
     'ego_transforms':    []
 }
-cumulativeTego = np.eye(3)  # 4x4 identity (no translation/rotation yet)
+cumulativeTego = np.eye(3)  # 3x3 identity (no translation/rotation yet)
 
 
 folderName = "05_Logs-10072025_v2"  # Folder where CSV files are stored
@@ -509,7 +509,7 @@ class ClusterViewer(QWidget):
                 logging.info(f"Tego Matrix: {Tego}")
                 
                 if Tego is not None:
-                    cumulativeTego = cumulativeTego @ Tego
+                    cumulativeTego = np.dot(cumulativeTego, Tego)
                     # Extract R from Tego and compute angle
                     Rt_ego = Tego[0:2, 0:2]
                     theta_ego = np.degrees(np.arctan2(Rt_ego[1, 0], Rt_ego[0, 0]))
@@ -525,7 +525,7 @@ class ClusterViewer(QWidget):
                     delta_sideways_imu = -tx * np.sin(imu_heading_rad) + ty * np.cos(imu_heading_rad)
 
                     logging.info(f"[Drift] Translation raw: tx={tx:.4f}, ty={ty:.4f}")
-                    logging.info(f"[Drift]Rotation (θ) from Tego: {theta_ego:.6f}°")
+                    logging.info(f"[Drift] Rotation (θ) from Tego: {theta_ego:.6f}°")
                     logging.info(f"[Drift] Delta Forward (IMU-aligned): {delta_forward_imu:.4f} m")
                     logging.info(f"[Drift] Delta Sideways drift (IMU-aligned): {delta_sideways_imu:.4f} m")
 
