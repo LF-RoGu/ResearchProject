@@ -30,6 +30,10 @@ from ClusterTracker import (
 # -------------------------------------------------------------
 # PARAMETERS
 # -------------------------------------------------------------
+
+# 1 = Radar only, 2 = IMU only, 3 = Both
+ENABLE_SENSORS = 1
+
 FRAME_AGGREGATOR_NUM_PAST_FRAMES = 10
 FILTER_SNR_MIN                  = 12
 FILTER_Z_MIN, FILTER_Z_MAX      = -2, 2
@@ -48,14 +52,14 @@ icp_history = {
     'world_transforms':  [],
     'ego_transforms':    []
 }
-cumulativeTego = np.eye(3)  # 4x4 identity (no translation/rotation yet)
+cumulativeTego = np.eye(3)  # 3x3 identity (no translation/rotation yet)
 
 
-folderName = "05_Logs-10072025_v2"  # Folder where CSV files are stored
-testType = "straightWall_1.csv"  # Type of test data
+folderName = "08_inDoorTest-02082025"  # Folder where CSV files are stored
+testType = "roomTest_1.csv"  # Type of test data
 # Instantiate readers and global aggregators
-radarLoader       = RadarCSVReader("radar_" + testType, folderName)
-imuLoader         = ImuCSVReader("imu_" + testType,   folderName)
+radarLoader = RadarCSVReader("radar_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
+imuLoader   = ImuCSVReader("imu_" + testType, folderName) if ENABLE_SENSORS in (2, 3) else None
 _radarAgg         = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 _imuAgg           = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 
@@ -329,9 +333,9 @@ class ClusterViewer(QWidget):
         self.resize(1200,900)
 
         # Load data once
-        self.imu_frames   = imuLoader.load_all()
-        self.radar_frames = radarLoader.load_all()
-        self.radarDataSetLength = len(self.radar_frames)
+        self.imu_frames = imuLoader.load_all() if imuLoader else []
+        self.radar_frames = radarLoader.load_all() if radarLoader else []
+        self.radarDataSetLength = len(self.radar_frames) if self.radar_frames else 0
         self.currentFrame = -1
 
         # Plot will now use spatial matching with tuned parameters; others remain default
@@ -396,14 +400,19 @@ class ClusterViewer(QWidget):
     def on_slider_changed(self, newFrame):
         # rewind on backward move
         if newFrame < self.currentFrame:
-            _radarAgg.clearBuffer()
-            _imuAgg.clearBuffer()
+            if ENABLE_SENSORS in (1, 3):
+                _radarAgg.clearBuffer()
+            if ENABLE_SENSORS in (2, 3):
+                _imuAgg.clearBuffer()
             self.currentFrame = -1
 
         # aggregate only new frames
-        for f in range(self.currentFrame+1, newFrame+1):
-            _radarAgg.updateBuffer(self.radar_frames[f])
-            _imuAgg.updateBuffer(  self.imu_frames[f])
+        for f in range(self.currentFrame + 1, newFrame + 1):
+            if ENABLE_SENSORS in (1, 3) and f < len(self.radar_frames):
+                _radarAgg.updateBuffer(self.radar_frames[f])
+            if ENABLE_SENSORS in (2, 3) and f < len(self.imu_frames):
+                _imuAgg.updateBuffer(self.imu_frames[f])
+
         self.currentFrame  = newFrame
         self.slider_label.setText(f"Frame: {newFrame}")
         # Call plots to be drawn
@@ -424,7 +433,7 @@ class ClusterViewer(QWidget):
         global icp_history
         global cumulativeTego
         # Filtern Pipeline information (Plot 1 only)
-        rawPointCloud = _radarAgg.getPoints()  # list of dicts
+        rawPointCloud = _radarAgg.getPoints() if ENABLE_SENSORS in (1, 3) else []
         pointCloud = pointFilter.filterSNRmin( rawPointCloud, FILTER_SNR_MIN)
         pointCloud = pointFilter.filterCartesianZ(pointCloud, FILTER_Z_MIN, FILTER_Z_MAX)
         pointCloud = pointFilter.filterCartesianY(pointCloud, FILTER_Y_MIN, FILTER_Y_MAX)
@@ -432,10 +441,11 @@ class ClusterViewer(QWidget):
         filteredPointCloud = pointFilter.filterDoppler(pointCloud, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
 
         imu_records = []
-        for frame in _imuAgg.frames:
-            imu_records.extend(frame)
+        if ENABLE_SENSORS in (2, 3):
+            for frame in _imuAgg.frames:
+                imu_records.extend(frame)
         
-        imuData = helper.average_imu_records(imu_records)
+        imuData = helper.average_imu_records(imu_records) if imu_records else None
 
         # Stage 1 clustering
         clusterProcessor_stage1 = pointFilter.extract_points(filteredPointCloud)
@@ -457,7 +467,7 @@ class ClusterViewer(QWidget):
         # now draw each plot
         for name, plot_item in self.plots.items():
 
-            if name == "plot1":
+            if name == "plot1" and ENABLE_SENSORS in (1, 3):
                 plot1(plot_item, filteredPointCloud)
                 
             if name == "plot2":
@@ -509,23 +519,28 @@ class ClusterViewer(QWidget):
                 logging.info(f"Tego Matrix: {Tego}")
                 
                 if Tego is not None:
-                    cumulativeTego = cumulativeTego @ Tego
+                    cumulativeTego = np.dot(cumulativeTego, Tego)
                     # Extract R from Tego and compute angle
                     Rt_ego = Tego[0:2, 0:2]
                     theta_ego = np.degrees(np.arctan2(Rt_ego[1, 0], Rt_ego[0, 0]))
 
                     tx, ty = Tego[0, 2], Tego[1, 2]
-                    imu_heading_rad = np.arctan2(
-                        2 * (imuData['quat_w'] * imuData['quat_z'] + imuData['quat_x'] * imuData['quat_y']),
-                        1 - 2 * (imuData['quat_y']**2 + imuData['quat_z']**2)
-                    )
+                    if ENABLE_SENSORS in (2, 3) and imuData is not None:
+                        imu_heading_rad = np.arctan2(
+                            2 * (imuData['quat_w'] * imuData['quat_z'] + imuData['quat_x'] * imuData['quat_y']),
+                            1 - 2 * (imuData['quat_y']**2 + imuData['quat_z']**2)
+                        )
+                        # existing calculations...
+                    else:
+                        imu_heading_rad = 0.0  # or skip calculations entirely
+
                     frame_distance = np.sqrt(tx**2 + ty**2)
                     # Compute forward and lateral drift
                     delta_forward_imu = tx * np.cos(imu_heading_rad) + ty * np.sin(imu_heading_rad)
                     delta_sideways_imu = -tx * np.sin(imu_heading_rad) + ty * np.cos(imu_heading_rad)
 
                     logging.info(f"[Drift] Translation raw: tx={tx:.4f}, ty={ty:.4f}")
-                    logging.info(f"[Drift]Rotation (θ) from Tego: {theta_ego:.6f}°")
+                    logging.info(f"[Drift] Rotation (θ) from Tego: {theta_ego:.6f}°")
                     logging.info(f"[Drift] Delta Forward (IMU-aligned): {delta_forward_imu:.4f} m")
                     logging.info(f"[Drift] Delta Sideways drift (IMU-aligned): {delta_sideways_imu:.4f} m")
 
@@ -545,7 +560,7 @@ class ClusterViewer(QWidget):
                 # End of debug section.
                 
                 plot3(plot_item, Tego)
-            if name == "plot5":
+            if name == "plot5" and ENABLE_SENSORS in (2, 3):
                 plot5(plot_item, imuData)
 
 if __name__ == "__main__":
