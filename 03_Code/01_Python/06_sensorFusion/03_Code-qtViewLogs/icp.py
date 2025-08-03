@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.spatial import cKDTree
+from sklearn.linear_model import RANSACRegressor
+
 
 # Global variable to store the last valid transformation
 _last_valid_transformation = {
@@ -21,6 +23,7 @@ def icp_pointCloudeWise_vectors(P, Q):
     - Added KD-tree nearest-neighbor matching to handle unequal point counts.
     - Computes translation vector for each matched point (P_i - Q_i).
     - Computes rotation for each match as atan2(ty, tx).
+    - Uses RANSAC to compute a robust mean translation and rotation.
     - Returns both per-point results and a global averaged translation and rotation.
     """
 
@@ -63,15 +66,31 @@ def icp_pointCloudeWise_vectors(P, Q):
         tx, ty = P_points[i] - Q_points[idx]
         translations.append((tx, ty))
         rotations.append(np.arctan2(ty, tx))
+    
+    translations = np.array(translations)
+    rotations = np.array(rotations)
+
+    # RANSAC filtering based on translation
+    tx = translations[:, 0].reshape(-1, 1)
+    ty = translations[:, 1]
+
+    if translations.shape[0] >= 2:
+        ransac_tx = RANSACRegressor(min_samples=0.5, residual_threshold=0.05)
+        ransac_tx.fit(tx, ty)
+        inliers = ransac_tx.inlier_mask_
+        if np.sum(inliers) < 2:  # fallback if too few inliers
+            inliers = np.ones(translations.shape[0], dtype=bool)
+    else:
+        inliers = np.ones(translations.shape[0], dtype=bool)
 
     """
     Compute global averaged transformation.
     By averaging individual translations and rotations, we obtain a
     robust global transformation for the entire point cloud.
     """
-    averageTx = np.mean([t[0] for t in translations])
-    averageTy = np.mean([t[1] for t in translations])
-    averageTheta = np.mean(rotations)
+    averageTx = np.mean(translations[inliers, 0])
+    averageTy = np.mean(translations[inliers, 1])
+    averageTheta = np.mean(rotations[inliers])
 
     return {
         'per_point': {
@@ -94,8 +113,8 @@ def icp_clusterWise_vectors(P_clusters, Q_clusters):
     translations_per_cluster = {}
     rotations_per_cluster = {}
 
-    all_translations = []
-    all_rotations = []
+    translations = []
+    rotations = []
 
     for cid, P_data in P_clusters.items():
         if cid not in Q_clusters:
@@ -114,13 +133,16 @@ def icp_clusterWise_vectors(P_clusters, Q_clusters):
         translations_per_cluster[cid] = (avg_tx, avg_ty)
         rotations_per_cluster[cid] = avg_angle
 
-        all_translations.append((avg_tx, avg_ty))
-        all_rotations.append(avg_angle)
+        translations.append((avg_tx, avg_ty))
+        rotations.append(avg_angle)
 
-    if all_translations:
-        global_tx = np.mean([t[0] for t in all_translations])
-        global_ty = np.mean([t[1] for t in all_translations])
-        global_angle = np.mean(all_rotations)
+    if translations:
+        translations = np.array(translations)
+        rotations = np.array(rotations)
+
+        global_tx = np.mean([t[0] for t in translations])
+        global_ty = np.mean([t[1] for t in translations])
+        global_angle = np.mean(rotations)
     else:
         global_tx, global_ty, global_angle = 0.0, 0.0, 0.0
 

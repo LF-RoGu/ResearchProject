@@ -55,6 +55,9 @@ icp_history = {
     'ego_transforms':    []
 }
 cumulativeTego = np.eye(3)  # 3x3 identity (no translation/rotation yet)
+T_global = np.eye(3)  # initial pose at origin
+positions = []        # store global translation only
+rotations = []        # store global rotation only
 
 
 folderName = "08_inDoorTest-02082025"  # Folder where CSV files are stored
@@ -431,8 +434,7 @@ class ClusterViewer(QWidget):
     def update_all_plots(self):
         global P, Q
         global P_global, Q_global
-        global icp_history
-        global cumulativeTego
+        global T_global, positions, rotations
         # Filtern Pipeline information (Plot 1 only)
         rawPointCloud = _radarAgg.getPoints() if ENABLE_SENSORS in (1, 3) else []
         pointCloud = pointFilter.filterSNRmin( rawPointCloud, FILTER_SNR_MIN)
@@ -523,14 +525,43 @@ class ClusterViewer(QWidget):
                 If everything is correct, both checks should print True, meaning your ego-motion is a valid inverse of the ICP transformation.
                 """
                 identity_global = np.dot(Tego_global, Ticp_global)
-                print(f"Validation Global: \n {identity_global}")
+                #print(f"Validation Global: \n {identity_global}")
                 identity_cluster = np.dot(Tego_cluster, Ticp_cluster)
-                print(f"Validation Cluster: \n {identity_cluster}")
+                #print(f"Validation Cluster: \n {identity_cluster}")
 
-                print("Global close to Identity:", np.allclose(identity_global, np.eye(3), atol=1e-6)) # Checks if every element is close to identity within tolerance 1e-6
-                print("Cluster close to Identity:", np.allclose(identity_cluster, np.eye(3), atol=1e-6)) # Checks if every element is close to identity within tolerance 1e-6
+                #print("Global close to Identity:", np.allclose(identity_global, np.eye(3), atol=1e-6)) # Checks if every element is close to identity within tolerance 1e-6
+                #print("Cluster close to Identity:", np.allclose(identity_cluster, np.eye(3), atol=1e-6)) # Checks if every element is close to identity within tolerance 1e-6
 
-                #plot3(plot_item, Tego)
+                # Extract local translation and rotation from Ticp_global
+                tx_local = Ticp_global[0, 2]
+                ty_local = Ticp_global[1, 2]
+                theta_local = np.arctan2(Ticp_global[1, 0], Ticp_global[0, 0])
+
+                # Convert local translation to world frame
+                theta_global = np.arctan2(T_global[1, 0], T_global[0, 0])
+                cos_g, sin_g = np.cos(theta_global), np.sin(theta_global)
+                tx_world = cos_g * tx_local - sin_g * ty_local
+                ty_world = sin_g * tx_local + cos_g * ty_local
+
+                # Update T_global manually
+                T_global[0, 2] += tx_world
+                T_global[1, 2] += ty_world
+                # Update heading
+                new_theta = theta_global + theta_local
+                rotations.append(new_theta)
+                positions.append((T_global[0, 2], T_global[1, 2]))
+
+                print(
+                    f"Frame {self.currentFrame}: "
+                    f"Local Tx = {tx_local:.4f}, Local Ty = {ty_local:.4f}, "
+                    f"Local Theta = {np.degrees(theta_local):.2f}°, "
+                    f"World Tx = {tx_world:.4f}, World Ty = {ty_world:.4f}, "
+                    f"Cumulative Pose = ({T_global[0, 2]:.4f}, {T_global[1, 2]:.4f}), "
+                    f"Cumulative Heading = {np.degrees(new_theta):.2f}°"
+                )
+
+
+                plot3(plot_item, Tego_cluster)
             if name == "plot5" and ENABLE_SENSORS in (2, 3):
                 plot5(plot_item, imuData)
 
