@@ -12,231 +12,128 @@ min_alpha = 1.0
 max_alpha = 2.0
 max_hits = 30  
 
-def _normalize_icp_input(icp):
+def icp_pointCloudeWise_vectors(P, Q):
     """
-    Normalize ICP input which may be:
-      - None
-      - dict mapping cid -> data
-      - iterable of (cid, data) pairs
-      - other iterable (skip non-pairs)
-    Returns a list of (cid, data).
-    """
-    if icp is None:
-        return []
-    # dict: use items()
-    if isinstance(icp, dict):
-        return list(icp.items())
-    pairs = []
-    try:
-        for item in icp:
-            if isinstance(item, (list, tuple)) and len(item) == 2:
-                pairs.append((item[0], item[1]))
-            else:
-                # skip elements that cannot unpack
-                continue
-    except TypeError:
-        # not iterable
-        return []
-    return pairs
-
-
-def icp_translation_vector(icpP, icpQ):
-    """
-    Robust ICP for 2D radar odometry with KD-tree matching.
-    Preserves last valid transformation if no matches.
+    Pairwise ICP for 2D radar odometry with KD-tree matching.
+    Computes per-point translation and rotation vectors and a global averaged transformation.
 
     Changes made:
     - Added KD-tree nearest-neighbor matching to handle unequal point counts.
-    - Added outlier rejection to ignore bad matches.
-    - Uses _last_valid_transformation as a fallback when ICP cannot compute.
+    - Computes translation vector for each matched point (P_i - Q_i).
+    - Computes rotation for each match as atan2(ty, tx).
+    - Returns both per-point results and a global averaged translation and rotation.
     """
 
-    global _last_valid_transformation
-
-    # --- Normalize inputs ---
-    ptsP = _normalize_icp_input(icpP)
-    ptsQ = _normalize_icp_input(icpQ)
-
-    dataSetP = {}
-    dataSetQ = {}
-    P_points = []
-    Q_points = []
-
-    dictQ = dict(ptsQ)
-    for cid, P_data in ptsP:
-        if P_data is None:
-            continue
-        pointsP = P_data.get('points')
-        dataSetP[cid] = {
-            'points': pointsP,
-            'centroid': P_data.get('centroid'),
-            'doppler': P_data.get('doppler_avg'),
-            'hits': P_data.get('hits'),
-            'missed': P_data.get('missed'),
-            'history': P_data.get('history')
+    if P is None or Q is None or len(P) == 0 or len(Q) == 0:
+        return {
+            'per_point': {'translations': [], 'rotations': []},
+            'global': {'translation': (0.0, 0.0), 'rotation': 0.0}
         }
-        # Match only clusters that exist in both frames
-        if cid in dictQ:
-            pointsQ = dictQ[cid].get('points')
-            if pointsP is not None and pointsQ is not None:
-                P_points.append(pointsP)
-                Q_points.append(pointsQ)
+    else:
+        P_points = np.array([[p['x'], p['y']] for p in P])
+        Q_points = np.array([[q['x'], q['y']] for q in Q])
 
-    for cid, Q_data in ptsQ:
-        if Q_data is None:
-            continue
-        dataSetQ[cid] = {
-            'points': Q_data.get('points'),
-            'centroid': Q_data.get('centroid'),
-            'doppler': Q_data.get('doppler_avg'),
-            'hits': Q_data.get('hits'),
-            'missed': Q_data.get('missed'),
-            'history': Q_data.get('history')
+    # Return empty if no points found in either frame
+    if P_points.shape[0] < 1 or Q_points.shape[0] < 1:
+        return []
+
+    """
+    KD-tree Nearest Neighbor Matching.
+    A KD-tree is a spatial data structure that allows efficient nearest-neighbor searches.
+    - We build a KD-tree from the 'Q' point set (target frame).
+    - For each point in 'P' (source frame), we find the closest point in 'Q'.
+    """
+    treeQ = cKDTree(Q_points)
+    # Find nearest neighbor for each P
+    # dists: distance from each P point to its closest Q point
+    # indices: indices of the matched Q points
+    dists, indices = treeQ.query(P_points, k=1)
+
+    """
+    Translation and rotation computation for each point.
+    For each matched pair:
+    - Translation: tx, ty = P_i - Q_j
+    - Rotation: atan2(ty, tx)
+    This computes motion estimates for every matched point individually.
+    """
+    translations = []
+    rotations = []
+
+    for i, idx in enumerate(indices):
+        tx, ty = P_points[i] - Q_points[idx]
+        translations.append((tx, ty))
+        rotations.append(np.arctan2(ty, tx))
+
+    """
+    Compute global averaged transformation.
+    By averaging individual translations and rotations, we obtain a
+    robust global transformation for the entire point cloud.
+    """
+    averageTx = np.mean([t[0] for t in translations])
+    averageTy = np.mean([t[1] for t in translations])
+    averageTheta = np.mean(rotations)
+
+    return {
+        'per_point': {
+            'translations': translations,
+            'rotations': rotations
+        },
+        'global': {
+            'translation': (averageTx, averageTy),
+            'rotation': averageTheta
         }
-
-    # --- Fallback if no matching clusters ---
-    # Previously returned empty dict (caused pipeline to lose transformation)
-    # Now reuses last valid transformation for smoother odometry
-    if not P_points or not Q_points:
-        return _last_valid_transformation
-
-    # --- Combine points ---
-    P_all = np.vstack(P_points)[:, :2]
-    Q_all = np.vstack(Q_points)[:, :2]
-
-    # --- KD-tree Nearest Neighbor Matching ---
-    # Original code assumed equal size arrays → caused ValueError
-    # KD-tree ensures every P point has a matched Q point
-    from scipy.spatial import cKDTree
-    treeQ = cKDTree(Q_all)
-    dists, indices = treeQ.query(P_all, k=1)
-
-    # --- Outlier Rejection ---
-    # Ignore pairs with distance > 2 meters (configurable)
-    threshold = 2.0
-    valid_mask = dists < threshold
-    matched_P = P_all[valid_mask]
-    matched_Q = Q_all[indices[valid_mask]]
-
-    # --- Fallback if not enough matches ---
-    # Ensures we don't run SVD with <2 points
-    if matched_P.shape[0] < 2:
-        return _last_valid_transformation
-
-    # --- Compute SVD-based rotation ---
-    centroid_P = np.mean(matched_P, axis=0)
-    centroid_Q = np.mean(matched_Q, axis=0)
-    P_centered = matched_P - centroid_P
-    Q_centered = matched_Q - centroid_Q
-
-    H = Q_centered.T @ P_centered
-    U, _, Vt = np.linalg.svd(H)
-    R = U @ Vt
-    if np.linalg.det(R) < 0:
-        Vt[-1, :] *= -1
-        R = U @ Vt
-
-    # --- Translation and rotation ---
-    t = centroid_P - R @ centroid_Q
-    rotation_angle = np.arctan2(R[1, 0], R[0, 0])
-
-    translations = {0: np.array([t[0], t[1], 0.0])}
-    rotations = {0: rotation_angle}
-
-    # --- Store last valid transformation ---
-    # Previously missing → now added for robustness
-    _last_valid_transformation = {
-        'dataSetP': dataSetP,
-        'dataSetQ': dataSetQ,
-        'translation': translations,
-        'rotation': rotations
     }
 
-    return _last_valid_transformation
-
-def icp_rotation_vector(tx, ty):
+def icp_clusterWise_vectors(P_clusters, Q_clusters):
     """
-    [Inference] Returns the 2D rotation angle (radians) corresponding to translation (tx, ty).
+    Cluster-wise ICP for 2D radar odometry.
+    Uses icp_pointCloudeWise_vectors for each cluster individually.
+    Computes translation and rotation per cluster and a global average.
     """
-    return float(np.arctan2(ty, tx))
 
+    translations_per_cluster = {}
+    rotations_per_cluster = {}
 
-def icp_get_transformation_average(transformations):
-    """
-    Computes weighted averages for translation and rotation from ICP data.
-    - Translation is weighted by the 'hits' count of each cluster.
-    - Rotation uses circular statistics for robustness.
-    - If no valid clusters are found, returns the last valid transformation.
-    """
-    global _last_valid_transformation
+    all_translations = []
+    all_rotations = []
 
-    translations = transformations.get('translation', {})
-    rotations = transformations.get('rotation', {})
-    dataSetP = transformations.get('dataSetP', {})
-
-    if not translations and not rotations:
-        # Return the last valid transformation if available
-        return _last_valid_transformation
-    
-    # ----- Dynamic Alpha -----
-    total_hits = sum((cluster.get('hits') or 0) for cluster in dataSetP.values())
-    weightedAlpha = min_alpha + (max_alpha - min_alpha) * min(total_hits, max_hits) / max_hits
-
-    # ----- Weighted Translation -----
-    weighted_translations = []
-    weights_t = []
-
-    for cid, tvec in translations.items():
-        if tvec is None:
+    for cid, P_data in P_clusters.items():
+        if cid not in Q_clusters:
             continue
-        hits = dataSetP.get(cid, {}).get('hits', 1)
-        if hits is None:
-            hits = 1
-        weight = hits ** weightedAlpha
-        tvec = np.asarray(tvec, dtype=float)
-        weighted_translations.append(tvec * weight)
-        weights_t.append(weight)
 
-    if weighted_translations:
-        weighted_translations = np.stack(weighted_translations, axis=0)
-        weights_t = np.array(weights_t, dtype=float)
-        average_translations = np.sum(weighted_translations, axis=0) / np.sum(weights_t)
+        # Prepare inputs for the per-point ICP
+        P_points = [{'x': p[0], 'y': p[1]} for p in P_data['points']]
+        Q_points = [{'x': q[0], 'y': q[1]} for q in Q_clusters[cid]['points']]
+
+        # Reuse the pairwise ICP function
+        cluster_result = icp_pointCloudeWise_vectors(P_points, Q_points)
+
+        avg_tx, avg_ty = cluster_result['global']['translation']
+        avg_angle = cluster_result['global']['rotation']
+
+        translations_per_cluster[cid] = (avg_tx, avg_ty)
+        rotations_per_cluster[cid] = avg_angle
+
+        all_translations.append((avg_tx, avg_ty))
+        all_rotations.append(avg_angle)
+
+    if all_translations:
+        global_tx = np.mean([t[0] for t in all_translations])
+        global_ty = np.mean([t[1] for t in all_translations])
+        global_angle = np.mean(all_rotations)
     else:
-        average_translations = np.zeros(3)
+        global_tx, global_ty, global_angle = 0.0, 0.0, 0.0
 
-    # ----- Weighted Circular Mean for Rotation -----
-    cos_vals = []
-    sin_vals = []
-    weights_r = []
-
-    for cid, angle in rotations.items():
-        if angle is None:
-            continue
-        hits = dataSetP.get(cid, {}).get('hits', 1)
-        if hits is None:
-            hits = 1
-        weight = hits ** weightedAlpha
-        cos_vals.append(np.cos(angle) * weight)
-        sin_vals.append(np.sin(angle) * weight)
-        weights_r.append(weight)
-
-    if cos_vals and sin_vals:
-        cos_vals = np.array(cos_vals, dtype=float)
-        sin_vals = np.array(sin_vals, dtype=float)
-        weights_r = np.array(weights_r, dtype=float)
-        cos_mean = np.sum(cos_vals) / np.sum(weights_r)
-        sin_mean = np.sum(sin_vals) / np.sum(weights_r)
-        average_rotations = np.arctan2(sin_mean, cos_mean)
-    else:
-        average_rotations = 0.0
-
-    # Store the last valid transformation
-    _last_valid_transformation = {
-        'translation_avg': average_translations,
-        'rotation_avg': average_rotations
+    return {
+        'per_cluster': {
+            'translations': translations_per_cluster,
+            'rotations': rotations_per_cluster
+        },
+        'global': {
+            'translation': (global_tx, global_ty),
+            'rotation': global_angle
+        }
     }
-
-    return _last_valid_transformation
 
 def icp_transformation_matrix(motionVectors):
     """

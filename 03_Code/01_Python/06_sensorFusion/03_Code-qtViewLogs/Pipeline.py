@@ -46,6 +46,8 @@ TRACKER_DIST_THRESH = 0.5   # max movement (meters) allowed per frame for matchi
 # Global variables for current (P) and previous (Q) frame clusters
 P = None  # clusters for current frame t
 Q = None  # clusters for previous frame t-1
+P_global = None  # clusters for current frame t
+Q_global = None  # clusters for previous frame t-1
 icp_history = {
     'result_vectors':    [],
     'motion_vectors':    [],
@@ -56,7 +58,7 @@ cumulativeTego = np.eye(3)  # 3x3 identity (no translation/rotation yet)
 
 
 folderName = "08_inDoorTest-02082025"  # Folder where CSV files are stored
-testType = "roomTest_5.csv"  # Type of test data
+testType = "hallway_3.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarLoader = RadarCSVReader("radar_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 imuLoader   = ImuCSVReader("imu_" + testType, folderName) if ENABLE_SENSORS in (2, 3) else None
@@ -65,7 +67,7 @@ _imuAgg           = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 
 # Two‐stage DBSCAN processors
 cluster_processor_stage1 = dbCluster.ClusterProcessor(eps=2.0, min_samples=5)
-cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.0, min_samples=2)
+cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=0.5, min_samples=2)
 
 icp_rotation_filter = KalmanFilter(process_variance=0.01, measurement_variance=0.8)
 
@@ -428,6 +430,7 @@ class ClusterViewer(QWidget):
 
     def update_all_plots(self):
         global P, Q
+        global P_global, Q_global
         global icp_history
         global cumulativeTego
         # Filtern Pipeline information (Plot 1 only)
@@ -486,78 +489,48 @@ class ClusterViewer(QWidget):
                 clusters = self.trackers[name].get_active_tracks()
 
                 # Store value that was stored in P into Q
+                Q_global = P_global # Obtained only last sample to avoid errors that could have been accumulated
+                P_global = filteredPointCloud # Obtain the current cluster set of points
+
+                resultVectors_global = icp.icp_pointCloudeWise_vectors(P_global, Q_global)
+
+                # Store value that was stored in P into Q
                 Q = P # Obtained only last sample to avoid errors that could have been accumulated
-                # Obtain the current cluster set of points
-                P = clusters
+                P = clusters # Obtain the current cluster set of points
 
-                resultVectors = icp.icp_translation_vector(P, Q)
-                icp_history['result_vectors'].append(resultVectors)
+                resultVectors_cluster = icp.icp_clusterWise_vectors(P, Q)
 
-                motionVectors = icp.icp_get_transformation_average(resultVectors)
-                icp_history['motion_vectors'].append(motionVectors)
+                Ticp_global = icp.icp_transformation_matrix({
+                    'translation_avg': resultVectors_global['global']['translation'],
+                    'rotation_avg': resultVectors_global['global']['rotation']
+                })
 
-                rawIcpRotation = np.degrees(motionVectors['rotation_avg'])
-                motionVectors['rotation_avg'] = np.radians(icp_rotation_filter.update(rawIcpRotation))
+                Ticp_cluster = icp.icp_transformation_matrix({
+                    'translation_avg': resultVectors_cluster['global']['translation'],
+                    'rotation_avg': resultVectors_cluster['global']['rotation']
+                })
 
-                Ticp = icp.icp_transformation_matrix(motionVectors)
-                icp_history['world_transforms'].append(Ticp)
+                Tego_global, Rrot_global, Rtrans_global = icp.icp_ego_motion_matrix({
+                    'translation_avg': resultVectors_global['global']['translation'],
+                    'rotation_avg': resultVectors_global['global']['rotation']
+                })
+                Tego_cluster, Rrot_cluster, Rtrans_cluster = icp.icp_ego_motion_matrix({
+                    'translation_avg': resultVectors_cluster['global']['translation'],
+                    'rotation_avg': resultVectors_cluster['global']['rotation']
+                })
 
-                Tego, _, _ = icp.icp_ego_motion_matrix(motionVectors)
-                icp_history['ego_transforms'].append(Tego)
+                """
+                If everything is correct, both checks should print True, meaning your ego-motion is a valid inverse of the ICP transformation.
+                """
+                identity_global = np.dot(Tego_global, Ticp_global)
+                print(f"Validation Global: \n {identity_global}")
+                identity_cluster = np.dot(Tego_cluster, Ticp_cluster)
+                print(f"Validation Cluster: \n {identity_cluster}")
 
-                logging.info("-----------------------------------------------")
-                logging.info(f"Current frame: {self.currentFrame}")
-                #pretty_print_clusters(P, "[P] Current Clusters (Frame t)")
-                #pretty_print_clusters(Q, "[Q] Previous Clusters (Frame t-1)")
-                
-                #print("(Ticp): ")
-                logging.info(f"Tcip Matrix: \n{Ticp}")
+                print("Global close to Identity:", np.allclose(identity_global, np.eye(3), atol=1e-6)) # Checks if every element is close to identity within tolerance 1e-6
+                print("Cluster close to Identity:", np.allclose(identity_cluster, np.eye(3), atol=1e-6)) # Checks if every element is close to identity within tolerance 1e-6
 
-                #print("(Tego): ")
-                logging.info(f"Tego Matrix: \n{Tego}")
-                
-                if Tego is not None:
-                    cumulativeTego = np.dot(cumulativeTego, Tego)
-                    # Extract R from Tego and compute angle
-                    Rt_ego = Tego[0:2, 0:2]
-                    theta_ego = np.degrees(np.arctan2(Rt_ego[1, 0], Rt_ego[0, 0]))
-
-                    tx, ty = Tego[0, 2], Tego[1, 2]
-                    if ENABLE_SENSORS in (2, 3) and imuData is not None:
-                        imu_heading_rad = np.arctan2(
-                            2 * (imuData['quat_w'] * imuData['quat_z'] + imuData['quat_x'] * imuData['quat_y']),
-                            1 - 2 * (imuData['quat_y']**2 + imuData['quat_z']**2)
-                        )
-                        # existing calculations...
-                    else:
-                        imu_heading_rad = 0.0  # or skip calculations entirely
-
-                    frame_distance = np.sqrt(tx**2 + ty**2)
-                    # Compute forward and lateral drift
-                    delta_forward_imu = tx * np.cos(imu_heading_rad) + ty * np.sin(imu_heading_rad)
-                    delta_sideways_imu = -tx * np.sin(imu_heading_rad) + ty * np.cos(imu_heading_rad)
-
-                    logging.info(f"[Drift] Translation raw: tx={tx:.4f}, ty={ty:.4f}")
-                    logging.info(f"[Drift] Rotation (θ) from Tego: {theta_ego:.6f}°")
-                    logging.info(f"[Drift] Delta Forward (IMU-aligned): {delta_forward_imu:.4f} m")
-                    logging.info(f"[Drift] Delta Sideways drift (IMU-aligned): {delta_sideways_imu:.4f} m")
-
-                    # Extract translation
-                    cum_tx, cum_ty = cumulativeTego[0, 2], cumulativeTego[1, 2]
-                    # Extract heading
-                    Rt_cum = cumulativeTego[0:2, 0:2]
-                    cum_theta_deg = np.degrees(np.arctan2(Rt_cum[1, 0], Rt_cum[0, 0]))
-                    total_translation = np.linalg.norm([cum_tx, cum_ty])
-                    print(f"[Cumulative] Distance covered so far: {total_translation:.2f} m")
-                    logging.info(f"[Cumulative] Distance covered so far: {total_translation:.2f} m")
-                    logging.info(f"[Cumulative] Translation: X={cum_tx:.4f}, Y={cum_ty:.4f}, "
-                                 f"[Cumulative] Heading: {cum_theta_deg:.4f}°, "
-                                 f"[Cumulative] Distance={total_translation:.2f} m")
-
-
-                # End of debug section.
-                
-                plot3(plot_item, Tego)
+                #plot3(plot_item, Tego)
             if name == "plot5" and ENABLE_SENSORS in (2, 3):
                 plot5(plot_item, imuData)
 
