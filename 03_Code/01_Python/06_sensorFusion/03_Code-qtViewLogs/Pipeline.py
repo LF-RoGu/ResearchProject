@@ -61,7 +61,7 @@ rotations = []        # store global rotation only
 
 
 folderName = "08_inDoorTest-02082025"  # Folder where CSV files are stored
-testType = "hallway_3.csv"  # Type of test data
+testType = "hallway_1.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarLoader = RadarCSVReader("radar_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 imuLoader   = ImuCSVReader("imu_" + testType, folderName) if ENABLE_SENSORS in (2, 3) else None
@@ -496,6 +496,9 @@ class ClusterViewer(QWidget):
 
                 resultVectors_global = icp.icp_pointCloudeWise_vectors(P_global, Q_global)
 
+                matched_points = resultVectors_global['global']['matched_points']
+                centroid_disp = resultVectors_global['global']['centroid_displacement']
+
                 # Store value that was stored in P into Q
                 Q = P # Obtained only last sample to avoid errors that could have been accumulated
                 P = clusters # Obtain the current cluster set of points
@@ -533,9 +536,9 @@ class ClusterViewer(QWidget):
                 #print("Cluster close to Identity:", np.allclose(identity_cluster, np.eye(3), atol=1e-6)) # Checks if every element is close to identity within tolerance 1e-6
 
                 # Extract local translation and rotation from Ticp_global
-                tx_local = Ticp_global[0, 2]
-                ty_local = Ticp_global[1, 2]
-                theta_local = np.arctan2(Ticp_global[1, 0], Ticp_global[0, 0])
+                tx_local = Tego_global[0, 2]
+                ty_local = Tego_global[1, 2]
+                theta_local = np.arctan2(Tego_global[1, 0], Tego_global[0, 0])
 
                 # Convert local translation to world frame
                 theta_global = np.arctan2(T_global[1, 0], T_global[0, 0])
@@ -553,12 +556,21 @@ class ClusterViewer(QWidget):
 
                 print(
                     f"Frame {self.currentFrame}: "
+                    f"Matched Points = {matched_points}, "
+                    f"Centroid Δ = ({centroid_disp[0]:.4f}, {centroid_disp[1]:.4f}), "
+                    f"ICP Tx = {tx_local:.4f}, ICP Ty = {ty_local:.4f}"
+                )
+
+                """               
+                print(
+                    f"Frame {self.currentFrame}: "
                     f"Local Tx = {tx_local:.4f}, Local Ty = {ty_local:.4f}, "
                     f"Local Theta = {np.degrees(theta_local):.2f}°, "
                     f"World Tx = {tx_world:.4f}, World Ty = {ty_world:.4f}, "
                     f"Cumulative Pose = ({T_global[0, 2]:.4f}, {T_global[1, 2]:.4f}), "
                     f"Cumulative Heading = {np.degrees(new_theta):.2f}°"
                 )
+                """
 
 
                 plot3(plot_item, Tego_cluster)

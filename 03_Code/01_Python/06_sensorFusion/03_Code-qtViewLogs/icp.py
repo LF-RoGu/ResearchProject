@@ -29,9 +29,17 @@ def icp_pointCloudeWise_vectors(P, Q):
 
     if P is None or Q is None or len(P) == 0 or len(Q) == 0:
         return {
-            'per_point': {'translations': [], 'rotations': []},
-            'global': {'translation': (0.0, 0.0), 'rotation': 0.0}
+        'per_cluster': {
+            'translations': {},
+            'rotations': {}
+        },
+        'global': {
+            'translation': (0.0, 0.0),
+            'rotation': 0.0,
+            'matched_points': 0,
+            'centroid_displacement': [0.0, 0.0]
         }
+    }
     else:
         P_points = np.array([[p['x'], p['y']] for p in P])
         Q_points = np.array([[q['x'], q['y']] for q in Q])
@@ -51,6 +59,11 @@ def icp_pointCloudeWise_vectors(P, Q):
     # dists: distance from each P point to its closest Q point
     # indices: indices of the matched Q points
     dists, indices = treeQ.query(P_points, k=1)
+
+    matched_points = len(indices)  # Number of matched points
+    centroid_P = np.mean(P_points, axis=0)
+    centroid_Q = np.mean(Q_points, axis=0)
+    centroid_displacement = centroid_P - centroid_Q
 
     """
     Translation and rotation computation for each point.
@@ -99,7 +112,9 @@ def icp_pointCloudeWise_vectors(P, Q):
         },
         'global': {
             'translation': (averageTx, averageTy),
-            'rotation': averageTheta
+            'rotation': averageTheta,
+            'matched_points': int(matched_points),
+            'centroid_displacement': centroid_displacement.tolist()
         }
     }
 
