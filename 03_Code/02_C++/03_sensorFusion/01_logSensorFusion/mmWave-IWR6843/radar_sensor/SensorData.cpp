@@ -1,71 +1,77 @@
 #include "SensorData.h"
-
+#include <iomanip>
 //#define DEBUG_FRAME_TLV
 
 SensorData::SensorData()
 {
 }
 
-SensorData::SensorData(vector<uint8_t> rawData)
-{
-	//Setting the timestamp
-	timestamp = chrono::system_clock::now();
+SensorData::SensorData(std::vector<uint8_t> rawData)
+{	
+    // Define the expected 8-byte magic word pattern
+    static const std::vector<uint8_t> magicBytes = {
+        0x02, 0x01, 0x04, 0x03,
+        0x06, 0x05, 0x08, 0x07
+    };
 
-	//Copying the raw data
-	storedRawData.reserve(rawData.size());
-	copy(rawData.begin(), rawData.begin() + rawData.size(), back_inserter(storedRawData));
+    // Attempt to find the start of a valid frame by locating the magic word
+    auto it = std::search(rawData.begin(), rawData.end(), magicBytes.begin(), magicBytes.end());
 
-	//Parsing the data
-	header = Frame_header(rawData);
+    if (it == rawData.end()) {
+        std::cerr << "[ERROR] Magic word not found in raw data. Skipping.\n";
+        return;
+    }
 
-	if (!header.isValid()) 
-	{
-		std::cerr << "[WARNING] Skipping invalid frame.\n";
-		return; // Don’t parse further
-	}
-	else
-	{
-		std::cout << "[INFO] Frame parsed successfully.\n";
-	}
+    // Extract aligned data starting from the magic word
+    std::vector<uint8_t> alignedData(it, rawData.end());
 
-	payload = TLV_payload(rawData, header.getNumObjDetecter(), header.getNumTLV());
-	payload_data_vect = payload.getTLVPayloadData();
+    // Store raw data for possible debugging/logging
+    storedRawData.reserve(alignedData.size());
+    std::copy(alignedData.begin(), alignedData.end(), std::back_inserter(storedRawData));
 
-	#ifdef DEBUG_FRAME_TLV
-	std::cout << "\n================== SENSOR DATA DEBUG ==================\n";
-	for (size_t i = 0; i < payload_data_vect.size(); ++i) {
-	const TLVPayloadData& tlv = payload_data_vect[i];
+    // Basic safety check: ensure at least 44 bytes for header and magic word
+    if (alignedData.size() < 44) {
+        std::cerr << "[WARNING] Frame too short after alignment. Skipping.\n";
+        return;
+    }
 
-	for (const TLVPayloadData& pd : payload_data_vect)
-	{
-		// Detected Points
-		for (const DetectedPoints& dp : pd.DetectedPoints_str) {
-			std::cout << "Converted Floats:\n";
-			std::cout << "  x: " << dp.x_f << " meters\n";
-			std::cout << "  y: " << dp.y_f << " meters\n";
-			std::cout << "  z: " << dp.z_f << " meters\n";
-			std::cout << "  doppler: " << dp.doppler_f << " m/s\n";
-		}
+    // Parse the frame header
+    header = Frame_header(alignedData);
 
-		// Side Info Points
-		for (size_t j = 0; j < pd.SideInfoPoint_str.size(); ++j) {
-			const SideInfoPoint& si = pd.SideInfoPoint_str[j];
-			std::cout << "[DEBUG] SideInfo #" << j
-					<< " SNR: " << si.snr
-					<< " Noise: " << si.noise << "\n";
-		}
+    if (!header.isValid()) {
+        std::cerr << "[WARNING] Invalid frame header. Skipping.\n";
+        return;
+    } else {
+        std::cout << "[INFO] Frame parsed successfully.\n";
+    }
 
-		// Range Profile Points
-		for (const RangeProfilePoint& rp : pd.RangeProfilePoint_str) {
-			std::cout << "[PEAK] Bin #" << rp.bin_u16
-					<< " | Range: " << rp.range_f << " m"
-					<< " | Power: " << rp.power_u16 << "\n";
-		}
-	}
+    // Parse TLV payload
+    payload = TLV_payload(alignedData, header.getNumObjDetecter(), header.getNumTLV());
+    payload_data_vect = payload.getTLVPayloadData();
 
-	}
-	std::cout << "=======================================================\n";
-	#endif
+#ifdef DEBUG_FRAME_TLV
+    std::cout << "\n================== SENSOR DATA DEBUG ==================\n";
+    for (const TLVPayloadData& pd : payload_data_vect)
+    {
+        // Detected Points
+        for (const DetectedPoints& dp : pd.DetectedPoints_str) {
+            std::cout << "Converted Floats:\n";
+            std::cout << "  x: " << dp.x_f << " meters\n";
+            std::cout << "  y: " << dp.y_f << " meters\n";
+            std::cout << "  z: " << dp.z_f << " meters\n";
+            std::cout << "  doppler: " << dp.doppler_f << " m/s\n";
+        }
+
+        // Side Info Points
+        for (size_t j = 0; j < pd.SideInfoPoint_str.size(); ++j) {
+            const SideInfoPoint& si = pd.SideInfoPoint_str[j];
+            std::cout << "[DEBUG] SideInfo #" << j
+                      << " SNR: " << si.snr
+                      << " Noise: " << si.noise << "\n";
+        }
+    }
+    std::cout << "=======================================================\n";
+#endif
 }
 
 Frame_header SensorData::getHeader() const

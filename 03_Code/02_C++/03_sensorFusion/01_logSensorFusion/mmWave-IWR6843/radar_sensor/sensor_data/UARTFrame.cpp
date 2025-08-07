@@ -23,15 +23,15 @@ void Frame_header::parseFrameHeader(std::vector<uint8_t>& data)
 {
     EndianUtils EndianUtils_c;
 
-    // Extract magic word (64-bit) from the vector
+    // Extract magic word (64-bit) from the vector (bytes 0–7)
     uint64_t magicWord = EndianUtils_c.toLittleEndian64(data, 8);
 
-    // Check if the magic word matches the expected value
-    if (magicWord != MAGIC_WORD) {
-        std::cerr << "Error: Invalid magic word detected! Aborting frame parsing.\n";
-        frameValid = false;
-        return; // Early exit if the magic word is invalid
+    if (magicWord == MAGIC_WORD) {
+        std::cout << "[ASSERT] Magic word found. Proceeding to parse frame.\n";
+    } else {
+        std::cerr << "[DEBUG] Magic word not found. Proceeding or skipping...\n";
     }
+
     frameValid = true;
 
     // Extract MagicWord (64-bit) from the vector

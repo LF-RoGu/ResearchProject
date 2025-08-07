@@ -30,12 +30,12 @@ Macro to enable or disable sensors
  2 - enable only MTI
  3 - enable both
 */ 
-#define ENABLE_SENSORS 3
+#define ENABLE_SENSORS 1
 
 const char CSV_TAB = ',';
 
 /* Uncomment to PRINT instead of logging to CSV */
-// #define VALIDATE_PRINT
+#define VALIDATE_PRINT
 
 /*=== Shared Data Structures ===*/
 
@@ -464,6 +464,19 @@ void threadWriter(bool enableRadar, bool enableImu)
                      << "\n";
             }
 #else
+            for (const auto& pt : radarPtsRight)
+            {
+                csvRadarRight << pt.frameId  << CSV_TAB
+                         << pt.pointId  << CSV_TAB
+                         << pt.x        << CSV_TAB
+                         << pt.y        << CSV_TAB
+                         << pt.z        << CSV_TAB
+                         << pt.doppler  << CSV_TAB
+                         << pt.snr      << CSV_TAB
+                         << pt.noise    << "\n";
+            }
+            csvRadarRight.flush();
+
             for (const auto& pt : radarPtsLeft)
             {
                 csvRadarLeft << pt.frameId  << CSV_TAB
