@@ -1,47 +1,68 @@
 import numpy as np
+import math
 
-__all__ = ['estimate_self_speed']
+def estimate_ego_speed_scalar(inlierPoints):
+    """
+    Estimate scalar ego-vehicle speed assuming forward motion (+y axis).
+    Returns 0.0 if the input is invalid or insufficient.
+    """
+    if not inlierPoints:
+        return 0.0
 
-def estimate_self_speed(pointCloud):
-    # Return zero if there are no points
-    if len(pointCloud) < 1:
-        return 0
-
-    phi_radspeed = []
-
-    for point in pointCloud:
-        x = point.get("x", 0)
-        y = point.get("y", 0)
-        doppler = point.get("doppler", 0)
-
-        # Avoid division by zero in arctan
-        if y == 0:
+    theta_list = []
+    doppler_list = []
+    
+    for pt in inlierPoints:
+        if 'x' not in pt or 'y' not in pt or 'doppler' not in pt:
             continue
+        # Shift theta so that 0° is forward (+y axis)
+        theta = math.atan2(pt['y'], pt['x']) - math.pi/2
+        theta_list.append(theta)
+        doppler_list.append(pt['doppler'])
+    
+    if len(theta_list) < 3:
+        return 0.0
 
-        phi = np.degrees(np.arctan(x / y))
+    theta_arr = np.array(theta_list)
+    doppler_arr = np.array(doppler_list)
 
-        if np.isnan(phi) or np.isinf(phi):
+    cos_theta = np.cos(theta_arr)
+    denominator = np.sum(cos_theta**2)
+    if denominator == 0:
+        return 0.0
+
+    v_ego = -np.sum(doppler_arr * cos_theta) / denominator
+    return v_ego
+
+
+def estimate_ego_velocity_vector(inlierPoints):
+    """
+    Estimate 2D ego-velocity vector (vx, vy) using Doppler and azimuth.
+    Forward motion is along +y axis.
+    """
+    if not inlierPoints:
+        return 0.0, 0.0
+
+    A = []
+    b = []
+    
+    for pt in inlierPoints:
+        if 'x' not in pt or 'y' not in pt or 'doppler' not in pt:
             continue
+        # Shift theta so that 0° is forward (+y axis)
+        theta = math.atan2(pt['y'], pt['x']) - math.pi/2
+        A.append([np.cos(theta), np.sin(theta)])
+        b.append(pt['doppler'])
 
-        phi_radspeed.append([phi, doppler])
+    if len(A) < 3:
+        return 0.0, 0.0
 
-    phi_radspeed = np.array(phi_radspeed, dtype=float)
-
-    # Must have at least 3 unique points for a 2nd degree fit
-    if phi_radspeed.shape[0] < 3:
-        return 0
-
-    if np.all(phi_radspeed[:, 0] == phi_radspeed[0, 0]):
-        return 0  # All angles identical
-
-    if np.all(phi_radspeed[:, 1] == phi_radspeed[0, 1]):
-        return 0  # All speeds identical
+    A = np.array(A)
+    b = np.array(b).reshape(-1, 1)
 
     try:
-        poly_coeff = np.polyfit(phi_radspeed[:, 0], phi_radspeed[:, 1], deg=2)
+        v_xy, _, _, _ = np.linalg.lstsq(A, b, rcond=None)
+        vx, vy = -v_xy.flatten()
+        return vx, vy
     except np.linalg.LinAlgError:
-        # SVD did not converge
-        return 0
-
-    poly_model = np.poly1d(poly_coeff)
-    return poly_model(0)
+        return 0.0, 0.0

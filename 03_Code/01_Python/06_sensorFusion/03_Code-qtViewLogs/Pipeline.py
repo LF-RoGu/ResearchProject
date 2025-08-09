@@ -16,6 +16,7 @@ import pointFilter
 import icp
 from kalmanFilter import KalmanFilter
 from odoLog import logging
+import selfSpeedEstimator
 
 from ClusterTracker import (
     NUMBER_OF_PAST_SAMPLES,
@@ -48,11 +49,11 @@ P = None  # clusters for current frame t
 Q = None  # clusters for previous frame t-1
 P_global = None  # clusters for current frame t
 Q_global = None  # clusters for previous frame t-1
-icp_history = {
-    'result_vectors':    [],
-    'motion_vectors':    [],
-    'world_transforms':  [],
-    'ego_transforms':    []
+egoMotion = {
+    'result_vectors':    [],  # Store raw ICP results for debugging
+    'T_global':          [],  # Store cumulative transformation matrix
+    'translation':       [],  # Store cumulative global translations (x, y)
+    'rotations':         []   # Store cumulative global heading (theta)
 }
 cumulativeTego = np.eye(3)  # 3x3 identity (no translation/rotation yet)
 T_global = np.eye(3)  # initial pose at origin
@@ -60,8 +61,8 @@ positions = []        # store global translation only
 rotations = []        # store global rotation only
 
 
-folderName = "08_inDoorTest-02082025"  # Folder where CSV files are stored
-testType = "hallway_1.csv"  # Type of test data
+folderName = "06_Logs-10072025_v3"  # Folder where CSV files are stored
+testType = "straightWall_1.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarLoader = RadarCSVReader("radar_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 imuLoader   = ImuCSVReader("imu_" + testType, folderName) if ENABLE_SENSORS in (2, 3) else None
@@ -69,10 +70,10 @@ _radarAgg         = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 _imuAgg           = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 
 # Two‐stage DBSCAN processors
-cluster_processor_stage1 = dbCluster.ClusterProcessor(eps=2.0, min_samples=5)
-cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=0.5, min_samples=2)
+cluster_processor_stage1 = dbCluster.ClusterProcessor(eps=2.0, min_samples=2)
+cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.5, min_samples=3)
 
-icp_rotation_filter = KalmanFilter(process_variance=0.01, measurement_variance=0.8)
+Vego_filter = KalmanFilter(process_variance=0.02, measurement_variance=0.5)
 
 def pretty_print_clusters(clusters, label="Clusters"):
     """
@@ -164,64 +165,93 @@ def plot2(plot_widget, clusters):
         label.setPos(cx, cy)
         plot_widget.addItem(label)
 
-# ------------------------------
-# Plot-3’s custom view (unchanged)
-# ------------------------------
-def plot3(plot_widget, ego_matrix):
+# ---------------------------------
+# Plot 3: Doppler vs Azimuth (RANSAC)
+# ---------------------------------
+def plot3(plot_widget, originalPoints, ransac_output):
     """
-    Dedicated panel for visualizing ego-motion rotation.
-    - Draws a yellow arrow showing rotation
-    - Prints the 2x2 rotation matrix R^T
-    - Displays the heading in degrees next to the arrow
+    RANSAC diagnostics: Doppler (m/s) vs Azimuth angle (deg).
+    - Works with ransac_output where 'inliers' and 'outliers' are point lists (dicts).
+    - Uses the same angle convention as the fitter: theta = atan2(y,x) - pi/2 (forward=0°).
+    - Adds legend, fixes axes, disables auto range; robust to missing model/data.
     """
     import pyqtgraph as pg
     import numpy as np
+    import math
 
+    # Reset + fixed view (disable autofocus)
     plot_widget.clear()
-    plot_widget.setTitle("Ego-Motion Rotation")
-    plot_widget.enableAutoRange(False)
-    plot_widget.setXRange(-2, 2)
-    plot_widget.setYRange(-2, 2)
-    plot_widget.setAspectLocked(True)
+    plot_widget.setTitle("RANSAC — Doppler vs Azimuth")
+    plot_widget.setLabel('bottom', 'Azimuth θ (deg)')
+    plot_widget.setLabel('left', 'Radial speed (m/s)')
     plot_widget.showGrid(x=True, y=True)
 
-    if ego_matrix is None:
-        txt = pg.TextItem("No Ego-Motion Data", color='r')
-        txt.setPos(0, 0)
-        plot_widget.addItem(txt)
+    # Keep exactly one legend (clear each frame)
+    if getattr(plot_widget, "legend", None) is None:
+        plot_widget.addLegend(offset=(10, 10))
+    else:
+        plot_widget.legend.clear()
+
+    # Defensive unpack
+    if not ransac_output or not isinstance(ransac_output, dict):
+        note = pg.TextItem("No RANSAC data", color='r'); note.setPos(-170, 0)
+        plot_widget.addItem(note)
         return
 
-    Rt = ego_matrix[0:2, 0:2]
+    model     = ransac_output.get("model", None)
+    inliers   = ransac_output.get("inliers", [])   # list of dict points
+    outliers  = ransac_output.get("outliers", [])  # list of dict points
 
-    # Convert to matching IMU convention
-    icp_angle = np.arctan2(Rt[1, 0], Rt[0, 0])
-    display_rad = np.pi - icp_angle
-    shifted_rad = display_rad - (np.pi / 2)
-    shifted_deg = (np.degrees(display_rad) - 90.0) % 360.0
+    # Helper: compute theta_deg with same rotation used in fit: atan2(y,x) - pi/2
+    def pts_to_theta_deg_and_doppler(pts):
+        thetas_deg, dops = [], []
+        for pt in pts:
+            if not isinstance(pt, dict):  # safety
+                continue
+            if 'x' in pt and 'y' in pt and 'doppler' in pt:
+                th = math.atan2(pt['y'], pt['x']) - math.pi/2
+                # wrap to [-pi, pi] for nice plot continuity
+                if th > math.pi:
+                    th -= 2*math.pi
+                elif th < -math.pi:
+                    th += 2*math.pi
+                thetas_deg.append(math.degrees(th))
+                dops.append(pt['doppler'])
+        return np.array(thetas_deg, dtype=float), np.array(dops, dtype=float)
 
-    # Arrow direction
-    u_x = np.cos(shifted_rad)
-    u_y = np.sin(shifted_rad)
+    in_theta_deg, in_dop = pts_to_theta_deg_and_doppler(inliers)
+    out_theta_deg, out_dop = pts_to_theta_deg_and_doppler(outliers)
 
-    # Draw arrow
-    plot_widget.plot([0, u_x], [0, u_y], pen=pg.mkPen('y', width=3))
+    # If nothing to show, bail gracefully
+    if in_theta_deg.size == 0 and out_theta_deg.size == 0:
+        note = pg.TextItem("No points for RANSAC", color='r'); note.setPos(-170, 0)
+        plot_widget.addItem(note)
+        return
 
-    # Show heading text next to arrow
-    lbl = pg.TextItem(f"{shifted_deg:.1f}°", color='y', anchor=(0.5, -0.2))
-    lbl.setPos(u_x, u_y)
-    plot_widget.addItem(lbl)
+    # Plot inliers / outliers
+    if in_theta_deg.size:
+        plot_widget.plot(in_theta_deg, in_dop,
+                         pen=None, symbol='o', symbolSize=7,
+                         symbolBrush=(0, 255, 0, 140), name='Inliers')
+    if out_theta_deg.size:
+        plot_widget.plot(out_theta_deg, out_dop,
+                         pen=None, symbol='x', symbolSize=8,
+                         symbolBrush=(255, 0, 0, 160), name='Outliers')
 
-    # Print rotation matrix
-    mat_text = (
-        f"Rᵀ =\n"
-        f"[{Rt[0,0]:.3f} {Rt[0,1]:.3f}]\n"
-        f"[{Rt[1,0]:.3f} {Rt[1,1]:.3f}]"
-    )
-    txt = pg.TextItem(mat_text, color='y')
-    txt.setPos(-1.5, -1.5)
-    plot_widget.addItem(txt)
-
-    #print(f"[ICP] Heading Angle: {shifted_deg:.2f}°")
+    # Fitted curve (only if model exists and supports predict)
+    if model is not None and hasattr(model, "predict"):
+        try:
+            theta_range_rad = np.linspace(-np.pi, np.pi, 300).reshape(-1, 1)
+            doppler_fit     = model.predict(theta_range_rad)
+            theta_range_deg = np.degrees(theta_range_rad).reshape(-1)
+            plot_widget.plot(theta_range_deg, doppler_fit,
+                             pen=pg.mkPen('y', width=2), name='RANSAC fit')
+        except Exception:
+            note = pg.TextItem("Fit unavailable (predict failed)", color='y'); note.setPos(-170, -1)
+            plot_widget.addItem(note)
+    else:
+        note = pg.TextItem("Fit unavailable (no model)", color='y'); note.setPos(-170, -1)
+        plot_widget.addItem(note)
 
 # ------------------------------
 # Plot-4’s custom view (unchanged)
@@ -234,10 +264,6 @@ def plot4(plot_widget, ego_matrix, translation_history):
     """
     plot_widget.clear()
     plot_widget.setTitle("Ego-Motion Translation")
-    plot_widget.enableAutoRange(False)
-    plot_widget.setXRange(-10, 10)
-    plot_widget.setYRange(-10, 10)
-    plot_widget.setAspectLocked(True)
     plot_widget.showGrid(x=True, y=True)
 
     if ego_matrix is None:
@@ -267,22 +293,19 @@ def plot4(plot_widget, ego_matrix, translation_history):
     txt.setPos(tx, ty)
     plot_widget.addItem(txt)
 
+# ------------------------------
+# Plot-5’s 
+# ------------------------------
 def plot5(plot_widget, imu_average):
     """
     Display IMU heading on a unit circle, rotated so that
     0° = West, 90° = North, 180° = East, 270° = South,
     then shifted 90° clockwise (to the right).
     """
-    import pyqtgraph as pg
-    import numpy as np
 
     # 1) Clear and set up plot
     plot_widget.clear()
     plot_widget.setTitle("IMU Heading")
-    plot_widget.enableAutoRange(False)
-    plot_widget.setXRange(-1, 1)
-    plot_widget.setYRange(-1, 1)
-    plot_widget.setAspectLocked(True)
     plot_widget.showGrid(x=True, y=True)
 
     # 2) Handle no data
@@ -323,7 +346,57 @@ def plot5(plot_widget, imu_average):
 
     #print(f"[IMU] Heading Angle: {shifted_deg:.2f}°")
 
+# ------------------------------
+# Plot-6’s 
+# ------------------------------
+def plot6(plot_widget, ego_matrix):
+    """
+    Dedicated panel for visualizing ego-motion rotation.
+    - Draws a yellow arrow showing rotation
+    - Prints the 2x2 rotation matrix R^T
+    - Displays the heading in degrees next to the arrow
+    """
+    plot_widget.clear()
+    plot_widget.setTitle("Ego-Motion Rotation")
+    plot_widget.showGrid(x=True, y=True)
 
+    if ego_matrix is None:
+        txt = pg.TextItem("No Ego-Motion Data", color='r')
+        txt.setPos(0, 0)
+        plot_widget.addItem(txt)
+        return
+
+    Rt = ego_matrix[0:2, 0:2]
+
+    # Convert to matching IMU convention
+    icp_angle = np.arctan2(Rt[1, 0], Rt[0, 0])
+    display_rad = np.pi - icp_angle
+    shifted_rad = display_rad - (np.pi / 2)
+    shifted_deg = (np.degrees(display_rad) - 90.0) % 360.0
+
+    # Arrow direction
+    u_x = np.cos(shifted_rad)
+    u_y = np.sin(shifted_rad)
+
+    # Draw arrow
+    plot_widget.plot([0, u_x], [0, u_y], pen=pg.mkPen('y', width=3))
+
+    # Show heading text next to arrow
+    lbl = pg.TextItem(f"{shifted_deg:.1f}°", color='y', anchor=(0.5, -0.2))
+    lbl.setPos(u_x, u_y)
+    plot_widget.addItem(lbl)
+
+    # Print rotation matrix
+    mat_text = (
+        f"Rᵀ =\n"
+        f"[{Rt[0,0]:.3f} {Rt[0,1]:.3f}]\n"
+        f"[{Rt[1,0]:.3f} {Rt[1,1]:.3f}]"
+    )
+    txt = pg.TextItem(mat_text, color='y')
+    txt.setPos(-1.5, -1.5)
+    plot_widget.addItem(txt)
+
+    #print(f"[ICP] Heading Angle: {shifted_deg:.2f}°")
 
 
 # ------------------------------
@@ -343,7 +416,7 @@ class ClusterViewer(QWidget):
 
         # Plot will now use spatial matching with tuned parameters; others remain default
         self.trackers = {}
-        for i in range(1, 5):
+        for i in range(1, 7):
             if i == 2:
                 # plot2 uses our line-fit tracker
                 self.trackers[f"plot{i}"] = ClusterTracker(
@@ -362,14 +435,18 @@ class ClusterViewer(QWidget):
         self.plot_widget = pg.GraphicsLayoutWidget()
         main_layout.addWidget(self.plot_widget)
         self.plots = {}
-        for idx in range(1,5):
+
+        for idx in range(1,7):
             row, col = divmod(idx-1,3)
             p = self.plot_widget.addPlot(row=row,col=col)
-            p.setXRange(-2,20); p.setYRange(-2,20)
-            p.setAspectLocked(True); p.showGrid(x=True,y=True)
+            p.setXRange(-2,20); 
+            p.setYRange(-2,20)
+            p.setAspectLocked(True); 
+            p.showGrid(x=True,y=True)
             p.setTitle(f"Plot {idx}")
             self.plots[f"plot{idx}"] = p
-        p5 = self.plot_widget.addPlot(row=2, col=0, colspan=3)
+
+        p5 = self.plot_widget.addPlot(row=3, col=0, colspan=3)
         p5.setXRange(-1,1); p5.setYRange(-1,1)
         p5.setAspectLocked(True); p5.showGrid(x=True,y=True)
         p5.setTitle("Plot 5: IMU Heading")
@@ -437,11 +514,42 @@ class ClusterViewer(QWidget):
         global T_global, positions, rotations
         # Filtern Pipeline information (Plot 1 only)
         rawPointCloud = _radarAgg.getPoints() if ENABLE_SENSORS in (1, 3) else []
-        pointCloud = pointFilter.filterSNRmin( rawPointCloud, FILTER_SNR_MIN)
-        pointCloud = pointFilter.filterCartesianZ(pointCloud, FILTER_Z_MIN, FILTER_Z_MAX)
-        pointCloud = pointFilter.filterCartesianY(pointCloud, FILTER_Y_MIN, FILTER_Y_MAX)
-        pointCloud = pointFilter.filterSphericalPhi(pointCloud, FILTER_PHI_MIN, FILTER_PHI_MAX)
-        filteredPointCloud = pointFilter.filterDoppler(pointCloud, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
+        pointCloud = pointFilter.filterDoppler(rawPointCloud, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
+        #pointCloud = pointFilter.filterSNRmin( rawPointCloud, FILTER_SNR_MIN)
+        #pointCloud = pointFilter.filterCartesianZ(pointCloud, FILTER_Z_MIN, FILTER_Z_MAX)
+        #pointCloud = pointFilter.filterCartesianY(pointCloud, FILTER_Y_MIN, FILTER_Y_MAX)
+        #pointCloud = pointFilter.filterSphericalPhi(pointCloud, FILTER_PHI_MIN, FILTER_PHI_MAX)
+        
+        
+        """
+        Apply RANSAC-based dynamic object filtering.
+        Output:
+        - model
+        - inliers
+        - outliers
+        - X
+        - Y
+        - theta
+        - doppler
+        """
+        ransac_output = pointFilter.filter_moving_objects_ransac(pointCloud, return_model=True)
+        if ransac_output:
+            filteredPointCloud = ransac_output["inliers"]
+        else:
+            filteredPointCloud = []
+        if filteredPointCloud:
+            escalarVego = selfSpeedEstimator.estimate_ego_speed_scalar(filteredPointCloud)
+            vectorVego = selfSpeedEstimator.estimate_ego_velocity_vector(filteredPointCloud)
+
+            escalarVego = Vego_filter.update(escalarVego)
+        else:
+            escalarVego = 0.0
+            vectorVego = (0.0, 0.0)
+        print(
+                f"Frame {self.currentFrame}: "
+                f"Velocity Scalar = {escalarVego:.4f}, "
+                f"Velocity Vectorial = ({vectorVego[0]:.4f}), ({vectorVego[1]:.4f})"
+            )
 
         imu_records = []
         if ENABLE_SENSORS in (2, 3):
@@ -483,7 +591,10 @@ class ClusterViewer(QWidget):
 
                 plot2(plot_item, clusters)
             if name == "plot3":
-                # Plot 1: real clusters → spatial tracker 
+                plot3(plot_item, rawPointCloud, ransac_output)
+            if name == "plot5" and ENABLE_SENSORS in (2, 3):
+                plot5(plot_item, imuData)
+            if name == "plot6":
                 # update the tracker with the fresh Stage-2 clusters
                 self.trackers[name].update(clusterProcessor_final)
 
@@ -554,12 +665,14 @@ class ClusterViewer(QWidget):
                 rotations.append(new_theta)
                 positions.append((T_global[0, 2], T_global[1, 2]))
 
+                """
                 print(
                     f"Frame {self.currentFrame}: "
                     f"Matched Points = {matched_points}, "
                     f"Centroid Δ = ({centroid_disp[0]:.4f}, {centroid_disp[1]:.4f}), "
                     f"ICP Tx = {tx_local:.4f}, ICP Ty = {ty_local:.4f}"
                 )
+                """
 
                 """               
                 print(
@@ -571,11 +684,7 @@ class ClusterViewer(QWidget):
                     f"Cumulative Heading = {np.degrees(new_theta):.2f}°"
                 )
                 """
-
-
-                plot3(plot_item, Tego_cluster)
-            if name == "plot5" and ENABLE_SENSORS in (2, 3):
-                plot5(plot_item, imuData)
+                plot6(plot_item, Tego_cluster)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

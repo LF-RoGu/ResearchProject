@@ -1,18 +1,18 @@
 import numpy as np
 from scipy.spatial import cKDTree
-from sklearn.linear_model import RANSACRegressor
-
 
 # Global variable to store the last valid transformation
 _last_valid_transformation = {
     'translation_avg': np.zeros(3),
     'rotation_avg': 0.0
 }
-#Uses hits^alpha as the weighting factor to reduce the effect of newly detected clusters with low hit counts.
-weightedAlpha=2.0
+
+# Uses hits^alpha as the weighting factor to reduce the effect of newly detected clusters with low hit counts.
+weightedAlpha = 2.0
 min_alpha = 1.0
 max_alpha = 2.0
-max_hits = 30  
+max_hits = 30
+
 
 def icp_pointCloudeWise_vectors(P, Q):
     """
@@ -23,23 +23,22 @@ def icp_pointCloudeWise_vectors(P, Q):
     - Added KD-tree nearest-neighbor matching to handle unequal point counts.
     - Computes translation vector for each matched point (P_i - Q_i).
     - Computes rotation for each match as atan2(ty, tx).
-    - Uses RANSAC to compute a robust mean translation and rotation.
     - Returns both per-point results and a global averaged translation and rotation.
     """
 
     if P is None or Q is None or len(P) == 0 or len(Q) == 0:
         return {
-        'per_cluster': {
-            'translations': {},
-            'rotations': {}
-        },
-        'global': {
-            'translation': (0.0, 0.0),
-            'rotation': 0.0,
-            'matched_points': 0,
-            'centroid_displacement': [0.0, 0.0]
+            'per_cluster': {
+                'translations': {},
+                'rotations': {}
+            },
+            'global': {
+                'translation': (0.0, 0.0),
+                'rotation': 0.0,
+                'matched_points': 0,
+                'centroid_displacement': [0.0, 0.0]
+            }
         }
-    }
     else:
         P_points = np.array([[p['x'], p['y']] for p in P])
         Q_points = np.array([[q['x'], q['y']] for q in Q])
@@ -79,31 +78,18 @@ def icp_pointCloudeWise_vectors(P, Q):
         tx, ty = P_points[i] - Q_points[idx]
         translations.append((tx, ty))
         rotations.append(np.arctan2(ty, tx))
-    
+
     translations = np.array(translations)
     rotations = np.array(rotations)
-
-    # RANSAC filtering based on translation
-    tx = translations[:, 0].reshape(-1, 1)
-    ty = translations[:, 1]
-
-    if translations.shape[0] >= 2:
-        ransac_tx = RANSACRegressor(min_samples=0.5, residual_threshold=0.05)
-        ransac_tx.fit(tx, ty)
-        inliers = ransac_tx.inlier_mask_
-        if np.sum(inliers) < 2:  # fallback if too few inliers
-            inliers = np.ones(translations.shape[0], dtype=bool)
-    else:
-        inliers = np.ones(translations.shape[0], dtype=bool)
 
     """
     Compute global averaged transformation.
     By averaging individual translations and rotations, we obtain a
     robust global transformation for the entire point cloud.
     """
-    averageTx = np.mean(translations[inliers, 0])
-    averageTy = np.mean(translations[inliers, 1])
-    averageTheta = np.mean(rotations[inliers])
+    averageTx = np.mean(translations[:, 0])
+    averageTy = np.mean(translations[:, 1])
+    averageTheta = np.mean(rotations)
 
     return {
         'per_point': {
@@ -117,6 +103,7 @@ def icp_pointCloudeWise_vectors(P, Q):
             'centroid_displacement': centroid_displacement.tolist()
         }
     }
+
 
 def icp_clusterWise_vectors(P_clusters, Q_clusters):
     """
@@ -172,6 +159,7 @@ def icp_clusterWise_vectors(P_clusters, Q_clusters):
         }
     }
 
+
 def icp_transformation_matrix(motionVectors):
     """
     Builds the homogeneous 2D transformation matrix from averaged
@@ -200,6 +188,7 @@ def icp_transformation_matrix(motionVectors):
     transformation_icp = np.array([[cos, -sine, tx], [sine,  cos, ty], [0,  0,  1]])
     return transformation_icp
 
+
 def icp_ego_motion_matrix(avg):
     """
     Returns the ego-motion (inverse ICP) matrix:
@@ -215,11 +204,11 @@ def icp_ego_motion_matrix(avg):
     ty = float(translations[1])
     cos = np.cos(rotations)
     sine = np.sin(rotations)
-    # rotation matrix
-    R_rotation = np.array([[cos, sine], 
-                   [-sine, cos]])
-    R_translation = np.array([-(tx*cos + ty*sine), 
-                        (tx*sine + ty*cos)])
+
+    R_rotation = np.array([[cos, sine],
+                           [-sine, cos]])
+    R_translation = np.array([-(tx * cos + ty * sine),
+                               (tx * sine + ty * cos)])
 
     transformation_ego = np.array([
         [cos, sine, -(tx * cos + ty * sine)],

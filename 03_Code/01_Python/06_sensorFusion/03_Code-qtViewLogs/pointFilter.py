@@ -1,4 +1,8 @@
 import numpy as np
+import math
+from sklearn.linear_model import RANSACRegressor
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.pipeline import make_pipeline
 
 __all__ = ['filterSNR', 'filterCartesianX', 'filterCartesianY', 'filterCartesianZ', 'filterSphericalR', 'filterSphericalTheta', 'filterSphericalPhi', 'filter_by_speed']
 
@@ -61,6 +65,106 @@ def filterCartesianZ(inputPoints, z_min, z_max):
         print(f"Error filtering points: {e}")
         return None
     return filteredPoints
+
+def filter_moving_objects_ransac(pointCloud, return_model=False):
+    """
+    Detects moving objects using RANSAC fit of Doppler vs azimuth angle.
+    
+    Parameters:
+        pointCloud: list of dicts with 'x', 'y', and 'doppler' keys
+
+    Returns:
+        List of points considered to be moving objects (i.e., outliers to the static Doppler model).
+    """
+    if not pointCloud:
+        if return_model:
+            return {
+                "model": None,
+                "inliers": [],
+                "outliers": [],
+                "X": np.empty((0, 1)),
+                "y": np.array([]),
+                "theta": [],
+                "doppler": []
+            }
+        return []
+
+    try:
+        theta_list = []
+        doppler_list = []
+
+        for pt in pointCloud:
+            if 'x' in pt and 'y' in pt and 'doppler' in pt:
+                theta = math.atan2(pt['y'], pt['x'])  # azimuth in vehicle coords
+                theta -= math.pi / 2                  # rotate so forward (+Y) is 0 rad
+                # Wrap to [-pi, pi] to keep RANSAC happy
+                if theta > math.pi:
+                    theta -= 2 * math.pi
+                elif theta < -math.pi:
+                    theta += 2 * math.pi
+
+                theta_list.append(theta)
+                doppler_list.append(pt['doppler'])
+
+        if len(theta_list) < 5:
+            # Not enough points to reliably fit a model
+            if return_model:
+                return {
+                    "model": None,
+                    "inliers": [],
+                    "outliers": [],
+                    "X": np.empty((0, 1)),
+                    "y": np.array([]),
+                    "theta": theta_list,
+                    "doppler": doppler_list
+                }
+            # No reliable model → no outliers detected
+            return []
+
+        X = np.array(theta_list).reshape(-1, 1)
+        y = np.array(doppler_list)
+
+        # RANSAC model for 2nd-degree polynomial
+        model = make_pipeline(
+            PolynomialFeatures(degree=2),
+            RANSACRegressor(min_samples=0.5, residual_threshold=0.8)
+        )
+        model.fit(X, y)
+
+        # Get mask from RANSAC model
+        inlier_mask = model.named_steps['ransacregressor'].inlier_mask_
+
+        # Identify outliers (moving points)
+        inlier_points = [pt for i, pt in enumerate(pointCloud) if inlier_mask[i]]
+        moving_points = [pt for i, pt in enumerate(pointCloud) if not inlier_mask[i]]
+
+        if return_model:
+            return {
+                "model": model,
+                "inliers": inlier_points,
+                "outliers": moving_points,
+                "X": X,
+                "y": y,
+                "theta": theta_list,
+                "doppler": doppler_list
+            }
+        else:
+            return moving_points
+
+
+    except Exception as e:
+        print(f"[Error] RANSAC filtering failed: {e}")
+        if return_model:
+            return {
+                "model": None,
+                "inliers": np.array([], dtype=bool),
+                "outliers": [],
+                "X": np.empty((0, 1)),
+                "y": np.array([]),
+                "theta": [],
+                "doppler": []
+            }
+        return []
 
 def filterDoppler(inputPoints, doppler_min, doppler_max):
     filteredPoints = []
