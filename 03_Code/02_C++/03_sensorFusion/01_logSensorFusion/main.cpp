@@ -160,6 +160,7 @@ void threadIwr6843Left(void)
     {
         // Poll information from both radars
         leftRadarCount = radarLeftSensor.poll();
+        cout << "[DEBUG] Left poll() returned: " << leftRadarCount << "\n";
         if (leftRadarCount < 0)
         {
             cerr << "[ERROR] Both radars failed to poll\n";
@@ -204,7 +205,8 @@ void threadIwr6843Right(void)
     for (;;)
     {
         // Poll information from both radars
-        rightRadarCount = radarLeftSensor.poll();
+        rightRadarCount = radarRightSensor.poll();
+        cout << "[DEBUG] Right poll() returned: " << rightRadarCount << "\n";
         if (rightRadarCount < 0)
         {
             cerr << "[ERROR] Both radars failed to poll\n";
@@ -218,7 +220,7 @@ void threadIwr6843Right(void)
         }
 
         vector<SensorData> rightRadarFrames;
-        if (!radarLeftSensor.copyDecodedFramesFromTop(rightRadarFrames, rightRadarCount, true, 100))
+        if (!radarRightSensor.copyDecodedFramesFromTop(rightRadarFrames, rightRadarCount, true, 100))
         {
             cerr << "[ERROR] Timeout copying radar frames\n";
             continue;
@@ -231,7 +233,7 @@ void threadIwr6843Right(void)
         if(!rightFrameBatches.empty())
         {
             {
-                lock_guard<mutex> lock(radarMutexLeft);
+                lock_guard<mutex> lock(radarMutexRight);
                 for (auto&& batch : rightFrameBatches)
                 {
                     radarRightQueue.push(std::move(batch));
@@ -305,21 +307,35 @@ void threadWriter(bool enableRadar, bool enableImu)
     for (;;)
     {
         /* === Wait for radar data === */
-        unique_lock<mutex> radarLockLeft(radarMutexLeft);
-        unique_lock<mutex> radarLockRight(radarMutexRight);
-        dataCV.wait(radarLockLeft, [&]{
-            return !radarLeftQueue.empty();
-        });
-        dataCV.wait(radarLockRight, [&]{
-            return !radarRightQueue.empty();
-        });
-
         vector<ValidRadarPoint> leftRadarPts    = move(radarLeftQueue.front());
         vector<ValidRadarPoint> rightRadarPts   = move(radarRightQueue.front());
-        radarLeftQueue.pop();
-        radarRightQueue.pop();
-        radarLockLeft.unlock();
-        radarLockRight.unlock();
+        {
+            unique_lock<mutex> lockLeft(radarMutexLeft);
+            dataCV.wait(lockLeft, [&]{
+                return !radarLeftQueue.empty();
+            });
+            leftRadarPts = move(radarLeftQueue.front());
+            radarLeftQueue.pop();
+        }
+
+        {
+            unique_lock<mutex> lockRight(radarMutexRight);
+            if (radarRightQueue.empty())
+            {
+                // Wait until right queue gets data
+                dataCV.wait(lockRight, [&]{
+                    return !radarRightQueue.empty();
+                });
+            }
+            rightRadarPts = move(radarRightQueue.front());
+            radarRightQueue.pop();
+        }
+
+        // Break when both frames are acquired
+        if (!leftRadarPts.empty() && !rightRadarPts.empty())
+        {
+            break;
+        }
 
         size_t N;
         uint32_t fid;
