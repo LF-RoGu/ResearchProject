@@ -30,7 +30,7 @@ Macro to enable or disable sensors
  2 - enable only MTI
  3 - enable both
 */ 
-#define ENABLE_SENSORS 1
+#define ENABLE_SENSORS 3
 
 const char CSV_TAB = ',';
 

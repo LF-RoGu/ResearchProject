@@ -42,7 +42,7 @@ SensorData::SensorData(std::vector<uint8_t> rawData)
         std::cerr << "[WARNING] Invalid frame header. Skipping.\n";
         return;
     } else {
-        std::cout << "[INFO] Frame parsed successfully.\n";
+        //std::cout << "[INFO] Frame parsed successfully.\n";
     }
 
     // Parse TLV payload

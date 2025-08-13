@@ -27,7 +27,7 @@ void Frame_header::parseFrameHeader(std::vector<uint8_t>& data)
     uint64_t magicWord = EndianUtils_c.toLittleEndian64(data, 8);
 
     if (magicWord == MAGIC_WORD) {
-        std::cout << "[ASSERT] Magic word found. Proceeding to parse frame.\n";
+        //std::cout << "[ASSERT] Magic word found. Proceeding to parse frame.\n";
     } else {
         std::cerr << "[DEBUG] Magic word not found. Proceeding or skipping...\n";
     }
@@ -176,6 +176,7 @@ TLVHeaderData TLV_frame::parseTLVHeader(std::vector<uint8_t>& data)
 
     TLVHeaderData_str.type_u32 = TLV_header_c.getType();
     TLVHeaderData_str.length_u32 = TLV_header_c.getLength();
+
     return TLVHeaderData_str;
 }
 
@@ -205,14 +206,6 @@ TLVPayloadData TLV_frame::parseTLVPayload(std::vector<uint8_t>& data, TLVHeaderD
             float y_f = EndianUtils::toFloat32(y_int);
             float z_f = EndianUtils::toFloat32(z_int);
             float doppler_f = EndianUtils::toFloat32(doppler_int);
-#ifdef DEBUG_UART_FRAME
-            std::cout << std::fixed << std::setprecision(6);
-            std::cout << "Converted Floats:" << std::endl;
-            std::cout << "  x: " << x_f << " meters" << std::endl;
-            std::cout << "  y: " << y_f << " meters" << std::endl;
-            std::cout << "  z: " << z_f << " meters" << std::endl;
-            std::cout << "  doppler: " << doppler_f << " m/s" << std::endl;
-#endif
 
             DetectedPoints_temp.x_f = EndianUtils::roundToPrecision(x_f, 4);
             DetectedPoints_temp.y_f = EndianUtils::roundToPrecision(y_f, 4);
@@ -225,21 +218,22 @@ TLVPayloadData TLV_frame::parseTLVPayload(std::vector<uint8_t>& data, TLVHeaderD
     break;
     case 2: // Range Profile with rolling noise floor
     {
-        uint32_t numBins = (TLVHeaderData_var.length_u32 - 8) / 2;
-        #ifdef DEBUG_UART_FRAME
-        std::cout << "[DEBUG] Range Profile: " << numBins << " bins" << std::endl;
-        #endif
-
+        uint32_t numBins = (TLVHeaderData_var.length_u32 - 8) / 2; // 2 bytes per bin
+        uint32_t requiredBytes = numBins * 2;
         float range_resolution_m = 0.047f; // from your config
+
+        if (data.size() < requiredBytes) {
+            std::cerr << "[ERROR] Not enough bytes for Range Profile!" << std::endl;
+            std::cerr << "[DEBUG] Needed bytes: " << requiredBytes
+                    << " | Available: " << data.size()
+                    << " | TLV Length: " << TLVHeaderData_var.length_u32 << std::endl;
+            break;
+        }
 
         // 1) Read all bins into a temp vector
         std::vector<uint16_t> allBins;
         for (uint32_t i = 0; i < numBins; ++i)
         {
-            if (data.size() < 2) {
-                std::cerr << "[ERROR] Not enough bytes for Range Profile bin!" << std::endl;
-                break;
-            }
             uint16_t binValue = EndianUtils_c.toLittleEndian16(data, 2);
             allBins.push_back(binValue);
         }
@@ -250,16 +244,8 @@ TLVPayloadData TLV_frame::parseTLVPayload(std::vector<uint8_t>& data, TLVHeaderD
             sum += val;
         }
         float mean_floor = static_cast<float>(sum) / allBins.size();
-        /*
-        TODO: Check K for peaks
-        */
         float K = 475.0f;  // adjust based on your testing
         float adaptive_threshold = mean_floor + K;
-        #ifdef DEBUG_UART_FRAME
-        std::cout << "[DEBUG] Mean noise floor: " << mean_floor 
-                << " | Adaptive threshold: " << adaptive_threshold << std::endl;
-        #endif
-
         // 3) Store only bins above threshold
         for (uint32_t i = 0; i < allBins.size(); ++i)
         {
@@ -272,15 +258,11 @@ TLVPayloadData TLV_frame::parseTLVPayload(std::vector<uint8_t>& data, TLVHeaderD
                 rp.power_u16 = power;
 
                 TLVPayloadData_str.RangeProfilePoint_str.push_back(rp);
-    #ifdef DEBUG_UART_FRAME
-                std::cout << "[PEAK] Bin #" << rp.bin_u16 
-                        << " | Range: " << rp.range_f 
-                        << " m | Power: " << rp.power_u16 << std::endl;
-    #endif
             }
         }
     }
     break;
+
 
     case 3: // Noise Profile
     {
@@ -371,34 +353,13 @@ TLV_payload::TLV_payload()
 TLV_payload::TLV_payload(std::vector<uint8_t>& data, uint32_t numDetectedObj_var, uint32_t numTLVs_var)
 {
     TLVPayloadData mergedPayloadData;
-
-    #ifdef DEBUG_UART_FRAME_TLV_DATA
-    std::cout << "\n[DEBUG] Entering TLV_payload() loop for TLVs" << std::endl;
-    std::cout << "  Num Detected Objects: " << numDetectedObj_var << std::endl;
-    std::cout << "  Num TLVs: " << numTLVs_var << std::endl;
-    std::cout << "  Buffer size at start: " << data.size() << std::endl;
-    #endif
     for (uint32_t i = 0; i < numTLVs_var; ++i)
     {
-        #ifdef DEBUG_UART_FRAME_TLV_DATA
-        std::cout << "\n[DEBUG] === TLV #" << i << " ===" << std::endl;
-        #endif
 
         TLV_frame frame(data, numDetectedObj_var);
         TLVHeaderData tlvHeader = frame.getTLVFrameHeaderData();
 
-        #ifdef DEBUG_UART_FRAME_TLV_DATA
-        std::cout << "[DEBUG] Parsed TLV Header → Type: " << tlvHeader.type_u32
-                << " | Length: " << tlvHeader.length_u32
-                << " | Buffer left: " << data.size() << std::endl;
-        #endif
-
         TLVPayloadData tlvPayloadData = frame.getTLVFramePayloadData();
-
-        #ifdef DEBUG_UART_FRAME_TLV_DATA
-        std::cout << "[DEBUG] Points: " << tlvPayloadData.DetectedPoints_str.size()
-                << " | SideInfo: " << tlvPayloadData.SideInfoPoint_str.size() << std::endl;
-        #endif
 
         mergedPayloadData.DetectedPoints_str.insert(
             mergedPayloadData.DetectedPoints_str.end(),
