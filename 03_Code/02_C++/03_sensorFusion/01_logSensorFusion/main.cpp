@@ -148,7 +148,6 @@ static vector<vector<ValidRadarPoint>> extractValidRadarPoints(const vector<Sens
             }
         }
     }
-
     return validFrames;
 }
 
@@ -160,7 +159,6 @@ void threadIwr6843Left(void)
     {
         // Poll information from both radars
         leftRadarCount = radarLeftSensor.poll();
-        cout << "[DEBUG] Left poll() returned: " << leftRadarCount << "\n";
         if (leftRadarCount < 0)
         {
             cerr << "[ERROR] Both radars failed to poll\n";
@@ -206,7 +204,6 @@ void threadIwr6843Right(void)
     {
         // Poll information from both radars
         rightRadarCount = radarRightSensor.poll();
-        cout << "[DEBUG] Right poll() returned: " << rightRadarCount << "\n";
         if (rightRadarCount < 0)
         {
             cerr << "[ERROR] Both radars failed to poll\n";
@@ -307,34 +304,59 @@ void threadWriter(bool enableRadar, bool enableImu)
     for (;;)
     {
         /* === Wait for radar data === */
-        vector<ValidRadarPoint> leftRadarPts    = move(radarLeftQueue.front());
-        vector<ValidRadarPoint> rightRadarPts   = move(radarRightQueue.front());
+        vector<ValidRadarPoint> leftRadarPts;
+        vector<ValidRadarPoint> rightRadarPts;
+
         {
-            unique_lock<mutex> lockLeft(radarMutexLeft);
-            dataCV.wait(lockLeft, [&]{
-                return !radarLeftQueue.empty();
+            unique_lock<mutex> lock(radarMutexLeft);
+            //unique_lock<mutex> lockRight(radarMutexRight);
+
+            dataCV.wait(lock, [&]{
+                return !radarLeftQueue.empty() && !radarRightQueue.empty();
             });
-            leftRadarPts = move(radarLeftQueue.front());
-            radarLeftQueue.pop();
-        }
-
-        {
-            unique_lock<mutex> lockRight(radarMutexRight);
-            if (radarRightQueue.empty())
+            if(!radarLeftQueue.empty())
             {
-                // Wait until right queue gets data
-                dataCV.wait(lockRight, [&]{
-                    return !radarRightQueue.empty();
-                });
+                leftRadarPts = std::move(radarLeftQueue.front());
+                radarLeftQueue.pop();
+                cout << "[DEBUG] Popped LEFT batch of size: " << leftRadarPts.size() << "\n";
+                for (const auto& pt : leftRadarPts)
+                {
+                    cout << "    [LEFT->Consumer] Frame=" << pt.frameId
+                        << " Idx=" << pt.pointId
+                        << " x=" << pt.x
+                        << " y=" << pt.y
+                        << " z=" << pt.z
+                        << " doppler=" << pt.doppler
+                        << " snr=" << pt.snr
+                        << " noise=" << pt.noise << "\n";
+                }
             }
-            rightRadarPts = move(radarRightQueue.front());
-            radarRightQueue.pop();
-        }
-
-        // Break when both frames are acquired
-        if (!leftRadarPts.empty() && !rightRadarPts.empty())
-        {
-            break;
+            else
+            {
+                cout << "[DEBUG] No LEFT radar data available\n";
+            }
+            
+            if(!radarRightQueue.empty())
+            {
+                rightRadarPts = std::move(radarRightQueue.front());
+                radarRightQueue.pop();
+                cout << "[DEBUG] Popped RIGHT batch of size: " << radarRightQueue.size() << "\n";
+                for (const auto& pt : rightRadarPts)
+                {
+                    cout << "    [RIGHT->Consumer] Frame=" << pt.frameId
+                        << " Idx=" << pt.pointId
+                        << " x=" << pt.x
+                        << " y=" << pt.y
+                        << " z=" << pt.z
+                        << " doppler=" << pt.doppler
+                        << " snr=" << pt.snr
+                        << " noise=" << pt.noise << "\n";
+                }
+            }
+            else
+            {
+                cout << "[DEBUG] No LEFT radar data available\n";
+            }
         }
 
         size_t N;
