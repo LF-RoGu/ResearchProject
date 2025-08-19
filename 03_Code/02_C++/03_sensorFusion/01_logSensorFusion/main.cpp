@@ -70,9 +70,9 @@ static IWR6843     radarRightSensor;
 static XsensMti710 imuSensor;
 
 #ifndef VALIDATE_PRINT
-static ofstream csvRadarLeft("_outFiles/radarLeft_hallway_3.csv");
-static ofstream csvRadarRight("_outFiles/radarRight_hallway_3.csv");
-static ofstream csvImu  ("_outFiles/imu_hallway_3.csv");
+static ofstream csvRadarLeft("_outFiles/radarLeft_zAxisTest.csv");
+static ofstream csvRadarRight("_outFiles/radarRight_zAxisTest.csv");
+static ofstream csvImu  ("_outFiles/imu_driveAround_zAxisTest.csv");
 #endif
 
 const int UPDATE_POWER = 2000U; /* Minimum peak power for VALID radar points */
@@ -188,6 +188,18 @@ void threadIwr6843Left(void)
                 lock_guard<mutex> lock(radarMutexLeft);
                 for (auto&& batch : leftFrameBatches)
                 {
+                    std::cout << "[DEBUG] Pushed LEFT batch of size: " << batch.size() << "\n";
+                    for (const auto& pt : batch)
+                    {
+                        std::cout << "    [LEFT->Queue] Frame=" << pt.frameId
+                                << " Idx=" << pt.pointId
+                                << " x=" << pt.x
+                                << " y=" << pt.y
+                                << " z=" << pt.z
+                                << " doppler=" << pt.doppler
+                                << " snr=" << pt.snr
+                                << " noise=" << pt.noise << "\n";
+                    }
                     radarLeftQueue.push(std::move(batch));
                 }
             }
@@ -233,6 +245,18 @@ void threadIwr6843Right(void)
                 lock_guard<mutex> lock(radarMutexRight);
                 for (auto&& batch : rightFrameBatches)
                 {
+                    std::cout << "[DEBUG] Pushed RIGHT batch of size: " << batch.size() << "\n";
+                    for (const auto& pt : batch)
+                    {
+                        std::cout << "    [RIGHT->Queue] Frame=" << pt.frameId
+                                << " Idx=" << pt.pointId
+                                << " x=" << pt.x
+                                << " y=" << pt.y
+                                << " z=" << pt.z
+                                << " doppler=" << pt.doppler
+                                << " snr=" << pt.snr
+                                << " noise=" << pt.noise << "\n";
+                    }
                     radarRightQueue.push(std::move(batch));
                 }
             }
@@ -318,18 +342,6 @@ void threadWriter(bool enableRadar, bool enableImu)
             {
                 leftRadarPts = std::move(radarLeftQueue.front());
                 radarLeftQueue.pop();
-                cout << "[DEBUG] Popped LEFT batch of size: " << leftRadarPts.size() << "\n";
-                for (const auto& pt : leftRadarPts)
-                {
-                    cout << "    [LEFT->Consumer] Frame=" << pt.frameId
-                        << " Idx=" << pt.pointId
-                        << " x=" << pt.x
-                        << " y=" << pt.y
-                        << " z=" << pt.z
-                        << " doppler=" << pt.doppler
-                        << " snr=" << pt.snr
-                        << " noise=" << pt.noise << "\n";
-                }
             }
             else
             {
@@ -340,18 +352,6 @@ void threadWriter(bool enableRadar, bool enableImu)
             {
                 rightRadarPts = std::move(radarRightQueue.front());
                 radarRightQueue.pop();
-                cout << "[DEBUG] Popped RIGHT batch of size: " << radarRightQueue.size() << "\n";
-                for (const auto& pt : rightRadarPts)
-                {
-                    cout << "    [RIGHT->Consumer] Frame=" << pt.frameId
-                        << " Idx=" << pt.pointId
-                        << " x=" << pt.x
-                        << " y=" << pt.y
-                        << " z=" << pt.z
-                        << " doppler=" << pt.doppler
-                        << " snr=" << pt.snr
-                        << " noise=" << pt.noise << "\n";
-                }
             }
             else
             {
@@ -394,20 +394,6 @@ void threadWriter(bool enableRadar, bool enableImu)
         /* === Write radar data === */
         if (enableRadar)
         {
-#ifdef VALIDATE_PRINT
-            for (const auto& pt : leftRadarPts)
-            {
-                cout << "[RADAR] frame=" << pt.frameId
-                     << " pt="   << pt.pointId
-                     << " x="    << pt.x
-                     << " y="    << pt.y
-                     << " z="    << pt.z
-                     << " dop="  << pt.doppler
-                     << " snr="  << pt.snr
-                     << " noise="<< pt.noise
-                     << "\n";
-            }
-#else
             for (const auto& pt : leftRadarPts)
             {
                 csvRadarLeft << pt.frameId  << CSV_TAB
@@ -420,21 +406,6 @@ void threadWriter(bool enableRadar, bool enableImu)
                          << pt.noise    << "\n";
             }
             csvRadarLeft.flush();
-#endif
-#ifdef VALIDATE_PRINT
-            for (const auto& pt : rightRadarPts)
-            {
-                cout << "[RADAR] frame=" << pt.frameId
-                     << " pt="   << pt.pointId
-                     << " x="    << pt.x
-                     << " y="    << pt.y
-                     << " z="    << pt.z
-                     << " dop="  << pt.doppler
-                     << " snr="  << pt.snr
-                     << " noise="<< pt.noise
-                     << "\n";
-            }
-#else
             for (const auto& pt : rightRadarPts)
             {
                 csvRadarRight << pt.frameId  << CSV_TAB
@@ -447,7 +418,6 @@ void threadWriter(bool enableRadar, bool enableImu)
                          << pt.noise    << "\n";
             }
             csvRadarRight.flush();
-#endif
         }
 
         /* === Write IMU data if enabled === */
@@ -456,16 +426,6 @@ void threadWriter(bool enableRadar, bool enableImu)
             for (size_t i = 0UL; i < imuSamples.size(); ++i)
             {
                 const MTiData& imu = imuSamples[i];
-#ifdef VALIDATE_PRINT
-                cout << "[IMU] frame=" << fid
-                     << " idx="  << (i + 1UL)
-                     << " accel=("
-                     << imu.acceleration[0] << ","
-                     << imu.acceleration[1] << ","
-                     << imu.acceleration[2] << ")  pkt="
-                     << imu.packet_counter
-                     << "\n";
-#else
                 csvImu << fid               << CSV_TAB
                        << (i + 1UL)         << CSV_TAB
                        << imu.quaternion[0] << CSV_TAB
@@ -501,7 +461,6 @@ void threadWriter(bool enableRadar, bool enableImu)
                        << imu.time_fine            << "\n";
             }
             csvImu.flush();
-#endif
         }
     }
 }
