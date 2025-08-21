@@ -106,7 +106,7 @@ def filter_moving_objects_ransac(pointCloud, return_model=False):
                 theta_list.append(theta)
                 doppler_list.append(pt['doppler'])
 
-        if len(theta_list) < 5:
+        if len(theta_list) < 2:
             # Not enough points to reliably fit a model
             if return_model:
                 return {
@@ -127,7 +127,7 @@ def filter_moving_objects_ransac(pointCloud, return_model=False):
         # RANSAC model for 2nd-degree polynomial
         model = make_pipeline(
             PolynomialFeatures(degree=2),
-            RANSACRegressor(min_samples=0.5, residual_threshold=0.8)
+            RANSACRegressor(min_samples=0.3, residual_threshold=1.5)
         )
         model.fit(X, y)
 

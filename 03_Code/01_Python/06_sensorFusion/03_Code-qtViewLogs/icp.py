@@ -118,6 +118,18 @@ def icp_clusterWise_vectors(P_clusters, Q_clusters):
     translations = []
     rotations = []
 
+    if P_clusters is None or Q_clusters is None or len(P_clusters) == 0 or len(Q_clusters) == 0:
+        return {
+            'per_cluster': {
+                'translations': {},
+                'rotations': {}
+            },
+            'global': {
+                'translation': (0.0, 0.0),
+                'rotation': 0.0
+            }
+        }
+
     for cid, P_data in P_clusters.items():
         if cid not in Q_clusters:
             continue

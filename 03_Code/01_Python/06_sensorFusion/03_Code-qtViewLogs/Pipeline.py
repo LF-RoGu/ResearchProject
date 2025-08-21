@@ -33,7 +33,7 @@ from ClusterTracker import (
 # -------------------------------------------------------------
 
 # 1 = Radar only, 2 = IMU only, 3 = Both
-ENABLE_SENSORS = 1
+ENABLE_SENSORS = 3
 
 FRAME_AGGREGATOR_NUM_PAST_FRAMES = 7
 FILTER_SNR_MIN                  = 12
@@ -55,16 +55,44 @@ egoMotion = {
     'translation':       [],  # Store cumulative global translations (x, y)
     'rotations':         []   # Store cumulative global heading (theta)
 }
+pointCloudTransform = {     # Global dictionary for transformed point clouds
+    "Left": [],
+    "Right": [],
+    "Vehicle": []
+}
+
 cumulativeTego = np.eye(3)  # 3x3 identity (no translation/rotation yet)
 T_global = np.eye(3)  # initial pose at origin
 positions = []        # store global translation only
 rotations = []        # store global rotation only
 
+def yaw_rotation_matrix(yaw_deg):
+    yaw_rad = np.deg2rad(yaw_deg)
+    cos_y = np.cos(yaw_rad)
+    sin_y = np.sin(yaw_rad)
+    return np.array([
+        [cos_y, -sin_y, 0],
+        [sin_y,  cos_y, 0],
+        [0,      0,     1]
+    ])
 
-folderName = "06_Logs-10072025_v3"  # Folder where CSV files are stored
-testType = "straightWall_1.csv"  # Type of test data
+TRANSFORMATIONS = {
+    "left": {
+        "R": yaw_rotation_matrix(30),        # pointing 29° from Y+ toward -X
+        "T": np.array([-0.29, 0.0, 0.15])
+    },
+    "right": {
+        "R": yaw_rotation_matrix(-30),        # pointing 29° from Y+ toward +X
+        "T": np.array([0.29, 0.0, 0.15])
+    }
+}
+
+
+folderName = "09_dualSensor"  # Folder where CSV files are stored
+testType = "hallway_3.csv"  # Type of test data
 # Instantiate readers and global aggregators
-radarLoader = RadarCSVReader("radar_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
+radarRightLoader = RadarCSVReader("radarRight_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
+radarLeftLoader = RadarCSVReader("radarLeft_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 imuLoader   = ImuCSVReader("imu_" + testType, folderName) if ENABLE_SENSORS in (2, 3) else None
 _radarAgg         = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 _imuAgg           = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
@@ -74,6 +102,48 @@ cluster_processor_stage1 = dbCluster.ClusterProcessor(eps=2.0, min_samples=2)
 cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.5, min_samples=3)
 
 Vego_filter = KalmanFilter(process_variance=0.02, measurement_variance=0.5)
+
+def transform_pointcloud(points, sensor_label):
+    """
+    Apply R * point + T for each point in the list.
+    Accepts either RadarRecord objects or dicts with keys x, y, z.
+    """
+    R = TRANSFORMATIONS[sensor_label]["R"]
+    T = TRANSFORMATIONS[sensor_label]["T"]
+    result = []
+
+    for p in points:
+        # RadarRecord object
+        if hasattr(p, 'x') and hasattr(p, 'y') and hasattr(p, 'z'):
+            local = np.array([p.x, p.y, p.z], dtype=float)
+            global_coords = np.dot(R, local) + T
+
+            result.append({
+                'x': global_coords[0],
+                'y': global_coords[1],
+                'z': global_coords[2],
+                'doppler': getattr(p, 'doppler', 0.0),
+                'snr': getattr(p, 'snr', 0.0),
+                'noise': getattr(p, 'noise', 0.0),
+                'frame_id': getattr(p, 'frame_id', -1),
+                'point_id': getattr(p, 'point_id', -1),
+                'source': sensor_label
+            })
+
+        # Dictionary point
+        elif isinstance(p, dict):
+            if not all(k in p for k in ('x', 'y', 'z')):
+                continue
+            local = np.array([p['x'], p['y'], p['z']], dtype=float)
+            global_coords = np.dot(R, local) + T
+
+            p_new = p.copy()
+            p_new['x'], p_new['y'], p_new['z'] = global_coords
+            p_new['source'] = sensor_label
+            result.append(p_new)
+
+    return result
+
 
 def pretty_print_clusters(clusters, label="Clusters"):
     """
@@ -97,10 +167,9 @@ def pretty_print_clusters(clusters, label="Clusters"):
 # ------------------------------
 def plot1(plot_widget, pointCloud):
     """
-    Render only the filtered point cloud (pointCloud),
-    which may be a list of {'x','y',…} dicts.
+    Render the filtered point cloud (pointCloud),
+    coloring by 'source' field: 'right' vs 'left'.
     """
-    import pyqtgraph as pg
 
     # 1) Clear previous items and set title
     plot_widget.clear()
@@ -110,30 +179,46 @@ def plot1(plot_widget, pointCloud):
     if not pointCloud:
         return
 
-    # 3) Extract x/y coords from each dict
-    x, y = [], []
+    # 3) Separate points by source
+    x_right, y_right = [], []
+    x_left, y_left = [], []
+
     for p in pointCloud:
-        # safely skip any malformed entries
-        if isinstance(p, dict) and 'x' in p and 'y' in p:
-            x.append(p['x'])
-            y.append(p['y'])
+        if isinstance(p, dict) and 'x' in p and 'y' in p and 'source' in p:
+            if p['source'] == 'right':
+                x_right.append(p['x'])
+                y_right.append(p['y'])
+            elif p['source'] == 'left':
+                x_left.append(p['x'])
+                y_left.append(p['y'])
 
-    # 4) Plot if we got any points
-    scatter = pg.ScatterPlotItem(
-        x=x,
-        y=y,
-        size=8,
-        pen=None,
-        brush=pg.mkBrush(0, 200, 0, 150)
-    )
-    plot_widget.addItem(scatter)
+    # 4) Plot each group in different color
+    if x_right:
+        scatter_right = pg.ScatterPlotItem(
+            x=x_right, y=y_right,
+            size=8,
+            pen=None,
+            brush=pg.mkBrush(0, 200, 0, 150)  # Green for right
+        )
+        plot_widget.addItem(scatter_right)
 
+    if x_left:
+        scatter_left = pg.ScatterPlotItem(
+            x=x_left, y=y_left,
+            size=8,
+            pen=None,
+            brush=pg.mkBrush(0, 0, 255, 150)  # Blue for left
+        )
+        plot_widget.addItem(scatter_left)
+
+    # 5) Add doppler as yellow labels for all
     for p in pointCloud:
         if isinstance(p, dict) and 'x' in p and 'y' in p and 'doppler' in p:
             dop = p['doppler']
-            txt = pg.TextItem(f"{dop:.2f}", color='y', anchor=(0,1))
+            txt = pg.TextItem(f"{dop:.2f}", color='y', anchor=(0, 1))
             txt.setPos(p['x'] + 0.1, p['y'] + 0.1)
             plot_widget.addItem(txt)
+
 
 
 # ------------------------------
@@ -410,9 +495,22 @@ class ClusterViewer(QWidget):
 
         # Load data once
         self.imu_frames = imuLoader.load_all() if imuLoader else []
-        self.radar_frames = radarLoader.load_all() if radarLoader else []
-        self.radarDataSetLength = len(self.radar_frames) if self.radar_frames else 0
+        # Set both frames
+        self.radarRight_frames = radarRightLoader.load_all() if radarRightLoader else []
+        self.radarLeft_frames = radarLeftLoader.load_all() if radarLeftLoader else []
+        if len(self.radarRight_frames) > len(self.radarLeft_frames):
+            self.radarDataSetLength = len(self.radarRight_frames)
+        elif len(self.radarLeft_frames) > len(self.radarRight_frames):
+            self.radarDataSetLength = len(self.radarLeft_frames)
+        else:
+            self.radarDataSetLength = 0
+
         self.currentFrame = -1
+
+        self.i_right = 0
+        self.i_left = 0
+        self.i_imu = 0
+
 
         # Plot will now use spatial matching with tuned parameters; others remain default
         self.trackers = {}
@@ -478,20 +576,57 @@ class ClusterViewer(QWidget):
         self.on_slider_changed(0)
 
     def on_slider_changed(self, newFrame):
+        global pointCloudTransform
         # rewind on backward move
         if newFrame < self.currentFrame:
             if ENABLE_SENSORS in (1, 3):
                 _radarAgg.clearBuffer()
             if ENABLE_SENSORS in (2, 3):
                 _imuAgg.clearBuffer()
+            self.i_right = 0
+            self.i_left = 0
+            self.i_imu = 0
             self.currentFrame = -1
 
         # aggregate only new frames
         for f in range(self.currentFrame + 1, newFrame + 1):
-            if ENABLE_SENSORS in (1, 3) and f < len(self.radar_frames):
-                _radarAgg.updateBuffer(self.radar_frames[f])
+            if ENABLE_SENSORS in (1, 3) and f < len(self.radarRight_frames):
+                dataRight = self.radarRight_frames[self.i_right]
+                dataLeft = self.radarLeft_frames[self.i_left]
+
+                rightFrameID = dataRight[0].frame_id if dataRight else -1
+                leftFrameID  = dataLeft[0].frame_id if dataLeft else -2
+
+                pointCloudTransform = {
+                    "Right": [],
+                    "Left": [],
+                    "Vehicle": []
+                }
+
+                if rightFrameID == leftFrameID:
+                    pointCloudTransform["Right"] = transform_pointcloud(self.radarRight_frames[self.i_right], "right")
+                    pointCloudTransform["Left"] = transform_pointcloud(self.radarLeft_frames[self.i_left], "left")
+                    self.i_right += 1
+                    self.i_left += 1
+                elif rightFrameID < leftFrameID:
+                    pointCloudTransform["Right"] = transform_pointcloud(self.radarRight_frames[self.i_right], "right")
+                    self.i_right += 1
+                else:
+                    pointCloudTransform["Left"] = transform_pointcloud(self.radarLeft_frames[self.i_left], "left")
+                    self.i_left += 1
+
+                pointCloudTransform["Vehicle"] = pointCloudTransform["Right"] + pointCloudTransform["Left"]
+
+                currentFramePointCloud = self.radarRight_frames[f]
+                _radarAgg.updateBuffer(currentFramePointCloud)
             if ENABLE_SENSORS in (2, 3) and f < len(self.imu_frames):
-                _imuAgg.updateBuffer(self.imu_frames[f])
+                if rightFrameID == leftFrameID:
+                    self.i_imu += 1
+                elif rightFrameID > leftFrameID:
+                    self.i_imu
+                else:
+                    self.i_imu
+                _imuAgg.updateBuffer(self.imu_frames[self.i_imu])
 
         self.currentFrame  = newFrame
         self.slider_label.setText(f"Frame: {newFrame}")
@@ -513,7 +648,7 @@ class ClusterViewer(QWidget):
         global P_global, Q_global
         global T_global, positions, rotations
         # Filtern Pipeline information (Plot 1 only)
-        rawPointCloud = _radarAgg.getPoints() if ENABLE_SENSORS in (1, 3) else []
+        rawPointCloud = pointCloudTransform["Vehicle"] if ENABLE_SENSORS in (1, 3) else []
         pointCloud = pointFilter.filterDoppler(rawPointCloud, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
         #pointCloud = pointFilter.filterSNRmin( rawPointCloud, FILTER_SNR_MIN)
         #pointCloud = pointFilter.filterCartesianZ(pointCloud, FILTER_Z_MIN, FILTER_Z_MAX)
