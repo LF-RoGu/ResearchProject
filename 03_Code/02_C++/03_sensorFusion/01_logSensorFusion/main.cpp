@@ -17,7 +17,6 @@
 #include <cmath>
 #include <cstdint>
 #include <unistd.h>
-#include <chrono>
 
 #include "mmWave-IWR6843/radar_sensor/IWR6843.h"
 #include "mmWave-IWR6843/radar_sensor/SensorData.h"
@@ -32,13 +31,6 @@ Macro to enable or disable sensors
  3 - enable both
 */ 
 #define ENABLE_SENSORS 3
-/*
-Macro to enable or disable radars
- 1 - BOTH
- 2 - LEFT ONLY
- 3 - RIGHT ONLY
-*/ 
-#define ENABLE_RADAR_SIDE 1
 
 const char CSV_TAB = ',';
 
@@ -58,7 +50,6 @@ struct ValidRadarPoint
     float    doppler;
     uint16_t snr;
     uint16_t noise;
-    double timestamp;
 };
 
 /* Global synchronization objects */
@@ -79,10 +70,9 @@ static IWR6843     radarRightSensor;
 static XsensMti710 imuSensor;
 
 #ifndef VALIDATE_PRINT
-std::string suffix = "labEntry";
-static ofstream csvRadarLeft("_outFiles/radarLeft_" + suffix + ".csv");
-static ofstream csvRadarRight("_outFiles/radarRight_" + suffix + ".csv");
-static ofstream csvImu  ("_outFiles/imu_" + suffix + ".csv");
+static ofstream csvRadarLeft("_outFiles/radarLeft_hallway2.csv");
+static ofstream csvRadarRight("_outFiles/radarRight_hallway2.csv");
+static ofstream csvImu  ("_outFiles/imu_driveAround_hallway2.csv");
 #endif
 
 const int UPDATE_POWER = 2000U; /* Minimum peak power for VALID radar points */
@@ -90,7 +80,7 @@ const float BIN_TOLERANCE = 0.2;
 
 static vector<vector<ValidRadarPoint>> extractValidRadarPoints(const vector<SensorData>& frames)
 {
-    vector<vector<ValidRadarPoint>> allFrames;
+    vector<vector<ValidRadarPoint>> validFrames;
 
     for (const SensorData& frame : frames)
     {
@@ -109,34 +99,57 @@ static vector<vector<ValidRadarPoint>> extractValidRadarPoints(const vector<Sens
                 continue;
             }
 
-            vector<ValidRadarPoint> allPoints;
+            vector<ValidRadarPoint> validPoints;
             for (size_t i = 0UL; i < pd.DetectedPoints_str.size(); ++i)
             {
                 const DetectedPoints& dp = pd.DetectedPoints_str[i];
+                const float pt_range = sqrtf(dp.x_f * dp.x_f +
+                                             dp.y_f * dp.y_f +
+                                             dp.z_f * dp.z_f);
 
-                const SideInfoPoint& si = pd.SideInfoPoint_str[i];
+                float closest_range = -1.0F;
+                uint16_t closest_power = 0U;
+                float min_diff = numeric_limits<float>::max();
+                for (const RangeProfilePoint& rp : pd.RangeProfilePoint_str)
+                {
+                    const float diff = fabsf(pt_range - rp.range_f);
+                    if (diff < min_diff)
+                    {
+                        min_diff = diff;
+                        closest_range = rp.range_f;
+                        closest_power = rp.power_u16;
+                    }
+                }
 
-                allPoints.push_back(ValidRadarPoint{
-                    fid,
-                    static_cast<uint32_t>(i + 1U),
-                    dp.x_f,
-                    dp.y_f,
-                    dp.z_f,
-                    dp.doppler_f,
-                    si.snr,
-                    si.noise
-                });
+                const bool is_valid =
+                    ((closest_range >= 0.0F) &&
+                     (min_diff < BIN_TOLERANCE) &&
+                     (closest_power > UPDATE_POWER));
+
+                if (is_valid && (i < pd.SideInfoPoint_str.size()))
+                {
+                    const SideInfoPoint& si = pd.SideInfoPoint_str[i];
+                    validPoints.push_back(ValidRadarPoint{
+                        fid,
+                        static_cast<uint32_t>(i + 1U),
+                        dp.x_f,
+                        dp.y_f,
+                        dp.z_f,
+                        dp.doppler_f,
+                        si.snr,
+                        si.noise
+                    });
+                }
             }
 
-            if (!allPoints.empty())
+            if (!validPoints.empty())
             {
-                allFrames.push_back(std::move(allPoints));
+                validFrames.push_back(std::move(validPoints));
             }
         }
     }
-    return allFrames;
+    return validFrames;
 }
-
 
 /*=== threadIwr6843Left(): Radar acquisition & filtering ===*/
 void threadIwr6843Left(void)
@@ -148,7 +161,7 @@ void threadIwr6843Left(void)
         leftRadarCount = radarLeftSensor.poll();
         if (leftRadarCount < 0)
         {
-            cerr << "[ERROR] Left radars failed to poll\n";
+            cerr << "[ERROR] Both radars failed to poll\n";
             break;
         }
         if (leftRadarCount == 0)
@@ -205,7 +218,7 @@ void threadIwr6843Right(void)
         rightRadarCount = radarRightSensor.poll();
         if (rightRadarCount < 0)
         {
-            cerr << "[ERROR] Right radars failed to poll\n";
+            cerr << "[ERROR] Both radars failed to poll\n";
             break;
         }
         if (rightRadarCount == 0)
@@ -281,6 +294,7 @@ void threadMti710(void)
 /*=== threadWriter(): synchronizes and logs data ===*/
 void threadWriter(bool enableRadar, bool enableImu)
 {
+#ifndef VALIDATE_PRINT
     if ((enableRadar && !csvRadarLeft.is_open()) || 
         (enableRadar && !csvRadarRight.is_open()) ||
         (enableImu && !csvImu.is_open()))
@@ -291,98 +305,128 @@ void threadWriter(bool enableRadar, bool enableImu)
 
     if (enableRadar)
     {
-        csvRadarLeft  << "source,frame_id,point_id,x,y,z,doppler,snr,noise\n";
-        csvRadarRight << "source,frame_id,point_id,x,y,z,doppler,snr,noise\n";
+        csvRadarLeft << "frame_id,point_id,x,y,z,doppler,snr,noise\n";
+        csvRadarRight << "frame_id,point_id,x,y,z,doppler,snr,noise\n";
     }
-
     if (enableImu)
     {
-        csvImu << "source,frame_id,imu_idx,"
-               << "quat_w,quat_x,quat_y,quat_z,"
-               << "accel_x,accel_y,accel_z,"
-               << "free_accel_x,free_accel_y,free_accel_z,"
-               << "delta_v_x,delta_v_y,delta_v_z,"
-               << "delta_q_w,delta_q_x,delta_q_y,delta_q_z,"
-               << "rate_x,rate_y,rate_z,"
-               << "quat_w,quat_x,quat_y,quat_z,"
-               << "mag_x,mag_y,mag_z,"
-               << "temperature,status_byte,packet_counter,time_fine\n";
+        csvImu   << "frame_id,imu_idx,"
+                 << "quat_w,quat_x,quat_y,quat_z,"
+                 << "accel_x,accel_y,accel_z,"
+                 << "free_accel_x,free_accel_y,free_accel_z,"
+                 << "delta_v_x,delta_v_y,delta_v_z,"
+                 << "delta_q_w,delta_q_x,delta_q_y,delta_q_z,"
+                 << "rate_x,rate_y,rate_z,"
+                 << "quat_w,quat_x,quat_y,quat_z,"
+                 << "mag_x,mag_y,mag_z,"
+                 << "temperature,status_byte,packet_counter,time_fine\n";
     }
+#else
+    cout << "[VALIDATE_PRINT] Writer in PRINT mode\n";
+#endif
 
-    while (true)
+    for (;;)
     {
-        std::vector<ValidRadarPoint> radarPts;
-        std::string source = "none";
+        /* === Wait for radar data === */
+        vector<ValidRadarPoint> leftRadarPts;
+        vector<ValidRadarPoint> rightRadarPts;
 
         {
-            std::unique_lock<std::mutex> leftLock(radarMutexLeft, std::defer_lock);
-            std::unique_lock<std::mutex> rightLock(radarMutexRight, std::defer_lock);
-            std::lock(leftLock, rightLock);
+            unique_lock<mutex> lock(radarMutexLeft);
+            //unique_lock<mutex> lockRight(radarMutexRight);
 
-            #if ENABLE_RADAR_SIDE == 1 || ENABLE_RADAR_SIDE == 2
-            if (!radarLeftQueue.empty())
+            dataCV.wait(lock, [&]{
+                return !radarLeftQueue.empty() && !radarRightQueue.empty();
+            });
+            if(!radarLeftQueue.empty())
             {
-                radarPts = std::move(radarLeftQueue.front());
+                leftRadarPts = std::move(radarLeftQueue.front());
                 radarLeftQueue.pop();
-                source = "left";
             }
-            #endif
-
-            #if ENABLE_RADAR_SIDE == 1 || ENABLE_RADAR_SIDE == 3
-            if (radarPts.empty() && !radarRightQueue.empty())
+            else
             {
-                radarPts = std::move(radarRightQueue.front());
+                cout << "[DEBUG] No LEFT radar data available\n";
+            }
+            
+            if(!radarRightQueue.empty())
+            {
+                rightRadarPts = std::move(radarRightQueue.front());
                 radarRightQueue.pop();
-                source = "right";
             }
-            #endif
-        }
-
-        if (radarPts.empty())
-        {
-            std::this_thread::yield();
-            continue;
-        }
-
-        const uint32_t fid = radarPts.front().frameId;
-
-        /* === Write Radar Data === */
-        if (enableRadar)
-        {
-            std::ofstream& out = (source == "left") ? csvRadarLeft : csvRadarRight;
-            for (const auto& pt : radarPts)
+            else
             {
-                out << source    << CSV_TAB
-                    << pt.frameId  << CSV_TAB
-                    << pt.pointId  << CSV_TAB
-                    << pt.x        << CSV_TAB
-                    << pt.y        << CSV_TAB
-                    << pt.z        << CSV_TAB
-                    << pt.doppler  << CSV_TAB
-                    << pt.snr      << CSV_TAB
-                    << pt.noise    << "\n";
+                cout << "[DEBUG] No LEFT radar data available\n";
             }
-            out.flush();
         }
 
-        /* === Write IMU Data === */
+        size_t N;
+        uint32_t fid;
+        if(leftRadarPts.size() > rightRadarPts.size())
+        {
+            N = leftRadarPts.size();
+            fid = leftRadarPts.front().frameId;
+        }
+        else
+        {
+            N = rightRadarPts.size();
+            fid = rightRadarPts.front().frameId;
+        }
+
+        /* === Collect IMU samples only if enabled === */
+        vector<MTiData> imuSamples;
         if (enableImu)
         {
-            std::vector<MTiData> imuMatches;
-            {
-                std::lock_guard<std::mutex> lock(imuMutex);
-                while (!imuQueue.empty())
-                {
-                    imuMatches.push_back(imuQueue.front());
-                    imuQueue.pop();
-                }
-            }
+            const size_t imuNeeded = N * 2UL;
+            unique_lock<mutex> imuLock(imuMutex);
+            dataCV.wait(imuLock, [&]{
+                return imuQueue.size() >= imuNeeded;
+            });
 
-            for (size_t i = 0UL; i < imuMatches.size(); ++i)
+            imuSamples.reserve(imuNeeded);
+            for (size_t i = 0UL; i < imuNeeded; ++i)
             {
-                const MTiData& imu = imuMatches[i];
-                csvImu << source            << CSV_TAB
-                       << fid               << CSV_TAB
+                imuSamples.push_back(imuQueue.front());
+                imuQueue.pop();
+            }
+            imuLock.unlock();
+        }
+
+        /* === Write radar data === */
+        if (enableRadar)
+        {
+            for (const auto& pt : leftRadarPts)
+            {
+                csvRadarLeft << pt.frameId  << CSV_TAB
+                         << pt.pointId  << CSV_TAB
+                         << pt.x        << CSV_TAB
+                         << pt.y        << CSV_TAB
+                         << pt.z        << CSV_TAB
+                         << pt.doppler  << CSV_TAB
+                         << pt.snr      << CSV_TAB
+                         << pt.noise    << "\n";
+            }
+            csvRadarLeft.flush();
+            for (const auto& pt : rightRadarPts)
+            {
+                csvRadarRight << pt.frameId  << CSV_TAB
+                         << pt.pointId  << CSV_TAB
+                         << pt.x        << CSV_TAB
+                         << pt.y        << CSV_TAB
+                         << pt.z        << CSV_TAB
+                         << pt.doppler  << CSV_TAB
+                         << pt.snr      << CSV_TAB
+                         << pt.noise    << "\n";
+            }
+            csvRadarRight.flush();
+        }
+
+        /* === Write IMU data if enabled === */
+        if (enableImu)
+        {
+            for (size_t i = 0UL; i < imuSamples.size(); ++i)
+            {
+                const MTiData& imu = imuSamples[i];
+                csvImu << fid               << CSV_TAB
                        << (i + 1UL)         << CSV_TAB
                        << imu.quaternion[0] << CSV_TAB
                        << imu.quaternion[1] << CSV_TAB
@@ -412,7 +456,7 @@ void threadWriter(bool enableRadar, bool enableImu)
                        << imu.magnetic[1]          << CSV_TAB
                        << imu.magnetic[2]          << CSV_TAB
                        << imu.temperature          << CSV_TAB
-                       << static_cast<int>(imu.status_byte) << CSV_TAB
+                       << int(imu.status_byte)     << CSV_TAB
                        << imu.packet_counter       << CSV_TAB
                        << imu.time_fine            << "\n";
             }
@@ -422,102 +466,78 @@ void threadWriter(bool enableRadar, bool enableImu)
 }
 
 /*=== MAIN ===*/
-/*=== MAIN ===*/
 int main(void)
 {
     #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
-        #if ENABLE_RADAR_SIDE == 1 || ENABLE_RADAR_SIDE == 2
-            cout << "[INFO] Initializing LEFT radar...\n";
-            if (radarLeftSensor.init(
-                                "/dev/ttyUSB0",
-                                "/dev/ttyUSB1",
-                                "../01_logSensorFusion/mmWave-IWR6843/configs/"
-                                "left_profile_azim60_elev30_calibrator.cfg"
-                                ) != 1)
-            {
-                cerr << "[ERROR] radarLeftSensor.init() failed\n";
-                return 1;
-            }
-        #endif
-        #if ENABLE_RADAR_SIDE == 1 || ENABLE_RADAR_SIDE == 3
-            cout << "[INFO] Initializing RIGHT radar...\n";
-            if (radarRightSensor.init(
-                                "/dev/ttyUSB2",
-                                "/dev/ttyUSB3",
-                                "../01_logSensorFusion/mmWave-IWR6843/configs/"
-                                "right_profile_azim60_elev30_calibrator.cfg"
-                                ) != 1)
-            {
-                cerr << "[ERROR] radarRightSensor.init() failed\n";
-                return 1;
-            }
-        #endif
+    cout << "[INFO] Initializing LEFT radar...\n";
+    if (radarLeftSensor.init(
+                         "/dev/ttyUSB0",
+                         "/dev/ttyUSB1",
+                         "../01_logSensorFusion/mmWave-IWR6843/configs/"
+                         "left_profile_azim60_elev30_calibrator.cfg"
+                        ) != 1)
+    {
+        cerr << "[ERROR] radarLeftSensor.init() failed\n";
+        return 1;
+    }
+    cout << "[INFO] Initializing RIGHT radar...\n";
+    if (radarRightSensor.init(
+                         "/dev/ttyUSB2",
+                         "/dev/ttyUSB3",
+                         "../01_logSensorFusion/mmWave-IWR6843/configs/"
+                         "right_profile_azim60_elev30_calibrator.cfg"
+                        ) != 1)
+    {
+        cerr << "[ERROR] radarRightSensor.init() failed\n";
+        return 1;
+    }
     #endif
-
     #if ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3
-        if ((imuSensor.findXsensDevice() != DEVICE_FOUND_SUCCESS) ||
-            (imuSensor.openXsensPort()   != OPEN_PORT_SUCCESS))
-        {
-            cerr << "[ERROR] Unable to initialize IMU\n";
-            return 1;
-        }
-        imuSensor.configure();
+    if ((imuSensor.findXsensDevice() != DEVICE_FOUND_SUCCESS) ||
+        (imuSensor.openXsensPort()   != OPEN_PORT_SUCCESS))
+    {
+        cerr << "[ERROR] Unable to initialize IMU\n";
+        return 1;
+    }
+    imuSensor.configure();
     #endif
 
-    #ifndef VALIDATE_PRINT
-        cout << "[INFO] Opening output files...\n";
-        if ((!csvRadarLeft.is_open()) || (!csvRadarRight.is_open()) || (!csvImu.is_open()))
-        {
-            cerr << "[ERROR] Failed to open CSVs\n";
-            return 1;
-        }
-    #endif
+#ifndef VALIDATE_PRINT
+    cout << "[INFO] Opening output files...\n";
+    if ((!csvRadarLeft.is_open()) || (!csvRadarRight.is_open()) || (!csvImu.is_open()))
+    {
+        cerr << "[ERROR] Failed to open CSVs\n";
+        return 1;
+    }
+#endif
 
     cout << "[INFO] Spawning threads...\n";
-
-    std::thread thread_iwr6843_left;
-    std::thread thread_iwr6843_right;
-    std::thread thread_mti710;
-    std::thread thread_logger;
-
     #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
-        #if ENABLE_RADAR_SIDE == 1 || ENABLE_RADAR_SIDE == 2
-            thread_iwr6843_left = std::thread(threadIwr6843Left);
-        #endif
-        #if ENABLE_RADAR_SIDE == 1 || ENABLE_RADAR_SIDE == 3
-            thread_iwr6843_right = std::thread(threadIwr6843Right);
-        #endif
+    thread thread_iwr6843_left(threadIwr6843Left);
+    thread thread_iwr6843_right(threadIwr6843Right);
     #endif
-
     #if ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3
-        thread_mti710 = std::thread(threadMti710);
+    thread thread_mti710(threadMti710);
     #endif
-
-    thread_logger = std::thread(threadWriter, 
+    thread thread_logger(threadWriter, 
                         (ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3),
                         (ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3));
 
     /* Join threads (program runs until killed) */
     #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
-        #if ENABLE_RADAR_SIDE == 1 || ENABLE_RADAR_SIDE == 2
-            thread_iwr6843_left.join();
-        #endif
-        #if ENABLE_RADAR_SIDE == 1 || ENABLE_RADAR_SIDE == 3
-            thread_iwr6843_right.join();
-        #endif
+    thread_iwr6843_left.join();
+    thread_iwr6843_right.join();
     #endif
-
     #if ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3
-        thread_mti710.join();
+    thread_mti710.join();
     #endif
-
     thread_logger.join();
 
-    #ifndef VALIDATE_PRINT
-        csvRadarLeft.close();
-        csvRadarRight.close();
-        csvImu.close();
-    #endif
+#ifndef VALIDATE_PRINT
+    csvRadarLeft.close();
+    csvRadarRight.close();
+    csvImu.close();
+#endif
 
     return 0;
 }
