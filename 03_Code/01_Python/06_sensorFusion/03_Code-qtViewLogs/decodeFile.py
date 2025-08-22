@@ -6,6 +6,7 @@ from collections import defaultdict
 
 @dataclass
 class RadarRecord:
+    source: str
     frame_id: int
     point_id: int
     x: float
@@ -16,6 +17,7 @@ class RadarRecord:
     noise: float
 @dataclass
 class ImuRecord:
+    source: str
     frame_id: int
     imu_idx: int
 
@@ -62,6 +64,7 @@ class ImuRecord:
 
 class RadarCSVReader:
     FIELDNAMES = [
+        "source",
         "frame_id", 
         "point_id",
         "x", "y", "z",
@@ -81,6 +84,7 @@ class RadarCSVReader:
     def _row_to_record(self, row: dict) -> RadarRecord | None:
         try:
             return RadarRecord(
+                source=row["source"], 
                 frame_id=int(row["frame_id"]),
                 point_id=int(row["point_id"]),
                 x=float(row["x"]),
@@ -106,6 +110,7 @@ class RadarCSVReader:
     
 class ImuCSVReader:
     FIELDNAMES = [
+        "source",
         "frame_id", "imu_idx",
         "accel_x", "accel_y", "accel_z",
         "free_accel_x", "free_accel_y", "free_accel_z",
@@ -132,6 +137,7 @@ class ImuCSVReader:
     def _row_to_record(self, row: dict) -> ImuRecord | None:
         try:
             return ImuRecord(
+                source=row["source"], 
                 frame_id       = int(row["frame_id"]),
                 imu_idx        = int(row["imu_idx"]),
 

@@ -88,8 +88,8 @@ TRANSFORMATIONS = {
 }
 
 
-folderName = "09_dualSensor"  # Folder where CSV files are stored
-testType = "hallway_3.csv"  # Type of test data
+folderName = "10_calib"  # Folder where CSV files are stored
+testType = "calib.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarRightLoader = RadarCSVReader("radarRight_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 radarLeftLoader = RadarCSVReader("radarLeft_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
@@ -502,6 +502,8 @@ class ClusterViewer(QWidget):
             self.radarDataSetLength = len(self.radarRight_frames)
         elif len(self.radarLeft_frames) > len(self.radarRight_frames):
             self.radarDataSetLength = len(self.radarLeft_frames)
+        elif len(self.radarLeft_frames) == len(self.radarRight_frames):
+            self.radarDataSetLength = int((len(self.radarLeft_frames) + len(self.radarRight_frames)) / 2)
         else:
             self.radarDataSetLength = 0
 
