@@ -229,36 +229,16 @@ TLVPayloadData TLV_frame::parseTLVPayload(std::vector<uint8_t>& data, TLVHeaderD
                     << " | TLV Length: " << TLVHeaderData_var.length_u32 << std::endl;
             break;
         }
-
-        // 1) Read all bins into a temp vector
-        std::vector<uint16_t> allBins;
-        for (uint32_t i = 0; i < numBins; ++i)
+        
+        for (uint32_t i = 0U; i < numBins; ++i)
         {
-            uint16_t binValue = EndianUtils_c.toLittleEndian16(data, 2);
-            allBins.push_back(binValue);
-        }
+            uint16_t power = EndianUtils_c.toLittleEndian16(data, 2);
+            RangeProfilePoint rp;
+            rp.bin_u16   = static_cast<uint16_t>(i);
+            rp.range_f   = static_cast<float>(i) * range_resolution_m;
+            rp.power_u16 = power;
 
-        // 2) Compute mean noise floor
-        uint64_t sum = 0;
-        for (auto val : allBins) {
-            sum += val;
-        }
-        float mean_floor = static_cast<float>(sum) / allBins.size();
-        float K = 475.0f;  // adjust based on your testing
-        float adaptive_threshold = mean_floor + K;
-        // 3) Store only bins above threshold
-        for (uint32_t i = 0; i < allBins.size(); ++i)
-        {
-            uint16_t power = allBins[i];
-            if (power >= adaptive_threshold)
-            {
-                RangeProfilePoint rp;
-                rp.bin_u16 = i;
-                rp.range_f = i * range_resolution_m;
-                rp.power_u16 = power;
-
-                TLVPayloadData_str.RangeProfilePoint_str.push_back(rp);
-            }
+            TLVPayloadData_str.RangeProfilePoint_str.push_back(rp);
         }
     }
     break;

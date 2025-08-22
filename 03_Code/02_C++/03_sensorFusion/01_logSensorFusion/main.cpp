@@ -79,9 +79,10 @@ static IWR6843     radarRightSensor;
 static XsensMti710 imuSensor;
 
 #ifndef VALIDATE_PRINT
-static ofstream csvRadarLeft("_outFiles/radarLeft_calib2.csv");
-static ofstream csvRadarRight("_outFiles/radarRight_calib2.csv");
-static ofstream csvImu  ("_outFiles/imu_calib2.csv");
+std::string suffix = "labEntry";
+static ofstream csvRadarLeft("_outFiles/radarLeft_" + suffix + ".csv");
+static ofstream csvRadarRight("_outFiles/radarRight_" + suffix + ".csv");
+static ofstream csvImu  ("_outFiles/imu_" + suffix + ".csv");
 #endif
 
 const int UPDATE_POWER = 2000U; /* Minimum peak power for VALID radar points */
@@ -89,7 +90,7 @@ const float BIN_TOLERANCE = 0.2;
 
 static vector<vector<ValidRadarPoint>> extractValidRadarPoints(const vector<SensorData>& frames)
 {
-    vector<vector<ValidRadarPoint>> validFrames;
+    vector<vector<ValidRadarPoint>> allFrames;
 
     for (const SensorData& frame : frames)
     {
@@ -108,57 +109,34 @@ static vector<vector<ValidRadarPoint>> extractValidRadarPoints(const vector<Sens
                 continue;
             }
 
-            vector<ValidRadarPoint> validPoints;
+            vector<ValidRadarPoint> allPoints;
             for (size_t i = 0UL; i < pd.DetectedPoints_str.size(); ++i)
             {
                 const DetectedPoints& dp = pd.DetectedPoints_str[i];
-                const float pt_range = sqrtf(dp.x_f * dp.x_f +
-                                             dp.y_f * dp.y_f +
-                                             dp.z_f * dp.z_f);
 
-                float closest_range = -1.0F;
-                uint16_t closest_power = 0U;
-                float min_diff = numeric_limits<float>::max();
-                for (const RangeProfilePoint& rp : pd.RangeProfilePoint_str)
-                {
-                    const float diff = fabsf(pt_range - rp.range_f);
-                    if (diff < min_diff)
-                    {
-                        min_diff = diff;
-                        closest_range = rp.range_f;
-                        closest_power = rp.power_u16;
-                    }
-                }
+                const SideInfoPoint& si = pd.SideInfoPoint_str[i];
 
-                const bool is_valid =
-                    ((closest_range >= 0.0F) &&
-                     (min_diff < BIN_TOLERANCE) &&
-                     (closest_power > UPDATE_POWER));
-
-                if (is_valid && (i < pd.SideInfoPoint_str.size()))
-                {
-                    const SideInfoPoint& si = pd.SideInfoPoint_str[i];
-                    validPoints.push_back(ValidRadarPoint{
-                        fid,
-                        static_cast<uint32_t>(i + 1U),
-                        dp.x_f,
-                        dp.y_f,
-                        dp.z_f,
-                        dp.doppler_f,
-                        si.snr,
-                        si.noise
-                    });
-                }
+                allPoints.push_back(ValidRadarPoint{
+                    fid,
+                    static_cast<uint32_t>(i + 1U),
+                    dp.x_f,
+                    dp.y_f,
+                    dp.z_f,
+                    dp.doppler_f,
+                    si.snr,
+                    si.noise
+                });
             }
 
-            if (!validPoints.empty())
+            if (!allPoints.empty())
             {
-                validFrames.push_back(std::move(validPoints));
+                allFrames.push_back(std::move(allPoints));
             }
         }
     }
-    return validFrames;
+    return allFrames;
 }
+
 
 /*=== threadIwr6843Left(): Radar acquisition & filtering ===*/
 void threadIwr6843Left(void)
