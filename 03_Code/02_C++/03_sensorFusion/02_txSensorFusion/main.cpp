@@ -2,7 +2,7 @@
  *
  * MISRA C++:2008 Compliant Example
  * Demonstrates synchronized radar+IMU logging with 2×N IMU samples per N valid radar points.
- * - threadIwr6843(): Reads mmWave frames, filters VALID points.
+ * - threadIwr6843Left(): Reads mmWave frames, filters VALID points.
  * - threadMti710(): Reads Xsens IMU samples.
  * - threadWriter(): For each radar frame with N points, collects 2·N IMU samples and logs.
  */
@@ -16,16 +16,14 @@
 #include <thread>
 #include <cmath>
 #include <cstdint>
+#include <chrono>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 
 #include "mmWave-IWR6843/radar_sensor/IWR6843.h"
 #include "mmWave-IWR6843/radar_sensor/SensorData.h"
 #include "MTi-G-710/xsens_mti710.hpp"
-// TCP server
-#include <sstream>         // For std::ostringstream
-#include <sys/socket.h>    // For socket(), bind(), listen(), accept(), send()
-#include <netinet/in.h>    // For sockaddr_in, INADDR_ANY, AF_INET
-#include <arpa/inet.h>     // For htons()
 
 using namespace std;
 
@@ -35,10 +33,16 @@ Macro to enable or disable sensors
  2 - enable only MTI
  3 - enable both
 */ 
-#define ENABLE_SENSORS 1
+#define ENABLE_SENSORS 3
+/*
+Macro to enable or disable radars
+ 1 - BOTH
+ 2 - LEFT ONLY
+ 3 - RIGHT ONLY
+*/ 
+#define ENABLE_RADAR_SIDE 1
 
 const char CSV_TAB = ',';
-static int client_fd = -1;  // TCP connection socket
 
 /* Uncomment to PRINT instead of logging to CSV */
 /* #define VALIDATE_PRINT */
@@ -56,133 +60,248 @@ struct ValidRadarPoint
     float    doppler;
     uint16_t snr;
     uint16_t noise;
+    double timestamp;
 };
 
+struct PacketRadar {
+    char source[6];  // "left" or "right"
+    int frame_id;
+    int point_id;
+    float x;
+    float y;
+    float z;
+    float doppler;
+    float snr;
+    float noise;
+};
+
+struct PacketImu {
+    char source[6];  // optional if you want to tag source
+    int frame_id;
+    int imu_index;
+    float quaternion[4];
+    float acceleration[3];
+    float free_acceleration[3];
+    float delta_v[3];
+    float delta_q[4];
+    float rate_of_turn[3];
+    float magnetic[3];
+    float temperature;
+    int status_byte;
+    int packet_counter;
+    uint64_t time_fine;
+};
+
+
 /* Global synchronization objects */
-static mutex                   radarMutex;  /* Protects radarQueue  */
-static mutex                   imuMutex;    /* Protects imuQueue    */
-static mutex                   writeMutex;  /* Protects writer sync */
-static condition_variable      dataCV;      /* Signals data ready   */
+static mutex                   radarMutexLeft;  /* Protects radarQueue  */
+static mutex                   radarMutexRight; /* Protects radarQueue  */
+static mutex                   imuMutex;        /* Protects imuQueue    */
+static mutex                   writeMutex;      /* Protects writer sync */
+static condition_variable      dataCV;          /* Signals data ready   */
 
 /* Queues for inter-thread communication */
-static queue<vector<ValidRadarPoint>> radarQueue;
+static queue<vector<ValidRadarPoint>> radarLeftQueue;
+static queue<vector<ValidRadarPoint>> radarRightQueue;
 static queue<MTiData>                 imuQueue;
 
 /* Sensor objects */
-static IWR6843     radarSensor;
+static IWR6843     radarLeftSensor;
+static IWR6843     radarRightSensor;
 static XsensMti710 imuSensor;
 
-/*=== threadIwr6843(): Radar acquisition & filtering ===*/
-void threadIwr6843(void)
+#ifndef VALIDATE_PRINT
+static ofstream csvRadarLeft("_outFiles/radarLeft_calib.csv");
+static ofstream csvRadarRight("_outFiles/radarRight_calib.csv");
+static ofstream csvImu  ("_outFiles/imu_driveAround_calib.csv");
+#endif
+
+const int UPDATE_POWER = 2000U; /* Minimum peak power for VALID radar points */
+const float BIN_TOLERANCE = 0.2;
+
+static vector<vector<ValidRadarPoint>> extractValidRadarPoints(const vector<SensorData>& frames)
 {
+    vector<vector<ValidRadarPoint>> validFrames;
+
+    for (const SensorData& frame : frames)
+    {
+        const Frame_header hdr = frame.getHeader();
+        const uint32_t fid = hdr.getFrameNumber();
+
+        for (const TLVPayloadData& pd : frame.getTLVPayloadData())
+        {
+            if (pd.SideInfoPoint_str.size() != pd.DetectedPoints_str.size())
+            {
+                cerr << "[ERROR] Mismatch: Detected="
+                     << pd.DetectedPoints_str.size()
+                     << " vs SideInfo="
+                     << pd.SideInfoPoint_str.size()
+                     << "\n";
+                continue;
+            }
+
+            vector<ValidRadarPoint> validPoints;
+            for (size_t i = 0UL; i < pd.DetectedPoints_str.size(); ++i)
+            {
+                const DetectedPoints& dp = pd.DetectedPoints_str[i];
+                const float pt_range = sqrtf(dp.x_f * dp.x_f +
+                                             dp.y_f * dp.y_f +
+                                             dp.z_f * dp.z_f);
+
+                float closest_range = -1.0F;
+                uint16_t closest_power = 0U;
+                float min_diff = numeric_limits<float>::max();
+                for (const RangeProfilePoint& rp : pd.RangeProfilePoint_str)
+                {
+                    const float diff = fabsf(pt_range - rp.range_f);
+                    if (diff < min_diff)
+                    {
+                        min_diff = diff;
+                        closest_range = rp.range_f;
+                        closest_power = rp.power_u16;
+                    }
+                }
+
+                const bool is_valid =
+                    ((closest_range >= 0.0F) &&
+                     (min_diff < BIN_TOLERANCE) &&
+                     (closest_power > UPDATE_POWER));
+
+                if (is_valid && (i < pd.SideInfoPoint_str.size()))
+                {
+                    const SideInfoPoint& si = pd.SideInfoPoint_str[i];
+                    validPoints.push_back(ValidRadarPoint{
+                        fid,
+                        static_cast<uint32_t>(i + 1U),
+                        dp.x_f,
+                        dp.y_f,
+                        dp.z_f,
+                        dp.doppler_f,
+                        si.snr,
+                        si.noise
+                    });
+                }
+            }
+
+            if (!validPoints.empty())
+            {
+                validFrames.push_back(std::move(validPoints));
+            }
+        }
+    }
+    return validFrames;
+}
+
+/*=== threadIwr6843Left(): Radar acquisition & filtering ===*/
+void threadIwr6843Left(void)
+{
+    int32_t leftRadarCount = 0;
     for (;;)
     {
-        int32_t cnt = radarSensor.poll();
-        if (cnt < 0)
+        // Poll information from both radars
+        leftRadarCount = radarLeftSensor.poll();
+        if (leftRadarCount < 0)
         {
-            cerr << "[ERROR] radarSensor.poll() failed\n";
+            cerr << "[ERROR] Both radars failed to poll\n";
             break;
         }
-        if (cnt == 0)
+        if (leftRadarCount == 0)
         {
+            // Wait for new data
             usleep(1000);
             continue;
         }
 
-        vector<SensorData> frames;
-        if (!radarSensor.copyDecodedFramesFromTop(frames, cnt, true, 100))
+        vector<SensorData> leftRadarFrames;
+        if (!radarLeftSensor.copyDecodedFramesFromTop(leftRadarFrames, leftRadarCount, true, 100))
         {
             cerr << "[ERROR] Timeout copying radar frames\n";
             continue;
         }
 
+        const vector<vector<ValidRadarPoint>> leftFrameBatches = extractValidRadarPoints(leftRadarFrames); 
+
         /* For each decoded frame */
-        for (const SensorData& frame : frames)
+        // If the batch is not empty
+        if(!leftFrameBatches.empty())
         {
-            /* Step 1: extract frame ID */
-            const Frame_header hdr = frame.getHeader(); /* getHeader() is const */
-            const uint32_t fid = hdr.getFrameNumber();
-
-            /* Step 2: process each TLV payload block */
-            for (const TLVPayloadData& pd : frame.getTLVPayloadData())
             {
-                if (pd.SideInfoPoint_str.size() != pd.DetectedPoints_str.size())
+                lock_guard<mutex> lock(radarMutexLeft);
+                for (auto&& batch : leftFrameBatches)
                 {
-                    cerr << "[ERROR] Mismatch: Detected="
-                         << pd.DetectedPoints_str.size()
-                         << " vs SideInfo="
-                         << pd.SideInfoPoint_str.size()
-                         << "\n";
-                    continue;
-                }
-
-                /* Step 3: collect VALID points */
-                vector<ValidRadarPoint> validPoints;
-                for (size_t i = 0UL; i < pd.DetectedPoints_str.size(); ++i)
-                {
-                    const DetectedPoints& dp = pd.DetectedPoints_str[i];
-                    const float pt_range = sqrtf(dp.x_f * dp.x_f +
-                                                 dp.y_f * dp.y_f +
-                                                 dp.z_f * dp.z_f);
-
-                    /* find closest peak */
-                    float closest_range = -1.0F;
-                    uint16_t closest_power = 0U;
-                    float    min_diff = numeric_limits<float>::max();
-                    for (const RangeProfilePoint& rp : pd.RangeProfilePoint_str)
+                    std::cout << "[DEBUG] Pushed LEFT batch of size: " << batch.size() << "\n";
+                    for (const auto& pt : batch)
                     {
-                        const float diff = fabsf(pt_range - rp.range_f);
-                        if (diff < min_diff)
-                        {
-                            min_diff       = diff;
-                            closest_range  = rp.range_f;
-                            closest_power  = rp.power_u16;
-                        }
+                        std::cout << "    [LEFT->Queue] Frame=" << pt.frameId
+                                << " Idx=" << pt.pointId
+                                << " x=" << pt.x
+                                << " y=" << pt.y
+                                << " z=" << pt.z
+                                << " doppler=" << pt.doppler
+                                << " snr=" << pt.snr
+                                << " noise=" << pt.noise << "\n";
                     }
-
-                    /* validity test */
-                    // After finding closest_peak_range, min_diff and closest_peak_power:
-                    const bool is_valid =
-                        ((closest_range >= 0.0F)                   // Ensure we actually found a peak
-                        &&                                          
-                        (min_diff      < 0.2F)                     // Range‐bin tolerance:  
-                                                                   //    • 0.047 m/bin ⇒ ±2 bins ≈0.1 m  
-                                                                   //    • bump to 0.2 m for ±4 bins if targets wander  
-                                                                   //    • tighten (e.g. 0.1 m) if you know objects are point-like
-                        &&                                          
-                        (closest_power > 2000U));                  // Minimum peak power:  
-                                                                   //    • this is raw magnitude squared  
-                                                                   //    • must exceed CFAR threshold (mean_noise + K)  
-                                                                   //    • lower toward 2000–2800U if you’re losing weak targets  
-                                                                   //    • raise if too many false detections in clutter
-
-                    if (is_valid && (i < pd.SideInfoPoint_str.size()))
-                    {
-                        const SideInfoPoint& si = pd.SideInfoPoint_str[i];
-                        validPoints.push_back(ValidRadarPoint
-                        {
-                            fid,
-                            static_cast<uint32_t>(i + 1U),
-                            dp.x_f,
-                            dp.y_f,
-                            dp.z_f,
-                            dp.doppler_f,
-                            si.snr,
-                            si.noise
-                        });
-                    }
-                }
-
-                /* Step 4: enqueue if non-empty */
-                if (!validPoints.empty())
-                {
-                    {
-                        lock_guard<mutex> lock(radarMutex);
-                        radarQueue.push(move(validPoints));
-                    }
-                    dataCV.notify_one();
+                    radarLeftQueue.push(std::move(batch));
                 }
             }
+            dataCV.notify_one();
+        }
+    }
+}
+
+/*=== threadIwr6843Right(): Radar acquisition & filtering ===*/
+void threadIwr6843Right(void)
+{
+    int32_t rightRadarCount = 0;
+    for (;;)
+    {
+        // Poll information from both radars
+        rightRadarCount = radarRightSensor.poll();
+        if (rightRadarCount < 0)
+        {
+            cerr << "[ERROR] Both radars failed to poll\n";
+            break;
+        }
+        if (rightRadarCount == 0)
+        {
+            // Wait for new data
+            usleep(1000);
+            continue;
+        }
+
+        vector<SensorData> rightRadarFrames;
+        if (!radarRightSensor.copyDecodedFramesFromTop(rightRadarFrames, rightRadarCount, true, 100))
+        {
+            cerr << "[ERROR] Timeout copying radar frames\n";
+            continue;
+        }
+
+        const vector<vector<ValidRadarPoint>> rightFrameBatches = extractValidRadarPoints(rightRadarFrames); 
+
+        /* For each decoded frame */
+        // If the batch is not empty
+        if(!rightFrameBatches.empty())
+        {
+            {
+                lock_guard<mutex> lock(radarMutexRight);
+                for (auto&& batch : rightFrameBatches)
+                {
+                    std::cout << "[DEBUG] Pushed RIGHT batch of size: " << batch.size() << "\n";
+                    for (const auto& pt : batch)
+                    {
+                        std::cout << "    [RIGHT->Queue] Frame=" << pt.frameId
+                                << " Idx=" << pt.pointId
+                                << " x=" << pt.x
+                                << " y=" << pt.y
+                                << " z=" << pt.z
+                                << " doppler=" << pt.doppler
+                                << " snr=" << pt.snr
+                                << " noise=" << pt.noise << "\n";
+                    }
+                    radarRightQueue.push(std::move(batch));
+                }
+            }
+            dataCV.notify_one();
         }
     }
 }
@@ -190,6 +309,7 @@ void threadIwr6843(void)
 /*=== threadMti710(): IMU acquisition ===*/
 void threadMti710(void)
 {
+    /* Step 2: continuous read/parse */
     xsens_interface_t iface = XSENS_INTERFACE_RX(&XsensMti710::xsens_event_handler);
     uint8_t buf[256];
     for (;;)
@@ -215,154 +335,149 @@ void threadMti710(void)
 /*=== threadWriter(): synchronizes and logs data ===*/
 void threadWriter(bool enableRadar, bool enableImu)
 {
-    for (;;)
+    const int packetSize = sizeof(PacketRadar);
+    const int imuPacketSize = sizeof(PacketImu);
+
+    while (true)
     {
-        unique_lock<mutex> lk(writeMutex);
+        std::vector<ValidRadarPoint> radarPts;
+        std::string source = "none";
 
-        dataCV.wait(lk, [&]{
-            return ((enableRadar ? !radarQueue.empty() : true) &&
-                    (enableImu   ? !imuQueue.empty()   : true));
-        });
-
-        vector<ValidRadarPoint> radarPts;
-        if (enableRadar && !radarQueue.empty())
         {
-            radarPts = move(radarQueue.front());
-            radarQueue.pop();
-        }
-        lk.unlock();
+            std::unique_lock<std::mutex> leftLock(radarMutexLeft, std::defer_lock);
+            std::unique_lock<std::mutex> rightLock(radarMutexRight, std::defer_lock);
+            std::lock(leftLock, rightLock);
 
-        size_t imuNeeded = 0;
-        if (enableRadar)
-        {
-            imuNeeded = radarPts.size() * 2UL;
-        }
-
-        vector<MTiData> imuSamples;
-        if (enableImu && imuNeeded > 0UL)
-        {
-            unique_lock<mutex> lk2(writeMutex);
-            dataCV.wait(lk2, [&]{
-                return imuQueue.size() >= imuNeeded;
-            });
-            imuSamples.reserve(imuNeeded);
+            #if ENABLE_RADAR_SIDE == 1 || ENABLE_RADAR_SIDE == 2
+            if (!radarLeftQueue.empty())
             {
-                lock_guard<mutex> lock(imuMutex);
-                for (size_t i = 0; i < imuNeeded; ++i)
-                {
-                    imuSamples.push_back(imuQueue.front());
-                    imuQueue.pop();
-                }
+                radarPts = std::move(radarLeftQueue.front());
+                radarLeftQueue.pop();
+                source = "left";
             }
+            #endif
+
+            #if ENABLE_RADAR_SIDE == 1 || ENABLE_RADAR_SIDE == 3
+            if (!radarRightQueue.empty())
+            {
+                radarPts = std::move(radarRightQueue.front());
+                radarRightQueue.pop();
+                source = "right";
+            }
+            #endif
         }
 
-        // Send radar points
+        if (radarPts.empty())
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
+        }
+
+        const uint32_t fid = radarPts.front().frameId;
+
+        // Send radar points over TCP
         if (enableRadar)
         {
             for (const auto& pt : radarPts)
             {
-                std::ostringstream oss;
-                oss << "[RADAR] frame=" << pt.frameId
-                    << " pt="   << pt.pointId
-                    << " x="    << pt.x
-                    << " y="    << pt.y
-                    << " z="    << pt.z
-                    << " dop="  << pt.doppler
-                    << " snr="  << pt.snr
-                    << " noise="<< pt.noise
-                    << "\n";
+                PacketRadar packet;
+                packet.frame_id = pt.frameId;
+                packet.point_id = pt.pointId;
+                packet.x = pt.x;
+                packet.y = pt.y;
+                packet.z = pt.z;
+                packet.doppler = pt.doppler;
+                packet.snr = pt.snr;
+                packet.noise = pt.noise;
+                packet.source = (source == "left") ? 0 : 1;
 
-                if (client_fd >= 0)
+                if (send(clientSocket, reinterpret_cast<const char*>(&packet), packetSize, 0) < 0)
                 {
-                    const std::string line = oss.str();
-                    send(client_fd, line.c_str(), line.size(), 0);
+                    std::cerr << "[ERROR] Failed to send radar packet\n";
                 }
             }
         }
 
-        // Send IMU samples
+        // Send matching IMU data
         if (enableImu)
         {
-            for (size_t i = 0UL; i < imuSamples.size(); ++i)
+            std::vector<MTiData> imuMatches;
             {
-                const MTiData& imu = imuSamples[i];
-                std::ostringstream oss;
-                oss << "[IMU] frame=" << (enableRadar && !radarPts.empty() ? radarPts.front().frameId : 0)
-                    << " idx=" << (i + 1UL)
-                    << " quat=("
-                    << imu.quaternion[0] << ","
-                    << imu.quaternion[1] << ","
-                    << imu.quaternion[2] << ","
-                    << imu.quaternion[3] << ") "
-                    << " accel=("
-                    << imu.acceleration[0] << ","
-                    << imu.acceleration[1] << ","
-                    << imu.acceleration[2] << ") "
-                    << " pkt=" << imu.packet_counter
-                    << "\n";
-
-                if (client_fd >= 0)
+                std::lock_guard<std::mutex> lock(imuMutex);
+                while (!imuQueue.empty())
                 {
-                    const std::string line = oss.str();
-                    send(client_fd, line.c_str(), line.size(), 0);
+                    imuMatches.push_back(imuQueue.front());
+                    imuQueue.pop();
+                }
+            }
+
+            for (size_t i = 0UL; i < imuMatches.size(); ++i)
+            {
+                const MTiData& imu = imuMatches[i];
+                PacketImu packet;
+
+                packet.frame_id = fid;
+                packet.imu_index = static_cast<uint32_t>(i + 1);
+
+                // Quaternion
+                packet.quat_w = imu.quaternion[0];
+                packet.quat_x = imu.quaternion[1];
+                packet.quat_y = imu.quaternion[2];
+                packet.quat_z = imu.quaternion[3];
+
+                // Acceleration
+                packet.accel_x = imu.acceleration[0];
+                packet.accel_y = imu.acceleration[1];
+                packet.accel_z = imu.acceleration[2];
+
+                // Free Acceleration
+                packet.free_accel_x = imu.free_acceleration[0];
+                packet.free_accel_y = imu.free_acceleration[1];
+                packet.free_accel_z = imu.free_acceleration[2];
+
+                // Delta V
+                packet.delta_v_x = imu.delta_v[0];
+                packet.delta_v_y = imu.delta_v[1];
+                packet.delta_v_z = imu.delta_v[2];
+
+                // Delta Q
+                packet.delta_q_w = imu.delta_q[0];
+                packet.delta_q_x = imu.delta_q[1];
+                packet.delta_q_y = imu.delta_q[2];
+                packet.delta_q_z = imu.delta_q[3];
+
+                // Rate of turn
+                packet.rate_x = imu.rate_of_turn[0];
+                packet.rate_y = imu.rate_of_turn[1];
+                packet.rate_z = imu.rate_of_turn[2];
+
+                // Copy quaternion again as some formats require it
+                packet.quat2_w = imu.quaternion[0];
+                packet.quat2_x = imu.quaternion[1];
+                packet.quat2_y = imu.quaternion[2];
+                packet.quat2_z = imu.quaternion[3];
+
+                // Magnetic field
+                packet.mag_x = imu.magnetic[0];
+                packet.mag_y = imu.magnetic[1];
+                packet.mag_z = imu.magnetic[2];
+
+                // Other status data
+                packet.temperature = imu.temperature;
+                packet.status_byte = imu.status_byte;
+                packet.packet_counter = imu.packet_counter;
+                packet.time_fine = imu.time_fine;
+
+                // Add source (0=left, 1=right)
+                packet.source = (source == "left") ? 0 : 1;
+
+                if (send(clientSocket, reinterpret_cast<const char*>(&packet), imuPacketSize, 0) < 0)
+                {
+                    std::cerr << "[ERROR] Failed to send IMU packet\n";
                 }
             }
         }
     }
-}
-
-
-/*=== threadTcpServer(): synchronizes and sends data ===*/
-void threadTcpServer()
-{
-    int server_fd;
-    struct sockaddr_in address;
-    int addrlen = sizeof(address);
-    int opt = 1;
-
-    server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_fd == 0)
-    {
-        cerr << "[ERROR] TCP socket failed\n";
-        return;
-    }
-
-    // Allow the port to be reused immediately after program restart
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
-    {
-        cerr << "[ERROR] setsockopt(SO_REUSEADDR) failed\n";
-        close(server_fd);
-        return;
-    }
-
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;  // Listen on all interfaces
-    address.sin_port = htons(9000);
-
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
-    {
-        cerr << "[ERROR] TCP bind failed\n";
-        close(server_fd);
-        return;
-    }
-
-    if (listen(server_fd, 1) < 0)
-    {
-        cerr << "[ERROR] TCP listen failed\n";
-        close(server_fd);
-        return;
-    }
-
-    cout << "[INFO] TCP Server waiting for client on port 9000...\n";
-    client_fd = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen);
-    if (client_fd < 0)
-    {
-        cerr << "[ERROR] TCP accept failed\n";
-        close(server_fd);
-        return;
-    }
-
-    cout << "[INFO] TCP Client connected!\n";
 }
 
 
@@ -370,55 +485,98 @@ void threadTcpServer()
 int main(void)
 {
     #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
-    cout << "[INFO] Initializing radar...\n";
-    if (radarSensor.init("/dev/ttyUSB0",
-                         "/dev/ttyUSB1",
-                         "../01_logSensorFusion/mmWave-IWR6843/configs/"
-                         "profile_azim60_elev30_calibrator.cfg"
-                        ) != 1)
-    {
-        cerr << "[ERROR] radarSensor.init() failed\n";
-        return 1;
-    }
-    #endif
-    #if ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3
-    /* Step 1: initialize IMU */
-    if ((imuSensor.findXsensDevice() != DEVICE_FOUND_SUCCESS) ||
-        (imuSensor.openXsensPort()   != OPEN_PORT_SUCCESS))
-    {
-        cerr << "[ERROR] Unable to initialize IMU\n";
-        return 1;
-    }
-    imuSensor.configure();
+        #if ENABLE_RADAR_SIDE == 1 || ENABLE_RADAR_SIDE == 2
+            cout << "[INFO] Initializing LEFT radar...\n";
+            if (radarLeftSensor.init(
+                                "/dev/ttyUSB0",
+                                "/dev/ttyUSB1",
+                                "../01_logSensorFusion/mmWave-IWR6843/configs/"
+                                "left_profile_azim60_elev30_calibrator.cfg"
+                                ) != 1)
+            {
+                cerr << "[ERROR] radarLeftSensor.init() failed\n";
+                return 1;
+            }
+        #endif
+        #if ENABLE_RADAR_SIDE == 1 || ENABLE_RADAR_SIDE == 3
+            cout << "[INFO] Initializing RIGHT radar...\n";
+            if (radarRightSensor.init(
+                                "/dev/ttyUSB2",
+                                "/dev/ttyUSB3",
+                                "../01_logSensorFusion/mmWave-IWR6843/configs/"
+                                "right_profile_azim60_elev30_calibrator.cfg"
+                                ) != 1)
+            {
+                cerr << "[ERROR] radarRightSensor.init() failed\n";
+                return 1;
+            }
+        #endif
     #endif
 
-    threadTcpServer();
-    // When we get here, the client is connected
-    if (client_fd < 0)
-    {
-        cerr << "[ERROR] No TCP client. Exiting.\n";
-        return 1;
-    }
+    #if ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3
+        if ((imuSensor.findXsensDevice() != DEVICE_FOUND_SUCCESS) ||
+            (imuSensor.openXsensPort()   != OPEN_PORT_SUCCESS))
+        {
+            cerr << "[ERROR] Unable to initialize IMU\n";
+            return 1;
+        }
+        imuSensor.configure();
+    #endif
+
+    #ifndef VALIDATE_PRINT
+        cout << "[INFO] Opening output files...\n";
+        if ((!csvRadarLeft.is_open()) || (!csvRadarRight.is_open()) || (!csvImu.is_open()))
+        {
+            cerr << "[ERROR] Failed to open CSVs\n";
+            return 1;
+        }
+    #endif
 
     cout << "[INFO] Spawning threads...\n";
+
+    std::thread thread_iwr6843_left;
+    std::thread thread_iwr6843_right;
+    std::thread thread_mti710;
+    std::thread thread_logger;
+
     #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
-    thread thread_iwr6843(threadIwr6843);
+        #if ENABLE_RADAR_SIDE == 1 || ENABLE_RADAR_SIDE == 2
+            thread_iwr6843_left = std::thread(threadIwr6843Left);
+        #endif
+        #if ENABLE_RADAR_SIDE == 1 || ENABLE_RADAR_SIDE == 3
+            thread_iwr6843_right = std::thread(threadIwr6843Right);
+        #endif
     #endif
+
     #if ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3
-    thread thread_mti710(threadMti710);
+        thread_mti710 = std::thread(threadMti710);
     #endif
-    thread thread_logger(threadWriter, 
+
+    thread_logger = std::thread(threadWriter, 
                         (ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3),
                         (ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3));
 
     /* Join threads (program runs until killed) */
     #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
-    thread_iwr6843.join();
+        #if ENABLE_RADAR_SIDE == 1 || ENABLE_RADAR_SIDE == 2
+            thread_iwr6843_left.join();
+        #endif
+        #if ENABLE_RADAR_SIDE == 1 || ENABLE_RADAR_SIDE == 3
+            thread_iwr6843_right.join();
+        #endif
     #endif
+
     #if ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3
-    thread_mti710.join();
+        thread_mti710.join();
     #endif
+
     thread_logger.join();
+
+    #ifndef VALIDATE_PRINT
+        csvRadarLeft.close();
+        csvRadarRight.close();
+        csvImu.close();
+    #endif
 
     return 0;
 }
