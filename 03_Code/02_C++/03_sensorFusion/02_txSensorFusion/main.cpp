@@ -16,8 +16,10 @@
 #include <thread>
 #include <cmath>
 #include <cstdint>
-#include <unistd.h>
 #include <chrono>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 
 #include "mmWave-IWR6843/radar_sensor/IWR6843.h"
 #include "mmWave-IWR6843/radar_sensor/SensorData.h"
@@ -60,6 +62,36 @@ struct ValidRadarPoint
     uint16_t noise;
     double timestamp;
 };
+
+struct PacketRadar {
+    char source[6];  // "left" or "right"
+    int frame_id;
+    int point_id;
+    float x;
+    float y;
+    float z;
+    float doppler;
+    float snr;
+    float noise;
+};
+
+struct PacketImu {
+    char source[6];  // optional if you want to tag source
+    int frame_id;
+    int imu_index;
+    float quaternion[4];
+    float acceleration[3];
+    float free_acceleration[3];
+    float delta_v[3];
+    float delta_q[4];
+    float rate_of_turn[3];
+    float magnetic[3];
+    float temperature;
+    int status_byte;
+    int packet_counter;
+    uint64_t time_fine;
+};
+
 
 /* Global synchronization objects */
 static mutex                   radarMutexLeft;  /* Protects radarQueue  */
