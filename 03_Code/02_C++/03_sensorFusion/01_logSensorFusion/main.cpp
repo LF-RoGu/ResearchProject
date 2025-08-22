@@ -79,9 +79,9 @@ static IWR6843     radarRightSensor;
 static XsensMti710 imuSensor;
 
 #ifndef VALIDATE_PRINT
-static ofstream csvRadarLeft("_outFiles/radarLeft_zAxisTest.csv");
-static ofstream csvRadarRight("_outFiles/radarRight_zAxisTest.csv");
-static ofstream csvImu  ("_outFiles/imu_driveAround_zAxisTest.csv");
+static ofstream csvRadarLeft("_outFiles/radarLeft_calib2.csv");
+static ofstream csvRadarRight("_outFiles/radarRight_calib2.csv");
+static ofstream csvImu  ("_outFiles/imu_calib2.csv");
 #endif
 
 const int UPDATE_POWER = 2000U; /* Minimum peak power for VALID radar points */
@@ -170,7 +170,7 @@ void threadIwr6843Left(void)
         leftRadarCount = radarLeftSensor.poll();
         if (leftRadarCount < 0)
         {
-            cerr << "[ERROR] Both radars failed to poll\n";
+            cerr << "[ERROR] Left radars failed to poll\n";
             break;
         }
         if (leftRadarCount == 0)
@@ -227,7 +227,7 @@ void threadIwr6843Right(void)
         rightRadarCount = radarRightSensor.poll();
         if (rightRadarCount < 0)
         {
-            cerr << "[ERROR] Both radars failed to poll\n";
+            cerr << "[ERROR] Right radars failed to poll\n";
             break;
         }
         if (rightRadarCount == 0)
