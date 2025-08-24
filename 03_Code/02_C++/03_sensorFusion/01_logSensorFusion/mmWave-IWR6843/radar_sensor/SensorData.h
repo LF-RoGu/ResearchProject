@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <chrono>
 #include <ctime>
+#include <algorithm>
 #include "sensor_data/UARTFrame.h"
 
 using namespace std;

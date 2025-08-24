@@ -29,6 +29,14 @@
 
 using namespace std;
 
+/*
+Macro to enable or disable sensors
+ 1 - enable only IWR
+ 2 - enable only MTI
+ 3 - enable both
+*/ 
+#define ENABLE_SENSORS 1
+
 const char CSV_TAB = ',';
 static int client_fd = -1;  // TCP connection socket
 
@@ -142,7 +150,7 @@ void threadIwr6843(void)
                                                                    //    • bump to 0.2 m for ±4 bins if targets wander  
                                                                    //    • tighten (e.g. 0.1 m) if you know objects are point-like
                         &&                                          
-                        (closest_power > 2800U));                  // Minimum peak power:  
+                        (closest_power > 2000U));                  // Minimum peak power:  
                                                                    //    • this is raw magnitude squared  
                                                                    //    • must exceed CFAR threshold (mean_noise + K)  
                                                                    //    • lower toward 2000–2800U if you’re losing weak targets  
@@ -205,85 +213,99 @@ void threadMti710(void)
 }
 
 /*=== threadWriter(): synchronizes and logs data ===*/
-void threadWriter(void)
+void threadWriter(bool enableRadar, bool enableImu)
 {
     for (;;)
     {
-        /* Wait for radar + IMU data */
         unique_lock<mutex> lk(writeMutex);
-        dataCV.wait(lk, []{
-            return (!radarQueue.empty()) && (!imuQueue.empty());
+
+        dataCV.wait(lk, [&]{
+            return ((enableRadar ? !radarQueue.empty() : true) &&
+                    (enableImu   ? !imuQueue.empty()   : true));
         });
 
-        vector<ValidRadarPoint> radarPts = move(radarQueue.front());
-        radarQueue.pop();
+        vector<ValidRadarPoint> radarPts;
+        if (enableRadar && !radarQueue.empty())
+        {
+            radarPts = move(radarQueue.front());
+            radarQueue.pop();
+        }
         lk.unlock();
 
-        const size_t N = radarPts.size();
-        const size_t imuNeeded = N * 2UL;
-
-        unique_lock<mutex> lk2(writeMutex);
-        dataCV.wait(lk2, [&]{
-            return imuQueue.size() >= imuNeeded;
-        });
+        size_t imuNeeded = 0;
+        if (enableRadar)
+        {
+            imuNeeded = radarPts.size() * 2UL;
+        }
 
         vector<MTiData> imuSamples;
-        imuSamples.reserve(imuNeeded);
+        if (enableImu && imuNeeded > 0UL)
         {
-            lock_guard<mutex> lock(imuMutex);
-            for (size_t i = 0; i < imuNeeded; ++i)
+            unique_lock<mutex> lk2(writeMutex);
+            dataCV.wait(lk2, [&]{
+                return imuQueue.size() >= imuNeeded;
+            });
+            imuSamples.reserve(imuNeeded);
             {
-                imuSamples.push_back(imuQueue.front());
-                imuQueue.pop();
+                lock_guard<mutex> lock(imuMutex);
+                for (size_t i = 0; i < imuNeeded; ++i)
+                {
+                    imuSamples.push_back(imuQueue.front());
+                    imuQueue.pop();
+                }
             }
         }
 
-        const uint32_t fid = radarPts.front().frameId;
-
-        /* === NEW PART: send radar points to TCP === */
-        for (const auto& pt : radarPts)
+        // Send radar points
+        if (enableRadar)
         {
-            std::ostringstream oss;
-            oss << "[RADAR] frame=" << pt.frameId
-                << " pt="   << pt.pointId
-                << " x="    << pt.x
-                << " y="    << pt.y
-                << " z="    << pt.z
-                << " dop="  << pt.doppler
-                << " snr="  << pt.snr
-                << " noise="<< pt.noise
-                << "\n";
-
-            if (client_fd >= 0)
+            for (const auto& pt : radarPts)
             {
-                const std::string line = oss.str();
-                send(client_fd, line.c_str(), line.size(), 0);
+                std::ostringstream oss;
+                oss << "[RADAR] frame=" << pt.frameId
+                    << " pt="   << pt.pointId
+                    << " x="    << pt.x
+                    << " y="    << pt.y
+                    << " z="    << pt.z
+                    << " dop="  << pt.doppler
+                    << " snr="  << pt.snr
+                    << " noise="<< pt.noise
+                    << "\n";
+
+                if (client_fd >= 0)
+                {
+                    const std::string line = oss.str();
+                    send(client_fd, line.c_str(), line.size(), 0);
+                }
             }
         }
 
-        /* === NEW PART: send IMU samples to TCP === */
-        for (size_t i = 0UL; i < imuSamples.size(); ++i)
+        // Send IMU samples
+        if (enableImu)
         {
-            const MTiData& imu = imuSamples[i];
-            std::ostringstream oss;
-            oss << "[IMU] frame=" << fid
-                << " idx=" << (i + 1UL)
-                << " quat=("
-                << imu.quaternion[0] << ","
-                << imu.quaternion[1] << ","
-                << imu.quaternion[2] << ","
-                << imu.quaternion[3] << ") "
-                << " accel=("
-                << imu.acceleration[0] << ","
-                << imu.acceleration[1] << ","
-                << imu.acceleration[2] << ") "
-                << " pkt=" << imu.packet_counter
-                << "\n";
-
-            if (client_fd >= 0)
+            for (size_t i = 0UL; i < imuSamples.size(); ++i)
             {
-                const std::string line = oss.str();
-                send(client_fd, line.c_str(), line.size(), 0);
+                const MTiData& imu = imuSamples[i];
+                std::ostringstream oss;
+                oss << "[IMU] frame=" << (enableRadar && !radarPts.empty() ? radarPts.front().frameId : 0)
+                    << " idx=" << (i + 1UL)
+                    << " quat=("
+                    << imu.quaternion[0] << ","
+                    << imu.quaternion[1] << ","
+                    << imu.quaternion[2] << ","
+                    << imu.quaternion[3] << ") "
+                    << " accel=("
+                    << imu.acceleration[0] << ","
+                    << imu.acceleration[1] << ","
+                    << imu.acceleration[2] << ") "
+                    << " pkt=" << imu.packet_counter
+                    << "\n";
+
+                if (client_fd >= 0)
+                {
+                    const std::string line = oss.str();
+                    send(client_fd, line.c_str(), line.size(), 0);
+                }
             }
         }
     }
@@ -296,11 +318,20 @@ void threadTcpServer()
     int server_fd;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
+    int opt = 1;
 
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd == 0)
     {
         cerr << "[ERROR] TCP socket failed\n";
+        return;
+    }
+
+    // Allow the port to be reused immediately after program restart
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
+    {
+        cerr << "[ERROR] setsockopt(SO_REUSEADDR) failed\n";
+        close(server_fd);
         return;
     }
 
@@ -311,12 +342,14 @@ void threadTcpServer()
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
     {
         cerr << "[ERROR] TCP bind failed\n";
+        close(server_fd);
         return;
     }
 
     if (listen(server_fd, 1) < 0)
     {
         cerr << "[ERROR] TCP listen failed\n";
+        close(server_fd);
         return;
     }
 
@@ -325,8 +358,10 @@ void threadTcpServer()
     if (client_fd < 0)
     {
         cerr << "[ERROR] TCP accept failed\n";
+        close(server_fd);
         return;
     }
+
     cout << "[INFO] TCP Client connected!\n";
 }
 
@@ -334,16 +369,19 @@ void threadTcpServer()
 /*=== MAIN ===*/
 int main(void)
 {
+    #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
     cout << "[INFO] Initializing radar...\n";
     if (radarSensor.init("/dev/ttyUSB0",
                          "/dev/ttyUSB1",
                          "../01_logSensorFusion/mmWave-IWR6843/configs/"
-                         "profile_azim60_elev30_optimized.cfg"
+                         "profile_azim60_elev30_calibrator.cfg"
                         ) != 1)
     {
         cerr << "[ERROR] radarSensor.init() failed\n";
         return 1;
     }
+    #endif
+    #if ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3
     /* Step 1: initialize IMU */
     if ((imuSensor.findXsensDevice() != DEVICE_FOUND_SUCCESS) ||
         (imuSensor.openXsensPort()   != OPEN_PORT_SUCCESS))
@@ -352,6 +390,7 @@ int main(void)
         return 1;
     }
     imuSensor.configure();
+    #endif
 
     threadTcpServer();
     // When we get here, the client is connected
@@ -362,13 +401,23 @@ int main(void)
     }
 
     cout << "[INFO] Spawning threads...\n";
+    #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
     thread thread_iwr6843(threadIwr6843);
+    #endif
+    #if ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3
     thread thread_mti710(threadMti710);
-    thread thread_logger(threadWriter);
+    #endif
+    thread thread_logger(threadWriter, 
+                        (ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3),
+                        (ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3));
 
     /* Join threads (program runs until killed) */
+    #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
     thread_iwr6843.join();
+    #endif
+    #if ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3
     thread_mti710.join();
+    #endif
     thread_logger.join();
 
     return 0;
