@@ -94,15 +94,17 @@ class RadarCSVReader:
             print(f"⚠️ Skipping malformed radar row: {row} — {e}")
             return None
 
-    def load_all(self) -> list[RadarRecord]:
+    def load_all(self, filter_enabled: bool = False, start_frame: int = 0) -> list[RadarRecord]:
         grouped_frames = defaultdict(list)
         with open(self.csv_path, newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 record = self._row_to_record(row)
                 if record:
-                    grouped_frames[record.frame_id].append(record)
+                    if not filter_enabled or record.frame_id > start_frame:
+                        grouped_frames[record.frame_id].append(record)
         return [grouped_frames[frame_id] for frame_id in sorted(grouped_frames)]
+
     
 class ImuCSVReader:
     FIELDNAMES = [
@@ -186,12 +188,13 @@ class ImuCSVReader:
             print(f"⚠️ Skipping malformed IMU row: {row} — {e}")
             return None
 
-    def load_all(self) -> list[ImuRecord]:
+    def load_all(self, filter_enabled: bool = False, start_frame: int = 0) -> list[ImuRecord]:
         grouped_frames = defaultdict(list)
         with open(self.csv_path, newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 record = self._row_to_record(row)
                 if record:
-                    grouped_frames[record.frame_id].append(record)
+                    if not filter_enabled or record.frame_id > start_frame:
+                        grouped_frames[record.frame_id].append(record)
         return [grouped_frames[frame_id] for frame_id in sorted(grouped_frames)]
