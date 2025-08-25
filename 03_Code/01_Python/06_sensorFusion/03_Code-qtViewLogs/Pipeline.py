@@ -88,8 +88,8 @@ TRANSFORMATIONS = {
 }
 
 
-folderName = "10_calib"  # Folder where CSV files are stored
-testType = "calib.csv"  # Type of test data
+folderName = "09_dualSensor"  # Folder where CSV files are stored
+testType = "hallway_1.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarRightLoader = RadarCSVReader("radarRight_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 radarLeftLoader = RadarCSVReader("radarLeft_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
