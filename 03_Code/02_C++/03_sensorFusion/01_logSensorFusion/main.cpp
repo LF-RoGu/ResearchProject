@@ -67,8 +67,8 @@ static IWR6843     radarSensor;
 static XsensMti710 imuSensor;
 
 #ifndef VALIDATE_PRINT
-static ofstream csvRadar("_outFiles/radar_2GHzConfig2.csv");
-static ofstream csvImu  ("_outFiles/imu_2GHzConfig2.csv");
+static ofstream csvRadar("_outFiles/radar_2GHzConfig.csv");
+static ofstream csvImu  ("_outFiles/imu_2GHzConfig.csv");
 #endif
 
 const int UPDATE_POWER = 1800U; /* Minimum peak power for VALID radar points */
