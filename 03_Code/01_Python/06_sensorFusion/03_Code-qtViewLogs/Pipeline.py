@@ -88,8 +88,8 @@ TRANSFORMATIONS = {
 }
 
 
-folderName = "09_dualSensor"  # Folder where CSV files are stored
-testType = "hallway_1.csv"  # Type of test data
+folderName = "12_calibTesting"  # Folder where CSV files are stored
+testType = "calibStraightWallSameConfig3.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarRightLoader = RadarCSVReader("radarRight_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 radarLeftLoader = RadarCSVReader("radarLeft_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
@@ -619,7 +619,8 @@ class ClusterViewer(QWidget):
 
                 pointCloudTransform["Vehicle"] = pointCloudTransform["Right"] + pointCloudTransform["Left"]
 
-                currentFramePointCloud = self.radarRight_frames[f]
+                #currentFramePointCloud = self.radarRight_frames[f]
+                currentFramePointCloud = self.radarLeft_frames[f] + self.radarRight_frames[f]
                 _radarAgg.updateBuffer(currentFramePointCloud)
             if ENABLE_SENSORS in (2, 3) and f < len(self.imu_frames):
                 if rightFrameID == leftFrameID:
