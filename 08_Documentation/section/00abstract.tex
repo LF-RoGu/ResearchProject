@@ -1,0 +1,13 @@
+\begin{abstract}
+This paper explores the integration of mmWave radar technology for object detection and environmental perception of an emergency braking system, a topic that has gained significant attention in autonomous systems and Advanced Driver Assistance Systems (ADAS).
+An implementation of an emergency braking system for an electric go-kart is presented with a focus on the system's conception and how a processing pipeline for cluster-based detection of static objects can be developed.
+
+The presented approach leverages point-cloud data of a IWR6843AOP mmWave radar sensor from Texas Instruments, processed by a modular pipeline to detect and track objects within a 10-meter range.
+This modular pipeline features a radar-only self-speed estimation together with the combination of a specialized filtering stage and a two-stage clustering technique, effectively implementing a lightweight and simple framework for detecting static targets from a moving vehicle.
+Its output is used to trigger an emergency braking event which effects the go-kart's braking system through a hardware interface.
+\end{abstract}
+
+\begin{IEEEkeywords}
+mmWave radar, object detection, ADAS, autonomous systems, clustering, physical filtering, two-stage filtering, Doppler velocity estimation, occupancy grid mapping, environmental perception.
+\end{IEEEkeywords}
+
