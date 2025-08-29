@@ -49,50 +49,34 @@ P = None  # clusters for current frame t
 Q = None  # clusters for previous frame t-1
 P_global = None  # clusters for current frame t
 Q_global = None  # clusters for previous frame t-1
-egoMotion = {
-    'result_vectors':    [],  # Store raw ICP results for debugging
-    'T_global':          [],  # Store cumulative transformation matrix
+egoMotion_global = {
     'translation':       [],  # Store cumulative global translations (x, y)
     'rotations':         []   # Store cumulative global heading (theta)
 }
-pointCloudTransform = {     # Global dictionary for transformed point clouds
-    "Left": [],
-    "Right": [],
-    "Vehicle": []
+cumulative_distance_global = 0.0
+cumulative_heading_global = 0.0
+egoMotion_cluster = {
+    'translation':       [],  # Store cumulative global translations (x, y)
+    'rotations':         []   # Store cumulative global heading (theta)
 }
+cumulative_distance_cluster = 0.0
+cumulative_heading_cluster = 0.0
 
-cumulativeTego = np.eye(3)  # 3x3 identity (no translation/rotation yet)
+trajectory_cluster = [(0.0, 0.0)]
+trajectory_global = [(0.0, 0.0)]
+
+trajectory_cluster_imu = [(0.0, 0.0)]
+trajectory_global_imu = [(0.0, 0.0)]
+imu_heading_rad = None
+
+
 T_global = np.eye(3)  # initial pose at origin
-positions = []        # store global translation only
-rotations = []        # store global rotation only
-
-def yaw_rotation_matrix(yaw_deg):
-    yaw_rad = np.deg2rad(yaw_deg)
-    cos_y = np.cos(yaw_rad)
-    sin_y = np.sin(yaw_rad)
-    return np.array([
-        [cos_y, -sin_y, 0],
-        [sin_y,  cos_y, 0],
-        [0,      0,     1]
-    ])
-
-TRANSFORMATIONS = {
-    "left": {
-        "R": yaw_rotation_matrix(30),        # pointing 29° from Y+ toward -X
-        "T": np.array([-0.29, 0.0, 0.15])
-    },
-    "right": {
-        "R": yaw_rotation_matrix(-30),        # pointing 29° from Y+ toward +X
-        "T": np.array([0.29, 0.0, 0.15])
-    }
-}
 
 
 folderName = "12_calibTesting"  # Folder where CSV files are stored
-testType = "calibStraightWallSameConfig3.csv"  # Type of test data
+testType = "4GHzConfig.csv"  # Type of test data
 # Instantiate readers and global aggregators
-radarRightLoader = RadarCSVReader("radarRight_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
-radarLeftLoader = RadarCSVReader("radarLeft_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
+radarLoader = RadarCSVReader("radar_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 imuLoader   = ImuCSVReader("imu_" + testType, folderName) if ENABLE_SENSORS in (2, 3) else None
 _radarAgg         = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 _imuAgg           = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
@@ -103,47 +87,32 @@ cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.5, min_samples=3)
 
 Vego_filter = KalmanFilter(process_variance=0.02, measurement_variance=0.5)
 
-def transform_pointcloud(points, sensor_label):
-    """
-    Apply R * point + T for each point in the list.
-    Accepts either RadarRecord objects or dicts with keys x, y, z.
-    """
-    R = TRANSFORMATIONS[sensor_label]["R"]
-    T = TRANSFORMATIONS[sensor_label]["T"]
-    result = []
+def plot_trajectory(plot_widget, trajectory, label, color='g', extra_lines=None):
+    plot_widget.clear()
+    plot_widget.setTitle(label)
+    plot_widget.showGrid(x=True, y=True)
 
-    for p in points:
-        # RadarRecord object
-        if hasattr(p, 'x') and hasattr(p, 'y') and hasattr(p, 'z'):
-            local = np.array([p.x, p.y, p.z], dtype=float)
-            global_coords = np.dot(R, local) + T
+    if len(trajectory) < 1:
+        return
 
-            result.append({
-                'x': global_coords[0],
-                'y': global_coords[1],
-                'z': global_coords[2],
-                'doppler': getattr(p, 'doppler', 0.0),
-                'snr': getattr(p, 'snr', 0.0),
-                'noise': getattr(p, 'noise', 0.0),
-                'frame_id': getattr(p, 'frame_id', -1),
-                'point_id': getattr(p, 'point_id', -1),
-                'source': sensor_label
-            })
+    # --- Plot main trajectory
+    xs, ys = zip(*trajectory)
+    plot_widget.plot(xs, ys, pen=pg.mkPen(color, width=2))
+    last_x, last_y = xs[-1], ys[-1]
+    label_item = pg.TextItem(f"{label}\nX={last_x:.2f}, Y={last_y:.2f}", color=color)
+    label_item.setPos(last_x, last_y)
+    plot_widget.addItem(label_item)
 
-        # Dictionary point
-        elif isinstance(p, dict):
-            if not all(k in p for k in ('x', 'y', 'z')):
-                continue
-            local = np.array([p['x'], p['y'], p['z']], dtype=float)
-            global_coords = np.dot(R, local) + T
-
-            p_new = p.copy()
-            p_new['x'], p_new['y'], p_new['z'] = global_coords
-            p_new['source'] = sensor_label
-            result.append(p_new)
-
-    return result
-
+    # --- Plot extra lines if any
+    if extra_lines:
+        for extra in extra_lines:
+            xs2, ys2 = zip(*extra['trajectory']) if len(extra['trajectory']) > 0 else ([], [])
+            if xs2 and ys2:
+                plot_widget.plot(xs2, ys2, pen=pg.mkPen(extra.get('color', 'r'), width=2, style=pg.QtCore.Qt.DashLine))
+                last_x2, last_y2 = xs2[-1], ys2[-1]
+                label_item2 = pg.TextItem(extra.get('label', ''), color=extra.get('color', 'r'))
+                label_item2.setPos(last_x2, last_y2)
+                plot_widget.addItem(label_item2)
 
 def pretty_print_clusters(clusters, label="Clusters"):
     """
@@ -167,9 +136,10 @@ def pretty_print_clusters(clusters, label="Clusters"):
 # ------------------------------
 def plot1(plot_widget, pointCloud):
     """
-    Render the filtered point cloud (pointCloud),
-    coloring by 'source' field: 'right' vs 'left'.
+    Render only the filtered point cloud (pointCloud),
+    which may be a list of {'x','y',…} dicts.
     """
+    import pyqtgraph as pg
 
     # 1) Clear previous items and set title
     plot_widget.clear()
@@ -179,46 +149,30 @@ def plot1(plot_widget, pointCloud):
     if not pointCloud:
         return
 
-    # 3) Separate points by source
-    x_right, y_right = [], []
-    x_left, y_left = [], []
-
+    # 3) Extract x/y coords from each dict
+    x, y = [], []
     for p in pointCloud:
-        if isinstance(p, dict) and 'x' in p and 'y' in p and 'source' in p:
-            if p['source'] == 'right':
-                x_right.append(p['x'])
-                y_right.append(p['y'])
-            elif p['source'] == 'left':
-                x_left.append(p['x'])
-                y_left.append(p['y'])
+        # safely skip any malformed entries
+        if isinstance(p, dict) and 'x' in p and 'y' in p:
+            x.append(p['x'])
+            y.append(p['y'])
 
-    # 4) Plot each group in different color
-    if x_right:
-        scatter_right = pg.ScatterPlotItem(
-            x=x_right, y=y_right,
-            size=8,
-            pen=None,
-            brush=pg.mkBrush(0, 200, 0, 150)  # Green for right
-        )
-        plot_widget.addItem(scatter_right)
+    # 4) Plot if we got any points
+    scatter = pg.ScatterPlotItem(
+        x=x,
+        y=y,
+        size=8,
+        pen=None,
+        brush=pg.mkBrush(0, 200, 0, 150)
+    )
+    plot_widget.addItem(scatter)
 
-    if x_left:
-        scatter_left = pg.ScatterPlotItem(
-            x=x_left, y=y_left,
-            size=8,
-            pen=None,
-            brush=pg.mkBrush(0, 0, 255, 150)  # Blue for left
-        )
-        plot_widget.addItem(scatter_left)
-
-    # 5) Add doppler as yellow labels for all
     for p in pointCloud:
         if isinstance(p, dict) and 'x' in p and 'y' in p and 'doppler' in p:
             dop = p['doppler']
-            txt = pg.TextItem(f"{dop:.2f}", color='y', anchor=(0, 1))
+            txt = pg.TextItem(f"{dop:.2f}", color='y', anchor=(0,1))
             txt.setPos(p['x'] + 0.1, p['y'] + 0.1)
             plot_widget.addItem(txt)
-
 
 
 # ------------------------------
@@ -379,14 +333,15 @@ def plot4(plot_widget, ego_matrix, translation_history):
     plot_widget.addItem(txt)
 
 # ------------------------------
-# Plot-5’s 
+# Plot-7’s 
 # ------------------------------
-def plot5(plot_widget, imu_average):
+def plot7(plot_widget, imu_average):
     """
     Display IMU heading on a unit circle, rotated so that
     0° = West, 90° = North, 180° = East, 270° = South,
     then shifted 90° clockwise (to the right).
     """
+    global imu_heading_rad
 
     # 1) Clear and set up plot
     plot_widget.clear()
@@ -409,6 +364,8 @@ def plot5(plot_widget, imu_average):
     # 4) Compute raw yaw: 0°=East, 90°=North
     heading_rad = np.arctan2(2*(w*z + x*y), 1 - 2*(y*y + z*z))
     heading_deg = np.degrees(heading_rad)  # raw yaw
+
+    imu_heading_rad = heading_rad
 
     # 5) Rotate to compass convention: 0°=West, 90°=North, etc.
     display_rad = np.pi - heading_rad
@@ -494,25 +451,10 @@ class ClusterViewer(QWidget):
         self.resize(1200,900)
 
         # Load data once
-        self.imu_frames = imuLoader.load_all() if imuLoader else []
-        # Set both frames
-        self.radarRight_frames = radarRightLoader.load_all() if radarRightLoader else []
-        self.radarLeft_frames = radarLeftLoader.load_all() if radarLeftLoader else []
-        if len(self.radarRight_frames) > len(self.radarLeft_frames):
-            self.radarDataSetLength = len(self.radarRight_frames)
-        elif len(self.radarLeft_frames) > len(self.radarRight_frames):
-            self.radarDataSetLength = len(self.radarLeft_frames)
-        elif len(self.radarLeft_frames) == len(self.radarRight_frames):
-            self.radarDataSetLength = int((len(self.radarLeft_frames) + len(self.radarRight_frames)) / 2)
-        else:
-            self.radarDataSetLength = 0
-
+        self.imu_frames = imuLoader.load_all(True, 310) if imuLoader else []
+        self.radar_frames = radarLoader.load_all(True, 310) if radarLoader else []
+        self.radarDataSetLength = len(self.radar_frames) if self.radar_frames else 0
         self.currentFrame = -1
-
-        self.i_right = 0
-        self.i_left = 0
-        self.i_imu = 0
-
 
         # Plot will now use spatial matching with tuned parameters; others remain default
         self.trackers = {}
@@ -546,11 +488,13 @@ class ClusterViewer(QWidget):
             p.setTitle(f"Plot {idx}")
             self.plots[f"plot{idx}"] = p
 
-        p5 = self.plot_widget.addPlot(row=3, col=0, colspan=3)
-        p5.setXRange(-1,1); p5.setYRange(-1,1)
-        p5.setAspectLocked(True); p5.showGrid(x=True,y=True)
-        p5.setTitle("Plot 5: IMU Heading")
-        self.plots["plot5"] = p5
+        p7 = self.plot_widget.addPlot(row=3, col=0, colspan=3)
+        p7.setXRange(-1,1)
+        p7.setYRange(-1,1)
+        p7.setAspectLocked(True)
+        p7.showGrid(x=True,y=True)
+        p7.setTitle("Plot 7: IMU Heading")
+        self.plots["plot7"] = p7
 
         
         # Control bar: label, slider, buttons
@@ -578,58 +522,20 @@ class ClusterViewer(QWidget):
         self.on_slider_changed(0)
 
     def on_slider_changed(self, newFrame):
-        global pointCloudTransform
         # rewind on backward move
         if newFrame < self.currentFrame:
             if ENABLE_SENSORS in (1, 3):
                 _radarAgg.clearBuffer()
             if ENABLE_SENSORS in (2, 3):
                 _imuAgg.clearBuffer()
-            self.i_right = 0
-            self.i_left = 0
-            self.i_imu = 0
             self.currentFrame = -1
 
         # aggregate only new frames
         for f in range(self.currentFrame + 1, newFrame + 1):
-            if ENABLE_SENSORS in (1, 3) and f < len(self.radarRight_frames):
-                dataRight = self.radarRight_frames[self.i_right]
-                dataLeft = self.radarLeft_frames[self.i_left]
-
-                rightFrameID = dataRight[0].frame_id if dataRight else -1
-                leftFrameID  = dataLeft[0].frame_id if dataLeft else -2
-
-                pointCloudTransform = {
-                    "Right": [],
-                    "Left": [],
-                    "Vehicle": []
-                }
-
-                if rightFrameID == leftFrameID:
-                    pointCloudTransform["Right"] = transform_pointcloud(self.radarRight_frames[self.i_right], "right")
-                    pointCloudTransform["Left"] = transform_pointcloud(self.radarLeft_frames[self.i_left], "left")
-                    self.i_right += 1
-                    self.i_left += 1
-                elif rightFrameID < leftFrameID:
-                    pointCloudTransform["Right"] = transform_pointcloud(self.radarRight_frames[self.i_right], "right")
-                    self.i_right += 1
-                else:
-                    pointCloudTransform["Left"] = transform_pointcloud(self.radarLeft_frames[self.i_left], "left")
-                    self.i_left += 1
-
-                pointCloudTransform["Vehicle"] = pointCloudTransform["Right"] + pointCloudTransform["Left"]
-
-                #currentFramePointCloud = self.radarRight_frames[f]
-                currentFramePointCloud = self.radarLeft_frames[f] + self.radarRight_frames[f]
-                _radarAgg.updateBuffer(currentFramePointCloud)
+            if ENABLE_SENSORS in (1, 3) and f < len(self.radar_frames):
+                _radarAgg.updateBuffer(self.radar_frames[f])
             if ENABLE_SENSORS in (2, 3) and f < len(self.imu_frames):
-                if rightFrameID == leftFrameID:
-                    self.i_imu += 1
-                elif rightFrameID > leftFrameID:
-                    self.i_imu
-                else:
-                    self.i_imu
-                _imuAgg.updateBuffer(self.imu_frames[self.i_imu])
+                _imuAgg.updateBuffer(self.imu_frames[f])
 
         self.currentFrame  = newFrame
         self.slider_label.setText(f"Frame: {newFrame}")
@@ -649,9 +555,11 @@ class ClusterViewer(QWidget):
     def update_all_plots(self):
         global P, Q
         global P_global, Q_global
-        global T_global, positions, rotations
+        global T_global
+        global cumulative_distance_global, cumulative_heading_global
+        global cumulative_distance_cluster, cumulative_heading_cluster
         # Filtern Pipeline information (Plot 1 only)
-        rawPointCloud = pointCloudTransform["Vehicle"] if ENABLE_SENSORS in (1, 3) else []
+        rawPointCloud = _radarAgg.getPoints() if ENABLE_SENSORS in (1, 3) else []
         pointCloud = pointFilter.filterDoppler(rawPointCloud, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
         #pointCloud = pointFilter.filterSNRmin( rawPointCloud, FILTER_SNR_MIN)
         #pointCloud = pointFilter.filterCartesianZ(pointCloud, FILTER_Z_MIN, FILTER_Z_MAX)
@@ -730,8 +638,15 @@ class ClusterViewer(QWidget):
                 plot2(plot_item, clusters)
             if name == "plot3":
                 plot3(plot_item, rawPointCloud, ransac_output)
-            if name == "plot5" and ENABLE_SENSORS in (2, 3):
-                plot5(plot_item, imuData)
+            
+            if name == "plot4":
+                plot_trajectory(plot_item, trajectory_cluster, "EgoMotion Cluster", color='g', extra_lines=[
+                    {'trajectory': trajectory_cluster_imu, 'label': 'IMU-Based', 'color': 'b'}])
+
+            if name == "plot5":
+                plot_trajectory(plot_item, trajectory_global, "EgoMotion Global", color='g', extra_lines=[
+                    {'trajectory': trajectory_global_imu, 'label': 'IMU-Based', 'color': 'b'}])
+
             if name == "plot6":
                 # update the tracker with the fresh Stage-2 clusters
                 self.trackers[name].update(clusterProcessor_final)
@@ -773,56 +688,74 @@ class ClusterViewer(QWidget):
                     'rotation_avg': resultVectors_cluster['global']['rotation']
                 })
 
-                """
-                If everything is correct, both checks should print True, meaning your ego-motion is a valid inverse of the ICP transformation.
-                """
-                identity_global = np.dot(Tego_global, Ticp_global)
-                #print(f"Validation Global: \n {identity_global}")
-                identity_cluster = np.dot(Tego_cluster, Ticp_cluster)
-                #print(f"Validation Cluster: \n {identity_cluster}")
-
-                #print("Global close to Identity:", np.allclose(identity_global, np.eye(3), atol=1e-6)) # Checks if every element is close to identity within tolerance 1e-6
-                #print("Cluster close to Identity:", np.allclose(identity_cluster, np.eye(3), atol=1e-6)) # Checks if every element is close to identity within tolerance 1e-6
-
                 # Extract local translation and rotation from Ticp_global
-                tx_local = Tego_global[0, 2]
-                ty_local = Tego_global[1, 2]
+                dx_local = Tego_global[0, 2]
+                dy_local = Tego_global[1, 2]
                 theta_local = np.arctan2(Tego_global[1, 0], Tego_global[0, 0])
 
-                # Convert local translation to world frame
-                theta_global = np.arctan2(T_global[1, 0], T_global[0, 0])
-                cos_g, sin_g = np.cos(theta_global), np.sin(theta_global)
-                tx_world = cos_g * tx_local - sin_g * ty_local
-                ty_world = sin_g * tx_local + cos_g * ty_local
+                step_distance = np.sqrt(dx_local**2 + dy_local**2)
+                
+                cumulative_distance_global += step_distance
+                cumulative_heading_global += theta_local
 
-                # Update T_global manually
-                T_global[0, 2] += tx_world
-                T_global[1, 2] += ty_world
-                # Update heading
-                new_theta = theta_global + theta_local
-                rotations.append(new_theta)
-                positions.append((T_global[0, 2], T_global[1, 2]))
+                # Store in egoMotion_global
+                egoMotion_global['translation'].append(cumulative_distance_global)
+                egoMotion_global['rotations'].append(cumulative_heading_global)
 
-                """
-                print(
-                    f"Frame {self.currentFrame}: "
-                    f"Matched Points = {matched_points}, "
-                    f"Centroid Δ = ({centroid_disp[0]:.4f}, {centroid_disp[1]:.4f}), "
-                    f"ICP Tx = {tx_local:.4f}, ICP Ty = {ty_local:.4f}"
-                )
-                """
+                ####
+                # Extract local translation and rotation from Ticp_global
+                dx_local = Tego_cluster[0, 2]
+                dy_local = Tego_cluster[1, 2]
+                theta_local = np.arctan2(Tego_cluster[1, 0], Tego_cluster[0, 0])
 
-                """               
-                print(
-                    f"Frame {self.currentFrame}: "
-                    f"Local Tx = {tx_local:.4f}, Local Ty = {ty_local:.4f}, "
-                    f"Local Theta = {np.degrees(theta_local):.2f}°, "
-                    f"World Tx = {tx_world:.4f}, World Ty = {ty_world:.4f}, "
-                    f"Cumulative Pose = ({T_global[0, 2]:.4f}, {T_global[1, 2]:.4f}), "
-                    f"Cumulative Heading = {np.degrees(new_theta):.2f}°"
-                )
-                """
+                step_distance = np.sqrt(dx_local**2 + dy_local**2)
+                
+                cumulative_distance_cluster += step_distance
+                cumulative_heading_cluster += theta_local
+
+                # Store in egoMotion_global
+                egoMotion_cluster['translation'].append(cumulative_distance_cluster)
+                egoMotion_cluster['rotations'].append(cumulative_heading_cluster)
+
+                # --- Update ego-motion trajectory from cluster ---
+                if egoMotion_cluster['translation']:
+                    last_dist = egoMotion_cluster['translation'][-1] - (egoMotion_cluster['translation'][-2] if len(egoMotion_cluster['translation']) > 1 else 0.0)
+                    
+                    # From ICP rotation
+                    last_angle = egoMotion_cluster['rotations'][-1]
+                    x_prev, y_prev = trajectory_cluster[-1]
+                    x_new = x_prev + last_dist * np.sin(last_angle)
+                    y_new = y_prev + last_dist * np.cos(last_angle)
+                    trajectory_cluster.append((x_new, y_new))
+
+                    # From IMU rotation (if available)
+                    if imu_heading_rad is not None:
+                        x_prev_imu, y_prev_imu = trajectory_cluster_imu[-1]
+                        x_new_imu = x_prev_imu + last_dist * np.sin(imu_heading_rad)
+                        y_new_imu = y_prev_imu + last_dist * np.cos(imu_heading_rad)
+                        trajectory_cluster_imu.append((x_new_imu, y_new_imu))
+
+                # --- Update ego-motion trajectory from global ---
+                if egoMotion_global['translation']:
+                    last_dist = egoMotion_global['translation'][-1] - (egoMotion_global['translation'][-2] if len(egoMotion_global['translation']) > 1 else 0.0)
+
+                    # From ICP rotation
+                    last_angle = egoMotion_global['rotations'][-1]
+                    x_prev, y_prev = trajectory_global[-1]
+                    x_new = x_prev + last_dist * np.sin(last_angle)
+                    y_new = y_prev + last_dist * np.cos(last_angle)
+                    trajectory_global.append((x_new, y_new))
+
+                    # From IMU rotation (if available)
+                    if imu_heading_rad is not None:
+                        x_prev_imu, y_prev_imu = trajectory_global_imu[-1]
+                        x_new_imu = x_prev_imu + last_dist * np.sin(imu_heading_rad)
+                        y_new_imu = y_prev_imu + last_dist * np.cos(imu_heading_rad)
+                        trajectory_global_imu.append((x_new_imu, y_new_imu))
+                                
                 plot6(plot_item, Tego_cluster)
+            if name == "plot7" and ENABLE_SENSORS in (2, 3):
+                plot7(plot_item, imuData)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
