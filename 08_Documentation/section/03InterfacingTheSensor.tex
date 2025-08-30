@@ -100,26 +100,60 @@ Several theoretical trade-offs can be discussed:
     A higher number of chirps improves Doppler (velocity) resolution, since $\Delta v$ decreases as $N_c$ increases.  
     However, this also increases the frame time, which reduces the maximum unambiguous velocity $v_{max}$ and leads to slower update rates.  
     In odometry, this improves smoothness of velocity estimation but may reduce responsiveness.  
+    This effect is visible in Fig.~\ref{fig:AllCfgTogether}, where the blue traces (\texttt{profile\_narrow\_many\_fullband}) illustrate how increasing $N_c$ provides finer velocity resolution at the cost of range precision.
 
     \item \textbf{Longer frequency sweeps (higher bandwidth $B$)}:  
-    A single chirp spanning the full 4~GHz available bandwidth yields very fine range resolution, since $\Delta R$ decreases with larger $B$.  
+    A single chirp spanning the full 4~GHz available bandwidth yields very fine range resolution, since $\Delta R = \tfrac{c}{2B}$ decreases with larger $B$.  
     However, such steep slopes increase hardware demands on the ADC and limit the maximum measurable range $R_{max}$.  
-    In practice, using the full bandwidth provides excellent spatial detail but may be less robust in longer-range detection scenarios.  
+    This behavior is shown in Fig.~\ref{fig:profile4GHz}, where the red trace (\texttt{profile\_full\_4GHz}) demonstrates the full-band 4~GHz chirp.
 
-    \item \textbf{Multiple shorter chirps within the same frame} (e.g., two chirps each of 2~GHz instead of one 4~GHz chirp):  
-    This allows the radar to trade off between coverage and resolution.  
-    Each shorter chirp has reduced range resolution compared to the full 4~GHz sweep, but combining them can increase robustness and reduce ambiguity.  
-    Multiple chirps with different slopes can also provide diversity in the frequency domain, which helps mitigate range-Doppler coupling and improves target detection in complex environments.  
+    \item \textbf{Multiple shorter chirps within the same frame}:  
+    For example, two chirps each spanning 2~GHz instead of a single 4~GHz chirp.  
+    Each shorter chirp has reduced range resolution compared to the full-band sweep, but combining them increases robustness and reduces ambiguity.  
+    Multiple chirps with different slopes can also mitigate range–Doppler coupling and improve target detection in cluttered environments.  
+    This configuration is shown in Fig.~\ref{fig:profile2GHz}, and the direct comparison to the full-band chirp is made clear in Fig.~\ref{fig:profile2And4GHz}.
 
     \item \textbf{Shorter chirps with smaller bandwidth}:  
-    These increase maximum range but worsen range resolution.  
-    For odometry, this means reliable detection of far objects but less precise localization of nearby structures, which are often most important for motion estimation.  
+    These increase the maximum measurable range but worsen range resolution.  
+    For odometry, this means reliable detection of distant obstacles but less precise localization of nearby structures, which are often most critical for motion estimation.  
+    The trade-off is illustrated again by the blue traces in Fig.~\ref{fig:AllCfgTogether}, where narrow sweeps are distributed across the 60–64~GHz band.
 
     \item \textbf{Chirp repetition interval}:  
-    A short interval (fast chirp repetition) increases maximum unambiguous velocity, allowing the radar to track fast-moving targets.  
-    Conversely, long intervals improve Doppler resolution but reduce $v_{max}$.  
-    Thus, choosing the repetition rate is a balance between detecting high-speed objects and estimating fine velocity details.  
+    A short interval (fast chirp repetition) increases the maximum unambiguous velocity $v_{max}$, enabling the radar to track high-speed objects.  
+    Conversely, longer repetition intervals improve Doppler resolution but reduce $v_{max}$.  
+    This trade-off is not tied to bandwidth alone but can be inferred from all configurations in Fig.~\ref{fig:AllCfgTogether}, where denser chirp repetitions correspond to finer Doppler resolution.
 \end{itemize}
+
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=\linewidth]{images/profile4GHz.png}
+    \caption{Single 4~GHz chirp (\texttt{profile\_full\_4GHz}).}
+    \label{fig:profile4GHz}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=\linewidth]{images/profile2GHz.png}
+    \caption{Two 2~GHz chirps (\texttt{profile\_two\_2GHz}).}
+    \label{fig:profile2GHz}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=\linewidth]{images/profile2And4GHz.png}
+    \caption{Overlay of 4~GHz and 2~GHz chirp sequences.}
+    \label{fig:profile2And4GHz}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=\linewidth]{images/AllCfgTogether.png}
+    \caption{Comparison of all chirp configurations: full 4~GHz, two 2~GHz, and multiple narrow-band chirps.}
+    \label{fig:AllCfgTogether}
+\end{figure}
+
+
 
 In summary, the design of the chirp sequence determines whether the radar is optimized for high range resolution, high velocity resolution, or long-range coverage.  
 Since odometry requires both reliable range accuracy for static structures and robust velocity estimation, careful balancing of these parameters is critical.  
