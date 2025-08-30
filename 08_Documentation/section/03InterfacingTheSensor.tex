@@ -1,5 +1,5 @@
-\section{Interfacing the IWR6843 mmWave Radar Sensor}
-\label{sec:Interfacing the mmWave radar sensor: IWR6843}
+\section{IWR6843 Radar Interface and Configuration}
+\label{sec:IWR6843 Radar Interface and Configuration}
 The IWR6843AOPEVM development board from Texas Instruments features the IWR6843AOP, a high performance 4D mmWave FMCW radar sensor with Antenna On Package (AOP) design.
 Although IWR6843AOP is intended for industrial applications and its complementary chip, AWR6843AOP, for automotive applications, IWR6843AOP was used in this project because it is available in the form of this development board and the two chips are identical in terms of their functionalities, only differing in compliance with automotive  industry \cite{iwr_awr_diff}.
 Its small physical size, due to its AOP design, makes it an optimal choice for the desired mounting position, the go-kart's steering column.
@@ -26,6 +26,8 @@ Application-specific processing of the point cloud itself is executed on an exte
 The main demo application ("mmWave SDK demo") allows a versatile customization of the radar sensor's operating parameters and its discrimination capabilities while outputting the point cloud via its UART interface, accessible via the on-board USB to UART converter.
 Although the demo seems to be intended to be used only for demonstration purposes, many projects based on Texas Instruments' mmWave radar sensors utilize it, because it poses a generic solution for obtaining (close to) real-time point cloud data from the sensor without prior development of a custom user-application for the radar sensor's internal microcontroller.
 This setup was therefore chosen for supplying the emergency braking system with data.
+
+\subsection{}
 
 \subsection{Utilizing the mmWave SDK demo}
 The "mmWave SDK demo" was developed by Texas Instruments for showcasing the abilities of their mmWave radar sensors.
@@ -74,6 +76,53 @@ Each TLV type needs to be decoded differently, as it represents a different type
     \label{fig:TLV header format}
 \end{figure}
 \FloatBarrier
+
+\subsection{CHIRP Sequence Configuration}
+\label{sec:chirp}
+
+The fundamental operation of the IWR6843 mmWave radar relies on the transmission of frequency modulated continuous wave (FMCW) chirps.  
+Each chirp is defined by parameters such as start frequency, frequency slope, chirp duration, idle time, and the number of samples per chirp.  
+These parameters directly determine the radar’s sensing capabilities, including range resolution, maximum unambiguous range, velocity resolution, and maximum radial velocity.  
+
+The relationship between these values can be expressed as:  
+\begin{itemize}
+    \item Range resolution: $\Delta R = \frac{c}{2B}$, where $c$ is the speed of light and $B$ is the chirp bandwidth.  
+    \item Maximum unambiguous range: $R_{max} = \frac{c f_s}{2 S}$, where $f_s$ is the sampling rate and $S$ is the frequency slope.  
+    \item Velocity resolution: $\Delta v = \frac{\lambda}{2 N_c T_c}$, where $\lambda$ is the wavelength, $N_c$ is the number of chirps per frame, and $T_c$ is the chirp duration.  
+    \item Maximum unambiguous velocity: $v_{max} = \frac{\lambda}{4 T_c}$, which depends on the chirp repetition interval.  
+\end{itemize}
+
+These equations highlight that both range and velocity performance are tightly coupled to chirp design.  
+Several theoretical trade-offs can be discussed:  
+
+\begin{itemize}
+    \item \textbf{Increasing the number of chirps per frame ($N_c$)}:  
+    A higher number of chirps improves Doppler (velocity) resolution, since $\Delta v$ decreases as $N_c$ increases.  
+    However, this also increases the frame time, which reduces the maximum unambiguous velocity $v_{max}$ and leads to slower update rates.  
+    In odometry, this improves smoothness of velocity estimation but may reduce responsiveness.  
+
+    \item \textbf{Longer frequency sweeps (higher bandwidth $B$)}:  
+    A single chirp spanning the full 4~GHz available bandwidth yields very fine range resolution, since $\Delta R$ decreases with larger $B$.  
+    However, such steep slopes increase hardware demands on the ADC and limit the maximum measurable range $R_{max}$.  
+    In practice, using the full bandwidth provides excellent spatial detail but may be less robust in longer-range detection scenarios.  
+
+    \item \textbf{Multiple shorter chirps within the same frame} (e.g., two chirps each of 2~GHz instead of one 4~GHz chirp):  
+    This allows the radar to trade off between coverage and resolution.  
+    Each shorter chirp has reduced range resolution compared to the full 4~GHz sweep, but combining them can increase robustness and reduce ambiguity.  
+    Multiple chirps with different slopes can also provide diversity in the frequency domain, which helps mitigate range-Doppler coupling and improves target detection in complex environments.  
+
+    \item \textbf{Shorter chirps with smaller bandwidth}:  
+    These increase maximum range but worsen range resolution.  
+    For odometry, this means reliable detection of far objects but less precise localization of nearby structures, which are often most important for motion estimation.  
+
+    \item \textbf{Chirp repetition interval}:  
+    A short interval (fast chirp repetition) increases maximum unambiguous velocity, allowing the radar to track fast-moving targets.  
+    Conversely, long intervals improve Doppler resolution but reduce $v_{max}$.  
+    Thus, choosing the repetition rate is a balance between detecting high-speed objects and estimating fine velocity details.  
+\end{itemize}
+
+In summary, the design of the chirp sequence determines whether the radar is optimized for high range resolution, high velocity resolution, or long-range coverage.  
+Since odometry requires both reliable range accuracy for static structures and robust velocity estimation, careful balancing of these parameters is critical.  
 
 \subsection{Sensor Tuning}
 As some operating parameters influence each other, their selection must be done carefully while observing the influence of the trade-offs involved.

@@ -1,38 +1,33 @@
 \section{Introduction}
 \label{sec:intoduction}
 
-The advancement of autonomous systems and Advanced Driver Assistance Systems (ADAS) has increased the demand for robust and reliable perception technologies.
-Among these, mmWave radar sensors have emerged as a promising solution due to their ability to operate effectively under various environmental conditions, such as low visibility, fog, rain, and darkness where traditional vision-based sensors, such as LiDAR or cameras, tend to have difficulties.
-In those cases, where pure optical sensors do not maintain reliability due to the given operating conditions, mmWave radar sensors can still provide range, velocity, and angle information.
-They therefore represent an essential component in modern perception frameworks, either as the only sensor that implements the solution or through a sensor-merge solution that compensates for the weaknesses of the various optical sensors.
-\par
+Accurate and reliable ego-motion estimation is a fundamental requirement for mobile robotic systems and autonomous vehicles solutions.
+Most of the current odometry implementations rely on vision- or LiDAR-based sensors, which provide dense environmental information.
+However, these modalities often suffer from high cost and performance degradation under adverse conditions such as low illumination, fog, rain, or snow.
+In such scenarios, the accuracy and robustness of odometry are significantly reduced, raising the demand for complementary sensing solutions.
 
-%% [14/03/2025] Luis: Rework of introduction
-%% ---------------------------------------
-%This paper presents a straightforward approach for implementing an object detection and emergency braking system for an electric go-kart by using Texas Instrument's IWR6843AOPEVM mmWave radar sensor and a modular pipeline consisting of different building blocks for real-time data processing.
-%These building blocks cover every needed step from the processing of the radar sensor's raw point cloud to the initiation of an emergency braking event. This is done by utilizing techniques, such as various filtering techniques and a radar-only ego-velocity (the vehicle's own velocity) estimation for the separation of static and moving objects together with clustering algorithms mapping to occupancy grids in cartesian and polar coordinates for object detection and tracking.
+Odometry provides the basis for localization, mapping, and navigation, serving as a core component in modern perception solutions.  
+In most scenarios, odometry has been implemented using vision- or LiDAR-based sensors, which offer dense information about the environment.  
+However, these modalities often suffer from performance degradation from high memory consumption and being under adverse conditions such as low illumination, fog, rain, or snow.  
+In such scenarios, the accuracy and robustness of odometry are significantly limited and reduced, raising the demand for complementary sensing solutions.  
 
-This paper presents a straightforward approach on how to implement an object detection and emergency braking system for an electric go-kart by utilizing Texas Instrument's IWR6843AOP mmWave radar sensor.
-The implementation involves a modular processing pipeline composed of several building blocks which are designed for real-time data processing.
-These components encompass the entire process: from the data-acquisition and initial processing of raw radar point cloud data to the final triggering of emergency braking events.
+Millimeter-wave (mmWave) radar has emerged as a promising candidate to address these challenges.  
+Radar sensors are compact, cost-efficient, and resilient to weather and lighting variations, making them attractive for robotic and automotive applications.  
+Unlike vision or LiDAR, radar directly measures range and Doppler velocity, providing unique information for motion estimation.  
+Nevertheless, radar data presents notable challenges: the resulting point clouds are sparse, noisy, and subject to reflections from dynamic objects, complicating the task of reliable odometry.  
+This problem that creates an unreliable and unstable odometry calculation, which is a critical issue for autonomous systems that require precise and consistent motion calculation, we can say that what is obtained is an estimation.
+With the goal of obtaining an accurate estimation.
 
-The approach integrates multiple filtering techniques, radar-based self-speed estimation (estimation of the vehicle's own velocity) together with clustering algorithms. These techniques are applied to effectively differentiate static from moving objects and enable the precise detection and tracking of objects.
+This work explores the use of a single front-mounted mmWave radar sensor to estimate vehicle ego-motion without relying on additional sensor modalities.  
+To achieve this, an implementation for processing that integrates clustering methods to structure radar detections, Doppler velocity augmentation to exploit velocity measurements, and point-to-point iterative closest point (ICP) optimization for scan-to-scan registration.  
+A submap-based approach is further applied to increase stability by aggregating multiple frames, thereby improving alignment despite noise and sparsity.  
+Importantly, the point-to-point ICP method eliminates the need for an initial pose guess, which is difficult to obtain in radar data, making it particularly suitable for this application.  
 
-In particular, static and dynamic filtering stages are combined with a two-stage clustering block to ensure a reliable detection of static objects.
-The static filtering techniques use the point cloud's  $SNR$ information and spatial coordinates to refine the data in the pipeline's early stages by discarding points that are identified as clutter or those that are simply outside the monitored area.
-Doppler velocity measurements of the points compared to the vehicle's self-speed enable the differentiation between static and dynamic objects, improving overall tracking capabilities and enabling accurate motion predictions.
-
-
-%In this project, the capabilities of Texas Instrument's IWR6843AOP mmWave radar sensor are used to implement an object detection and emergency braking system for an electric go-kart by %utilizing object detection, tracking, and environmental mapping in a highly reflective zone \todo{What is meant by highly reflective zone?}.
-%The presented approach integrates various filtering techniques and a radar-only self-speed (the vehicle's own velocity) estimation for the separation of static and moving objects together with clustering algorithms and mapping to occupancy grids in cartesian and polar coordinates for object detection and tracking.
-
-
-%% Commented for reworking (03/08/2025)
-%% LH: I like the way of how the introduction starts but the text was somewhat circular (ADAS --> mmWave --> our project --> mmWave) and we need to avoid first person pronouns "we"
-
-%Our approach uses dynamic filtering techniques cluster-based object identification, dynamic filtering techniques, and occupancy grid %mapping to improve detection accuracy and differentiate real objects from noise.
-%\par
-%To enhance the robustness of our object detection, we apply physical filtering techniques at the beginning of our pipeline to refine the radar point-cloud data, so that we do not use points that we know will be considered as noise beforehand.
-%Additionally, Doppler velocity estimation is used to analyze both object motion and ego-velocity (the vehicle's own movement), contributing to better tracking and motion prediction, so we can classify object into 2 main categories, moving objects and static objects.
-%\par
-%Now, with that in mind, as a final introduction to mWave radar technology, this technology has found widespread applications in various domains, including autonomous vehicles, robotics, and industrial safety systems. Its ability to operate reliably under challenging environmental conditions makes it an essential component for real-time perception and object detection. Using advanced clustering, filtering techniques, and occupancy grid mapping, mmWave sensors can provide a more comprehensive understanding of dynamic environments, improving safety and navigation efficiency. As radar technology continues to evolve, the integration of machine learning and sensor fusion techniques further enhances its capabilities, enabling smarter, more adaptive perception systems for next-generation autonomous applications.
+The contributions of this work can be summarized as follows:  
+\begin{enumerate}
+    \item A radar-only odometry using a single mmWave sensor, minimizing hardware cost and complexity.  
+    \item Integration of Doppler velocity information into the registration process to enhance accuracy.  
+    \item Use of submap aggregation to mitigate sparsity and improve robustness in dynamic environments.  
+    \item Object tracking via clusters to identify and filter dynamic objects from the ego-motion estimation.
+    \item Experimental evaluation of the proposed approach under realistic driving conditions.  
+\end{enumerate}

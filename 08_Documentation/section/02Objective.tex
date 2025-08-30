@@ -1,8 +1,8 @@
 \section{Objective and Sub-Tasks}
 \label{sec:objective}
-The main goal of this project is the development of an emergency braking assistant for an electric go-kart that utilizes a radar sensor together with an embedded computing device to detect approaching stationary obstacles and to trigger an emergency braking event when needed.
-The test scenario for the emergency braking event consisted of a wall built by 3x3 cubes with a side length of \SI{0.4}{\meter}, resulting in a total size of \SI{1.2}{\meter} by \SI{1.2}{\meter}.
-With the wall being approached in a straight line at constant speed from a distance of \SIrange{10}{11}{\meter}, the system should recognize the approaching static object and execute an emergency braking event, effectively stopping the go-kart before it gets into contact with the wall.
+The main objective of this work is the development of a radar-based odometry system that estimates vehicle ego-motion using a single mmWave radar sensor.  
+The motivation behind this approach is to explore radar as a cost-efficient and robust alternative to vision- or LiDAR-based odometry, particularly under adverse weather and lighting conditions.  
+The system is designed to process radar point clouds in real time, extract motion information, and generate reliable pose estimates that can be used for autonomous navigation and digital twin construction.  
 
 \begin{figure}[!htbp]
     \centering
@@ -24,21 +24,23 @@ With the wall being approached in a straight line at constant speed from a dista
     \caption{Test scenario}
     \label{fig:test_scenario}
 \end{figure}
-\par
-%% [14/03/2025] Luis: Rework so it does not sound so "school project"
-%% ---------------------------------------
-A Ninebot Go-kart PRO electric go-kart was selected as the test vehicle for this implementation, equipped with a Texas Instruments IWR6843AOPEVM development board, featuring the IWR6843AOP mmWave radar sensor, for data acquisition and sensing tasks.
-% Since the project was conducted in form of a one-semester research seminar and the associated lab already provided those resources, a Ninebot Go-kart PRO electric go-kart was used as the project's vehicle and a IWR6843AOPEVM development board from Texas Instruments, featuring a IWR6843AOP radar sensor, for the sensing part.
-\newpage
+The experimental setup consists of a Texas Instruments IWR6843AOPEVM development board, featuring the IWR6843AOP mmWave radar sensor, mounted at the front of a vehicle.  
+The sensor provides point cloud data enriched with range, angle, and Doppler velocity information.  
+This data forms the basis for the processing pipeline and enables the evaluation of radar odometry performance under realistic driving scenarios.  
+
 
 \subsection{Sub-Tasks}
 
-The main objective, together with the given boundary conditions in form of the given test scenario and the provided electric go-kart and radar sensor, implied several practical sub-tasks:
+The research objective, together with the constraints of using a single radar sensor, implied several practical sub-tasks:  
 \begin{itemize}
-    \item Finding ways to manipulate the go-kart’s controller for performing the braking operation.
-    \item Interfacing the radar sensor and finding a suitable configuration.
-    \item Choosing an embedded computation device.
-    \item Developing and implementing a live processing pipeline.
-    \item Joining the individual parts and testing the system.
+    \item Designing a pipeline to acquire and decode raw radar data.  
+    \item Investigating suitable sensor configurations to balance field of view, update rate, and data density.  
+    \item Implementing clustering methods to structure radar detections and isolate relevant features.  
+    \item Integrating Doppler velocity information into the odometry estimation process.  
+    \item Developing scan-to-scan registration using iterative closest point (ICP) optimization.  
+    \item Employing submap aggregation to mitigate sparsity and improve stability.  
+    \item Incorporating cluster-based tracking to filter dynamic objects from the ego-motion estimation.  
+    \item Validating the complete system using recorded datasets and controlled driving experiments.  
 \end{itemize}
-As the usage of a generic electric go-kart required its reverse engineering for finding possible ways of interfacing the go-kart's braking system and those findings significantly constrained the solution space of the other sub-tasks, the tasks' ordering was kept and the whole project followed an agile approach.
+
+As each sub-task builds upon the results of the previous one, the work followed an iterative and modular development approach, enabling gradual integration and continuous evaluation of the proposed system.  

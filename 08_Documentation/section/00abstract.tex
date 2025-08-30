@@ -1,13 +1,16 @@
 \begin{abstract}
-This paper explores the integration of mmWave radar technology for object detection and environmental perception of an emergency braking system, a topic that has gained significant attention in autonomous systems and Advanced Driver Assistance Systems (ADAS).
-An implementation of an emergency braking system for an electric go-kart is presented with a focus on the system's conception and how a processing pipeline for cluster-based detection of static objects can be developed.
+The employment and integration of radar technologies for the implementation of odometry has recently emerged as a promissing alternative to traditional methods, which often rely on visual or LiDAR-based systems. 
+Radar Technology is particularly advantageous due to its robustness in various environmental conditions, such as fog, rain, and dust, where other systems results may degrade.
 
-The presented approach leverages point-cloud data of a IWR6843AOP mmWave radar sensor from Texas Instruments, processed by a modular pipeline to detect and track objects within a 10-meter range.
-This modular pipeline features a radar-only self-speed estimation together with the combination of a specialized filtering stage and a two-stage clustering technique, effectively implementing a lightweight and simple framework for detecting static targets from a moving vehicle.
-Its output is used to trigger an emergency braking event which effects the go-kart's braking system through a hardware interface.
+This work focus in the estimation of the vehicle's ego-motion using a single mmWave radar sensor which is mounted in front of the vehicle. This to avoid extra hardware costs and complexity.
+
+The proposed pipeline incorporates clustering techniques, point-to-point iterative closest point (ICP) optimization, and Doppler velocity augmentation to address the inherent challenges of sparse and noisy radar point clouds.
+Notably, the point-to-point ICP approach is advantageous for radar-based odometry as it does not require an initial guess of the transformation, which is often difficult to obtain due to data sparsity and noise.
+Furthermore, submap aggregation is employed to enhance registration stability across consecutive scans. Experimental evaluations demonstrate that the proposed framework enables consistent ego-motion estimation and highlights the potential of mmWave radar as a cost-efficient solution for autonomous navigation and digital twin construction in complex driving environments.
+
 \end{abstract}
 
 \begin{IEEEkeywords}
-mmWave radar, object detection, ADAS, autonomous systems, clustering, physical filtering, two-stage filtering, Doppler velocity estimation, occupancy grid mapping, environmental perception.
+Radar Odometry, mmWave Radar, ICP, Doppler Velocity, Doppler Augmentation, Ego-Motion Estimation, Digital Twin
 \end{IEEEkeywords}
 
