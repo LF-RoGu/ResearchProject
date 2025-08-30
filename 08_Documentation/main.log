@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (MiKTeX 25.4) (preloaded format=pdflatex 2025.8.29)  30 AUG 2025 12:48
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (MiKTeX 25.4) (preloaded format=pdflatex 2025.8.29)  30 AUG 2025 13:27
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -824,51 +824,50 @@ LaTeX Font Info:    Trying to load font information for OT1+pcr on input line 10
 File: ot1pcr.fd 2001/06/04 font definitions for OT1/pcr.
 )
 
-<images/profile4GHz.png, id=147, 1140.6615pt x 546.24075pt>
-File: images/profile4GHz.png Graphic file (type png)
-<use images/profile4GHz.png>
-Package pdftex.def Info: images/profile4GHz.png  used on input line 130.
+<images/profile_narrow_many_fullband.png, id=142, 1140.6615pt x 546.24075pt>
+File: images/profile_narrow_many_fullband.png Graphic file (type png)
+<use images/profile_narrow_many_fullband.png>
+Package pdftex.def Info: images/profile_narrow_many_fullband.png  used on input line 107.
 (pdftex.def)             Requested size: 252.0pt x 120.67343pt.
-<images/profile2GHz.png, id=148, 1140.6615pt x 546.24075pt>
-File: images/profile2GHz.png Graphic file (type png)
-<use images/profile2GHz.png>
-Package pdftex.def Info: images/profile2GHz.png  used on input line 137.
+<images/profile_full_4GHz.png, id=144, 1140.6615pt x 546.24075pt>
+File: images/profile_full_4GHz.png Graphic file (type png)
+<use images/profile_full_4GHz.png>
+Package pdftex.def Info: images/profile_full_4GHz.png  used on input line 125.
 (pdftex.def)             Requested size: 252.0pt x 120.67343pt.
-<images/profile2And4GHz.png, id=149, 1140.6615pt x 546.24075pt>
-File: images/profile2And4GHz.png Graphic file (type png)
-<use images/profile2And4GHz.png>
-Package pdftex.def Info: images/profile2And4GHz.png  used on input line 144.
-(pdftex.def)             Requested size: 252.0pt x 120.67343pt.
-<images/AllCfgTogether.png, id=150, 1140.6615pt x 546.24075pt>
-File: images/AllCfgTogether.png Graphic file (type png)
-<use images/AllCfgTogether.png>
-Package pdftex.def Info: images/AllCfgTogether.png  used on input line 151.
+<images/profile_two_2GHz.png, id=147, 1140.6615pt x 546.24075pt>
+File: images/profile_two_2GHz.png Graphic file (type png)
+<use images/profile_two_2GHz.png>
+Package pdftex.def Info: images/profile_two_2GHz.png  used on input line 144.
 (pdftex.def)             Requested size: 252.0pt x 120.67343pt.
 
 
-[4 <./images/FrameFormatHeader.png (PNG copy)> <./images/TLVHeader.png (PNG copy)> <./images/profile4GHz.png>] Excluding 'comment' comment.
-Underfull \hbox (badness 10000) in paragraph at lines 200--200
+[4 <./images/FrameFormatHeader.png (PNG copy)> <./images/TLVHeader.png (PNG copy)> <./images/profile_narrow_many_fullband.png> <./images/profile_full_4GHz.png>]
+<images/profile_full_4GHz_2GHz.png, id=164, 1140.6615pt x 546.24075pt>
+File: images/profile_full_4GHz_2GHz.png Graphic file (type png)
+<use images/profile_full_4GHz_2GHz.png>
+Package pdftex.def Info: images/profile_full_4GHz_2GHz.png  used on input line 158.
+(pdftex.def)             Requested size: 252.0pt x 120.67343pt.
+
+
+Excluding 'comment' comment.
+Underfull \hbox (badness 10000) in paragraph at lines 236--236
 []|\OT1/ptm/m/n/8 Higher res-o-lu-tion re-quires
  []
 
 
-LaTeX Warning: `h' float specifier changed to `ht'.
 
-
-
-<images/calib_ex.png, id=167, 697.8572pt x 247.67531pt>
+[5 <./images/profile_two_2GHz.png> <./images/profile_full_4GHz_2GHz.png>]
+<images/calib_ex.png, id=175, 697.8572pt x 247.67531pt>
 File: images/calib_ex.png Graphic file (type png)
 <use images/calib_ex.png>
-Package pdftex.def Info: images/calib_ex.png  used on input line 228.
+Package pdftex.def Info: images/calib_ex.png  used on input line 264.
 (pdftex.def)             Requested size: 252.0pt x 89.43513pt.
-<images/calib_ex2.png, id=168, 700.11563pt x 243.15843pt>
+<images/calib_ex2.png, id=176, 700.11563pt x 243.15843pt>
 File: images/calib_ex2.png Graphic file (type png)
 <use images/calib_ex2.png>
-Package pdftex.def Info: images/calib_ex2.png  used on input line 235.
+Package pdftex.def Info: images/calib_ex2.png  used on input line 271.
 (pdftex.def)             Requested size: 252.0pt x 87.52213pt.
-
-
-[5 <./images/profile2GHz.png> <./images/profile2And4GHz.png> <./images/AllCfgTogether.png>]) (section/05Pipeline.tex
+) (section/05Pipeline.tex
 Overfull \hbox (1.10931pt too wide) in paragraph at lines 48--48
  [][]\OT1/ptm/m/n/10 Calculation 
  []
@@ -876,15 +875,15 @@ Overfull \hbox (1.10931pt too wide) in paragraph at lines 48--48
 
 
 ) (section/06FrameAggregator.tex
-<images/singleframe.png, id=178, 556.32843pt x 426.84468pt>
+<images/singleframe.png, id=177, 556.32843pt x 426.84468pt>
 File: images/singleframe.png Graphic file (type png)
 <use images/singleframe.png>
 Package pdftex.def Info: images/singleframe.png  used on input line 17.
 (pdftex.def)             Requested size: 126.0pt x 96.6742pt.
 
 
-[6 <./images/calib_ex.png> <./images/calib_ex2.png> <./images/singleframe.png>]
-<images/multiframe.png, id=190, 541.27219pt x 417.05812pt>
+[6 <./images/calib_ex.png> <./images/calib_ex2.png>]
+<images/multiframe.png, id=187, 541.27219pt x 417.05812pt>
 File: images/multiframe.png Graphic file (type png)
 <use images/multiframe.png>
 Package pdftex.def Info: images/multiframe.png  used on input line 37.
@@ -904,33 +903,36 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 
 
 
-<images/No_filter.png, id=191, 310.91156pt x 313.17pt>
+<images/No_filter.png, id=188, 310.91156pt x 313.17pt>
 File: images/No_filter.png Graphic file (type png)
 <use images/No_filter.png>
 Package pdftex.def Info: images/No_filter.png  used on input line 19.
 (pdftex.def)             Requested size: 123.84283pt x 124.74013pt.
-<images/filter.png, id=192, 319.94531pt x 308.65312pt>
+<images/filter.png, id=189, 319.94531pt x 308.65312pt>
 File: images/filter.png Graphic file (type png)
 <use images/filter.png>
 Package pdftex.def Info: images/filter.png  used on input line 24.
 (pdftex.def)             Requested size: 123.84283pt x 119.46997pt.
 Excluding 'comment' comment.) (section/08SelfSpeedEstimation.tex
 
-[7 <./images/multiframe.png> <./images/No_filter.png> <./images/filter.png>]
-<images/self_speed_reality.png, id=211, 974.13937pt x 956.82469pt>
+[7 <./images/singleframe.png> <./images/multiframe.png> <./images/No_filter.png> <./images/filter.png>]
+<images/self_speed_reality.png, id=208, 974.13937pt x 956.82469pt>
 File: images/self_speed_reality.png Graphic file (type png)
 <use images/self_speed_reality.png>
 Package pdftex.def Info: images/self_speed_reality.png  used on input line 54.
 (pdftex.def)             Requested size: 252.0pt x 247.51295pt.
- Excluding 'comment' comment.) (section/09Kalman.tex
-<images/kalman_2.jpg, id=212, 642.4pt x 361.35pt>
+
+
+Excluding 'comment' comment.) (section/09Kalman.tex
+<images/kalman_2.jpg, id=209, 642.4pt x 361.35pt>
 File: images/kalman_2.jpg Graphic file (type jpg)
 <use images/kalman_2.jpg>
 Package pdftex.def Info: images/kalman_2.jpg  used on input line 7.
 (pdftex.def)             Requested size: 252.0pt x 141.74748pt.
 
 
-<images/kalman.png, id=215, 393.72093pt x 307.90031pt>
+[8 <./images/self_speed_reality.png>]
+<images/kalman.png, id=223, 393.72093pt x 307.90031pt>
 File: images/kalman.png Graphic file (type png)
 <use images/kalman.png>
 Package pdftex.def Info: images/kalman.png  used on input line 39.
@@ -962,19 +964,19 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 
 
 
-[8 <./images/self_speed_reality.png> <./images/kalman_2.jpg>]
-
-<images/withoutVeFilter.png, id=228, 240.9pt x 266.49562pt>
+<images/withoutVeFilter.png, id=225, 240.9pt x 266.49562pt>
 File: images/withoutVeFilter.png Graphic file (type png)
 <use images/withoutVeFilter.png>
 Package pdftex.def Info: images/withoutVeFilter.png  used on input line 29.
 (pdftex.def)             Requested size: 123.84283pt x 137.00075pt.
-<images/wVeFilter.png, id=229, 240.9pt x 269.50688pt>
+<images/wVeFilter.png, id=226, 240.9pt x 269.50688pt>
 File: images/wVeFilter.png Graphic file (type png)
 <use images/wVeFilter.png>
 Package pdftex.def Info: images/wVeFilter.png  used on input line 34.
 (pdftex.def)             Requested size: 123.84283pt x 138.54878pt.
-) (section/11Clustering.tex
+
+
+[9 <./images/kalman_2.jpg> <./images/kalman.png>]) (section/11Clustering.tex
 Underfull \hbox (badness 10000) in paragraph at lines 33--33
 []\OT1/ptm/m/n/8 Automatically de-tects
  []
@@ -1009,28 +1011,28 @@ Underfull \hbox (badness 6542) in paragraph at lines 33--33
 []\OT1/ptm/m/n/8 Can be \OT1/ptm/b/n/8 sen-si-tive to
  []
 
-
-
-[9 <./images/kalman.png> <./images/withoutVeFilter.png> <./images/wVeFilter.png>]
-<images/clustering.png, id=243, 447.92343pt x 454.69875pt>
+<images/clustering.png, id=237, 447.92343pt x 454.69875pt>
 File: images/clustering.png Graphic file (type png)
 <use images/clustering.png>
 Package pdftex.def Info: images/clustering.png  used on input line 46.
 (pdftex.def)             Requested size: 252.0pt x 255.80904pt.
+
+
 ) (section/12BrakingSystem.tex
 
-<images/brakeSignal.png, id=244, 715.11165pt x 426.393pt>
+[10 <./images/withoutVeFilter.png> <./images/wVeFilter.png> <./images/clustering.png>]
+<images/brakeSignal.png, id=250, 715.11165pt x 426.393pt>
 File: images/brakeSignal.png Graphic file (type png)
 <use images/brakeSignal.png>
 Package pdftex.def Info: images/brakeSignal.png  used on input line 30.
 (pdftex.def)             Requested size: 201.60077pt x 120.2025pt.
 ) (section/Conclusion.tex
 
-[10 <./images/clustering.png>]
 
-) (Bibliography.tex
 
-[11 <./images/brakeSignal.png>]
+[11 <./images/brakeSignal.png>]) (Bibliography.tex
+
+
 Underfull \hbox (badness 10000) in paragraph at lines 5--6
 []\OT1/ptm/m/n/8 Segway Inc., ``Ninebot Go-kart PRO prod-uct page'', 2025,
  []
@@ -1104,11 +1106,7 @@ Before submitting the final camera ready copy, remember to:
 
 
 
-
-
-[12
-
-] (main.aux)
+[12] (main.aux)
  ***********
 LaTeX2e <2025-06-01> patch level 1
 L3 programming layer <2025-07-20>
@@ -1117,15 +1115,15 @@ Package rerunfilecheck Info: File `main.out' has not changed.
 (rerunfilecheck)             Checksum: 7C2732A298E6B961760225BC31B6375D;3498.
  ) 
 Here is how much of TeX's memory you used:
- 31744 strings out of 468134
- 668436 string characters out of 5430740
- 1010691 words of memory out of 5000000
+ 31745 strings out of 468134
+ 668681 string characters out of 5430740
+ 1012624 words of memory out of 5000000
  59747 multiletter control sequences out of 15000+600000
- 670142 words of font info for 123 fonts, out of 8000000 for 9000
+ 671278 words of font info for 124 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  99i,13n,131p,789b,1249s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/Luis_/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmex10.pfb><C:/Users/Luis_/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmmi10.pfb><C:/Users/Luis_/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmmi5.pfb><C:/Users/Luis_/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmmi7.pfb><C:/Users/Luis_/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmmi9.pfb><C:/Users/Luis_/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr10.pfb><C:/Users/Luis_/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr7.pfb><C:/Users/Luis_/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy10.pfb><C:/Users/Luis_/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy6.pfb><C:/Users/Luis_/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy7.pfb><C:/Users/Luis_/AppData/Local/Programs/MiKTeX/fonts/type1/urw/courier/ucrr8a.pfb><C:/Users/Luis_/AppData/Local/Programs/MiKTeX/fonts/type1/urw/times/utmb8a.pfb><C:/Users/Luis_/AppData/Local/Programs/MiKTeX/fonts/type1/urw/times/utmbi8a.pfb><C:/Users/Luis_/AppData/Local/Programs/MiKTeX/fonts/type1/urw/times/utmr8a.pfb><C:/Users/Luis_/AppData/Local/Programs/MiKTeX/fonts/type1/urw/times/utmri8a.pfb>
-Output written on main.pdf (12 pages, 1808579 bytes).
+Output written on main.pdf (12 pages, 1903705 bytes).
 PDF statistics:
  380 PDF objects out of 1000 (max. 8388607)
  86 named destinations out of 1000 (max. 500000)
