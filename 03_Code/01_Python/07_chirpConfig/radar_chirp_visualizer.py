@@ -13,7 +13,10 @@ class ChirpVisualizer(QWidget):
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
 
-    
+
+        pg.setConfigOption('background', 'w')
+        pg.setConfigOption('foreground', 'k')
+
         self.plot_widget = PlotWidget(title="Chirp Frequency vs Time")
         self.plot_widget.setLabel('left', 'Frequency (GHz)')
         self.plot_widget.setLabel('bottom', 'Time (µs)')
