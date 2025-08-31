@@ -33,7 +33,7 @@ Macro to enable or disable sensors
  2 - enable only MTI
  3 - enable both
 */ 
-#define ENABLE_SENSORS 1
+#define ENABLE_SENSORS 3
 
 const char CSV_TAB = ',';
 
@@ -56,6 +56,8 @@ struct ValidRadarPoint
 /* Global synchronization objects */
 static mutex                   radarMutexA;  /* Protects radarQueueA  */
 static mutex                   radarMutexB;  /* Protects radarQueueB  */
+static atomic<bool>            hasNewRadarA = false;
+static atomic<bool>            hasNewRadarB = false;
 static mutex                   imuMutex;    /* Protects imuQueue    */
 static mutex                   writeMutex;  /* Protects writer sync */
 static condition_variable      dataCV;      /* Signals data ready   */
@@ -140,39 +142,48 @@ uint64_t elapsed_ms_since_start(std::chrono::steady_clock::time_point start) {
 /*=== threadIwr6843(): Radar acquisition & filtering ===*/
 void threadIwr6843(void)
 {
-    int32_t RadarCount = 0;
+    int32_t RadarCountA = 0;
+    int32_t RadarCountB = 0;
     for (;;)
     {
         // Poll information from both radars
-        RadarCount = radarSensorA.poll();
-        if (RadarCount < 0)
+        RadarCountA = radarSensorA.poll();
+        RadarCountB = radarSensorB.poll();
+        if ((RadarCountA < 0) || (RadarCountB < 0))
         {
             cerr << "[ERROR] Radar failed to poll\n";
             break;
         }
-        if (RadarCount == 0)
+        if ((RadarCountA == 0) || (RadarCountB == 0))
         {
             // Wait for new data
             usleep(1000);
             continue;
         }
 
-        vector<SensorData> RadarFrames;
-        if (!radarSensorA.copyDecodedFramesFromTop(RadarFrames, RadarCount, true, 100))
+        vector<SensorData> RadarFramesA;
+        vector<SensorData> RadarFramesB;
+        if (!radarSensorA.copyDecodedFramesFromTop(RadarFramesA, RadarCountA, true, 100))
         {
-            cerr << "[ERROR] Timeout copying radar frames\n";
+            cerr << "[ERROR] Timeout copying radar A frames\n";
+            continue;
+        }
+        if (!radarSensorB.copyDecodedFramesFromTop(RadarFramesB, RadarCountB, true, 100))
+        {
+            cerr << "[ERROR] Timeout copying radar B frames\n";
             continue;
         }
 
-        const vector<vector<ValidRadarPoint>> FrameBatches = extractValidRadarPoints(RadarFrames); 
+        const vector<vector<ValidRadarPoint>> FrameBatchesA = extractValidRadarPoints(RadarFramesA); 
+        const vector<vector<ValidRadarPoint>> FrameBatchesB = extractValidRadarPoints(RadarFramesB); 
 
         /* For each decoded frame */
         // If the batch is not empty
-        if(!FrameBatches.empty())
+        if(!FrameBatchesA.empty())
         {
             {
                 lock_guard<mutex> lock(radarMutexA);
-                for (auto&& batch : FrameBatches)
+                for (auto&& batch : FrameBatchesA)
                 {
                     std::cout << "[DEBUG] Frame batch of size: " << batch.size() << "\n";
                     for (const auto& pt : batch)
@@ -188,9 +199,39 @@ void threadIwr6843(void)
                                     << " timestamp=" << pt.timestamp << "\n";
                     }
                     radarQueueA.push_drop_oldest(move(batch));
+                    hasNewRadarA = true;
                 }
             }
+        }
+        if(!FrameBatchesB.empty())
+        {
+            {
+                lock_guard<mutex> lock(radarMutexB);
+                for (auto&& batch : FrameBatchesB)
+                {
+                    std::cout << "[DEBUG] Frame batch of size: " << batch.size() << "\n";
+                    for (const auto& pt : batch)
+                    {
+                        std::cout   << " Frame=" << pt.frameId
+                                    << " Idx=" << pt.pointId
+                                    << " x=" << pt.x
+                                    << " y=" << pt.y
+                                    << " z=" << pt.z
+                                    << " doppler=" << pt.doppler
+                                    << " snr=" << pt.snr
+                                    << " noise=" << pt.noise << "\n"
+                                    << " timestamp=" << pt.timestamp << "\n";
+                    }
+                    radarQueueB.push_drop_oldest(move(batch));
+                    hasNewRadarB = true;
+                }
+            }
+        }
+        if(hasNewRadarA && hasNewRadarB)
+        {
             dataCV.notify_one();
+            hasNewRadarA = false;
+            hasNewRadarB = false;
         }
     }
 }
