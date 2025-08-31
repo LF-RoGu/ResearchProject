@@ -18,12 +18,13 @@
 #include <cstdint>
 #include <unistd.h>
 #include <chrono>
+#include <atomic>
 
 #include "mmWave-IWR6843/radar_sensor/IWR6843.h"
 #include "mmWave-IWR6843/radar_sensor/SensorData.h"
 #include "MTi-G-710/xsens_mti710.hpp"
 
-#include "misc/BoundedRadarQueue.h"
+#include "misc/BoundedQueue.h"
 
 using namespace std;
 
@@ -267,6 +268,7 @@ void threadMti710(void)
 void threadWriter(bool enableRadar, bool enableImu)
 {
     if ((enableRadar && !csvRadarA.is_open()) || 
+        (enableRadar && !csvRadarB.is_open()) ||
         (enableImu && !csvImu.is_open()))
     {
         cerr << "[ERROR] Output files not open!\n";
@@ -276,6 +278,7 @@ void threadWriter(bool enableRadar, bool enableImu)
     if (enableRadar)
     {
         csvRadarA << "frame_id,point_id,x,y,z,doppler,snr,noise\n";
+        csvRadarB << "frame_id,point_id,x,y,z,doppler,snr,noise\n";
     }
     if (enableImu)
     {

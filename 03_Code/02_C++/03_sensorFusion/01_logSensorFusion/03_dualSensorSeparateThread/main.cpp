@@ -2,7 +2,7 @@
  *
  * MISRA C++:2008 Compliant Example
  * Demonstrates synchronized radar+IMU logging with 2×N IMU samples per N valid radar points.
- * - threadIwr6843(): Reads mmWave frames, filters VALID points.
+ * - threadIwr6843A(): Reads mmWave frames, filters VALID points.
  * - threadMti710(): Reads Xsens IMU samples.
  * - threadWriter(): For each radar frame with N points, collects 2·N IMU samples and logs.
  */
@@ -18,14 +18,18 @@
 #include <cstdint>
 #include <unistd.h>
 #include <chrono>
+#include <atomic>
 
 #include "mmWave-IWR6843/radar_sensor/IWR6843.h"
 #include "mmWave-IWR6843/radar_sensor/SensorData.h"
 #include "MTi-G-710/xsens_mti710.hpp"
 
-#include "misc/BoundedRadarQueue.h"
+#include "misc/BoundedQueue.h"
 
 using namespace std;
+
+#define RADAR_A_READY 0x1
+#define RADAR_B_READY 0x2
 
 /*
 Macro to enable or disable sensors
@@ -78,7 +82,8 @@ using Clock = std::chrono::steady_clock;
 Clock::time_point programStart;
 
 /* Output files */
-static ofstream csvRadar("_outFiles/radar_2GHzConfig2.csv");
+static ofstream csvRadarA("_outFiles/radarA_2GHzConfig2.csv");
+static ofstream csvRadarB("_outFiles/radarB_2GHzConfig2.csv");
 static ofstream csvImu  ("_outFiles/imu_2GHzConfig2.csv");
 
 static vector<vector<ValidRadarPoint>> extractValidRadarPoints(const vector<SensorData>& frames)
@@ -139,22 +144,20 @@ uint64_t elapsed_ms_since_start(std::chrono::steady_clock::time_point start) {
 }
 
 
-/*=== threadIwr6843(): Radar acquisition & filtering ===*/
-void threadIwr6843(void)
+/*=== threadIwr6843A(): Radar acquisition & filtering ===*/
+void threadIwr6843A(void)
 {
     int32_t RadarCountA = 0;
-    int32_t RadarCountB = 0;
     for (;;)
     {
         // Poll information from both radars
         RadarCountA = radarSensorA.poll();
-        RadarCountB = radarSensorB.poll();
-        if ((RadarCountA < 0) || (RadarCountB < 0))
+        if ((RadarCountA < 0))
         {
             cerr << "[ERROR] Radar failed to poll\n";
             break;
         }
-        if ((RadarCountA == 0) || (RadarCountB == 0))
+        if ((RadarCountA == 0))
         {
             // Wait for new data
             usleep(1000);
@@ -162,20 +165,13 @@ void threadIwr6843(void)
         }
 
         vector<SensorData> RadarFramesA;
-        vector<SensorData> RadarFramesB;
         if (!radarSensorA.copyDecodedFramesFromTop(RadarFramesA, RadarCountA, true, 100))
         {
             cerr << "[ERROR] Timeout copying radar A frames\n";
             continue;
         }
-        if (!radarSensorB.copyDecodedFramesFromTop(RadarFramesB, RadarCountB, true, 100))
-        {
-            cerr << "[ERROR] Timeout copying radar B frames\n";
-            continue;
-        }
 
         const vector<vector<ValidRadarPoint>> FrameBatchesA = extractValidRadarPoints(RadarFramesA); 
-        const vector<vector<ValidRadarPoint>> FrameBatchesB = extractValidRadarPoints(RadarFramesB); 
 
         /* For each decoded frame */
         // If the batch is not empty
@@ -199,10 +195,47 @@ void threadIwr6843(void)
                                     << " timestamp=" << pt.timestamp << "\n";
                     }
                     radarQueueA.push_drop_oldest(move(batch));
-                    hasNewRadarA = true;
+                    hasNewRadarA.store(true);
                 }
             }
         }
+        if(hasNewRadarA)
+        {
+            dataCV.notify_one();
+        }
+    }
+}
+
+void threadIwr6843B(void)
+{
+    int32_t RadarCountB = 0;
+    for (;;)
+    {
+        // Poll information from both radars
+        RadarCountB = radarSensorB.poll();
+        if ((RadarCountB < 0))
+        {
+            cerr << "[ERROR] Radar failed to poll\n";
+            break;
+        }
+        if ((RadarCountB == 0))
+        {
+            // Wait for new data
+            usleep(1000);
+            continue;
+        }
+
+        vector<SensorData> RadarFramesB;
+        if (!radarSensorB.copyDecodedFramesFromTop(RadarFramesB, RadarCountB, true, 100))
+        {
+            cerr << "[ERROR] Timeout copying radar B frames\n";
+            continue;
+        }
+
+        const vector<vector<ValidRadarPoint>> FrameBatchesB = extractValidRadarPoints(RadarFramesB); 
+
+        /* For each decoded frame */
+        // If the batch is not empty
         if(!FrameBatchesB.empty())
         {
             {
@@ -223,15 +256,13 @@ void threadIwr6843(void)
                                     << " timestamp=" << pt.timestamp << "\n";
                     }
                     radarQueueB.push_drop_oldest(move(batch));
-                    hasNewRadarB = true;
+                    hasNewRadarB.store(true);
                 }
             }
         }
-        if(hasNewRadarA && hasNewRadarB)
+        if(hasNewRadarB)
         {
             dataCV.notify_one();
-            hasNewRadarA = false;
-            hasNewRadarB = false;
         }
     }
 }
@@ -265,7 +296,8 @@ void threadMti710(void)
 /*=== threadWriter(): synchronizes and logs data ===*/
 void threadWriter(bool enableRadar, bool enableImu)
 {
-    if ((enableRadar && !csvRadar.is_open()) || 
+    if ((enableRadar && !csvRadarA.is_open()) || 
+        (enableRadar && !csvRadarB.is_open()) ||
         (enableImu && !csvImu.is_open()))
     {
         cerr << "[ERROR] Output files not open!\n";
@@ -274,7 +306,8 @@ void threadWriter(bool enableRadar, bool enableImu)
 
     if (enableRadar)
     {
-        csvRadar << "frame_id,point_id,x,y,z,doppler,snr,noise\n";
+        csvRadarA << "frame_id,point_id,x,y,z,doppler,snr,noise\n";
+        csvRadarB << "frame_id,point_id,x,y,z,doppler,snr,noise\n";
     }
     if (enableImu)
     {
@@ -293,21 +326,39 @@ void threadWriter(bool enableRadar, bool enableImu)
     for (;;)
     {
         /* === Wait for radar data === */
-        unique_lock<mutex> radarLock(radarMutexA);
-        dataCV.wait(radarLock, [&]{
-            return !radarQueueA.empty();
+        unique_lock<mutex> writerLock(writeMutex);
+        dataCV.wait(writerLock, [&]{
+            return hasNewRadarA.load() && hasNewRadarB.load();
         });
 
-        vector<ValidRadarPoint> radarPts;
-        bool ok = radarQueueA.try_pop(radarPts);
-        if (!ok)
+        vector<ValidRadarPoint> radarPtsA;
+        vector<ValidRadarPoint> radarPtsB;
+        bool okA = false;
+        bool okB = false;
+        // Protect each queue individually
         {
-            std::cerr << "[WARN] Failed to pop radarQueueA\n";
+            lock_guard<mutex> lockA(radarMutexA);
+            okA = radarQueueA.try_pop(radarPtsA);
+            hasNewRadarA.store(false);
         }
-        radarLock.unlock();
+        {
+            lock_guard<mutex> lockB(radarMutexB);
+            okB = radarQueueB.try_pop(radarPtsB);
+            hasNewRadarB.store(false);
+        }
+        if (!okA || !okB)
+        {
+            if(!okA) cerr << "[WARN] Failed to pop radarQueueA\n";
+            if(!okB) cerr << "[WARN] Failed to pop radarQueueB\n";
+        }
+        writerLock.unlock();
 
-        const size_t N = radarPts.size();
-        const uint32_t fid = radarPts.front().frameId;
+        const size_t sizeA = radarPtsA.size();
+        const size_t sizeB = radarPtsB.size();
+
+        // Use min for conservative IMU data
+        const size_t N = min(sizeA, sizeB);
+        const uint32_t fid = radarPtsA.front().frameId;
 
         /* === Collect IMU samples only if enabled === */
         vector<MTiData> imuSamples;
@@ -331,9 +382,9 @@ void threadWriter(bool enableRadar, bool enableImu)
         /* === Write radar data === */
         if (enableRadar)
         {
-            for (const auto& pt : radarPts)
+            for (const auto& pt : radarPtsA)
             {
-                csvRadar << pt.frameId  << CSV_TAB
+                csvRadarA << pt.frameId  << CSV_TAB
                          << pt.pointId  << CSV_TAB
                          << pt.x        << CSV_TAB
                          << pt.y        << CSV_TAB
@@ -343,7 +394,20 @@ void threadWriter(bool enableRadar, bool enableImu)
                          << pt.noise    << CSV_TAB
                          << pt.timestamp<< "\n";
             }
-            csvRadar.flush();
+            csvRadarA.flush();
+            for (const auto& pt : radarPtsB)
+            {
+                csvRadarA << pt.frameId  << CSV_TAB
+                         << pt.pointId  << CSV_TAB
+                         << pt.x        << CSV_TAB
+                         << pt.y        << CSV_TAB
+                         << pt.z        << CSV_TAB
+                         << pt.doppler  << CSV_TAB
+                         << pt.snr      << CSV_TAB
+                         << pt.noise    << CSV_TAB
+                         << pt.timestamp<< "\n";
+            }
+            csvRadarB.flush();
         }
 
         /* === Write IMU data if enabled === */
@@ -418,7 +482,7 @@ int main(void)
     #endif
 
     cout << "[INFO] Opening output files...\n";
-    if ((!csvRadar.is_open()) || (!csvImu.is_open()))
+    if ((!csvRadarA.is_open()) || (!csvImu.is_open()))
     {
         cerr << "[ERROR] Failed to open CSVs\n";
         return 1;
@@ -426,7 +490,7 @@ int main(void)
 
     cout << "[INFO] Spawning threads...\n";
     #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
-    thread thread_iwr6843(threadIwr6843);
+    thread thread_iwr6843(threadIwr6843A);
     #endif
     #if ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3
     thread thread_mti710(threadMti710);
@@ -444,7 +508,7 @@ int main(void)
     #endif
     thread_logger.join();
 
-    csvRadar.close();
+    csvRadarA.close();
     csvImu.close();
 
     return 0;

@@ -23,7 +23,7 @@
 #include "mmWave-IWR6843/radar_sensor/SensorData.h"
 #include "MTi-G-710/xsens_mti710.hpp"
 
-#include "misc/BoundedRadarQueue.h"
+#include "misc/BoundedQueue.h"
 
 using namespace std;
 
