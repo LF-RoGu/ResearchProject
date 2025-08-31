@@ -224,7 +224,6 @@ void threadMti710(void)
 /*=== threadWriter(): synchronizes and logs data ===*/
 void threadWriter(bool enableRadar, bool enableImu)
 {
-#ifndef VALIDATE_PRINT
     if ((enableRadar && !csvRadar.is_open()) || 
         (enableImu && !csvImu.is_open()))
     {
@@ -249,9 +248,6 @@ void threadWriter(bool enableRadar, bool enableImu)
                  << "mag_x,mag_y,mag_z,"
                  << "temperature,status_byte,packet_counter,time_fine\n";
     }
-#else
-    cout << "[VALIDATE_PRINT] Writer in PRINT mode\n";
-#endif
 
     for (;;)
     {

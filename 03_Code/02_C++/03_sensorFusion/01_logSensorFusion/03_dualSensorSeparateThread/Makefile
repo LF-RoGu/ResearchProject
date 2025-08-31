@@ -9,7 +9,7 @@ CC        := gcc
 CFLAGS    := -std=c11 -Wall -Wextra
 
 # Include paths
-INCLUDES  := -I. -ImmWave-IWR6843 -IMTi-G-710
+INCLUDES  := -I. -ImmWave-IWR6843 -IMTi-G-710 -Imisc
 
 # Output directory
 OUT_DIR   := _out
