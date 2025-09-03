@@ -56,6 +56,8 @@ struct ValidRadarPoint
     uint16_t noise;
     uint64_t timestamp;
 };
+uint64_t frameIdSensorA = 0;
+uint64_t frameIdSensorB = 0;
 
 /* Global synchronization objects */
 static mutex                   radarMutexA;  /* Protects radarQueueA  */
@@ -67,9 +69,11 @@ static atomic<bool>            hasNewRadarB = false;
 static mutex                   imuMutex;    /* Protects imuQueue    */
 static mutex                   writeMutex;  /* Protects writer sync */
 static condition_variable      dataCV;      /* Signals data ready   */
+static mutex                   csvMutexRadarA;  /* Protects csvRadarA   */
+static mutex                   csvMutexRadarB;  /* Protects csvRadarB   */
 
 /* Queues for inter-thread communication */
-#define MAX_RADAR_QUEUE_SIZE 50
+#define MAX_RADAR_QUEUE_SIZE 200
 static BoundedQueue<vector<ValidRadarPoint>> radarQueueA;
 static BoundedQueue<vector<ValidRadarPoint>> radarQueueB;
 static BoundedQueue<MTiData>                 imuQueue;
@@ -96,14 +100,15 @@ uint64_t elapsed_ms_since_start(std::chrono::steady_clock::time_point start) {
     );
 }
 
-static vector<vector<ValidRadarPoint>> extractValidRadarPoints(const vector<SensorData>& frames)
+static vector<vector<ValidRadarPoint>> extractValidRadarPoints(const vector<SensorData>& frames, const uint64_t localFrameId)
 {
     vector<vector<ValidRadarPoint>> validFrames;
 
     for (const SensorData& frame : frames)
     {
         Frame_header frameHeader = frame.getHeader();
-        uint32_t frameID = frameHeader.getFrameNumber();
+        //uint32_t frameID = frameHeader.getFrameNumber();
+        uint32_t frameID = localFrameId;
 
         for (TLVPayloadData& payloadData : frame.getTLVPayloadData())
         {
@@ -150,63 +155,97 @@ static vector<vector<ValidRadarPoint>> extractValidRadarPoints(const vector<Sens
 void threadIwr6843A(void)
 {
     int32_t RadarCountA = 0;
+
     for (;;)
     {
+        // === Lock decode mutex while polling radar A ===
         unique_lock<mutex> dataLock(decodeMutexA);
-        // Poll information from both radars
+
+        // Poll new data from radar A
         RadarCountA = radarSensorA.poll();
-        if ((RadarCountA < 0))
+        if (RadarCountA < 0)
         {
             dataLock.unlock();
-            cerr << "[ERROR] Radar failed to poll\n";
+            cerr << "[ERROR] Radar A failed to poll\n";
             break;
         }
-        if ((RadarCountA == 0))
+
+        if (RadarCountA == 0)
         {
             dataLock.unlock();
-            // Wait for new data
-            usleep(1000);
+            // No new data yet — sleep briefly
+            usleep(10);
             continue;
         }
 
+        // === Try to copy the polled radar frames ===
         vector<SensorData> RadarFramesA;
         if (!radarSensorA.copyDecodedFramesFromTop(RadarFramesA, RadarCountA, true, 100))
         {
+            dataLock.unlock();
             cerr << "[ERROR] Timeout copying radar A frames\n";
             continue;
         }
 
+        // Done with radar poll and decode
         dataLock.unlock();
 
-        vector<vector<ValidRadarPoint>> FrameBatchesA = extractValidRadarPoints(RadarFramesA); 
+        // Extract valid radar points into per-frame batches
+        frameIdSensorA++;
+        vector<vector<ValidRadarPoint>> FrameBatchesA = extractValidRadarPoints(RadarFramesA, frameIdSensorA); 
 
-        /* For each decoded frame */
-        // If the batch is not empty
-        if(!FrameBatchesA.empty())
+        // === If frames were successfully decoded and extracted ===
+        if (!FrameBatchesA.empty())
         {
+            // Lock queue access to protect shared radarQueueA
+            lock_guard<mutex> lock(radarMutexA);
+
+            // Process each frame batch
+            for (auto&& batch : FrameBatchesA)
             {
-                lock_guard<mutex> lock(radarMutexA);
-                for (auto&& batch : FrameBatchesA)
+                std::cout << "[SENSOR A] Frame batch of size: " << batch.size() << "\n";
+
+                // === Lock CSV file only during write ===
+                lock_guard<mutex> lock(csvMutexRadarA);
+
+                for (const auto& pt : batch)
                 {
-                    std::cout << "[SENSOR A] Frame batch of size: " << batch.size() << "\n";
-                    for (const auto& pt : batch)
-                    {
-                        std::cout   << " Frame=" << pt.frameId
-                                    << " Idx=" << pt.pointId
-                                    << " x=" << pt.x
-                                    << " y=" << pt.y
-                                    << " z=" << pt.z
-                                    << " doppler=" << pt.doppler
-                                    << " snr=" << pt.snr
-                                    << " noise=" << pt.noise << "\n"
-                                    << " timestamp=" << pt.timestamp << "\n";
-                    }
-                    radarQueueA.push_drop_oldest(move(batch));
-                    hasNewRadarA.store(true);
+                    // Write radar point to CSV
+                    csvRadarA   << pt.frameId   << CSV_TAB
+                                << pt.pointId   << CSV_TAB
+                                << pt.x         << CSV_TAB
+                                << pt.y         << CSV_TAB
+                                << pt.z         << CSV_TAB
+                                << pt.doppler   << CSV_TAB
+                                << pt.snr       << CSV_TAB
+                                << pt.noise     << CSV_TAB
+                                << pt.timestamp << "\n";
+
+                    // Optional debug output to console
+                    /*
+                    std::cout   << " Frame=" << pt.frameId
+                                << " Idx=" << pt.pointId
+                                << " x=" << pt.x
+                                << " y=" << pt.y
+                                << " z=" << pt.z
+                                << " doppler=" << pt.doppler
+                                << " snr=" << pt.snr
+                                << " noise=" << pt.noise << "\n"
+                                << " timestamp=" << pt.timestamp << "\n";
+                                */
                 }
+
+                // Flush after each frame batch
+                csvRadarA.flush();
+
+                // Push batch to shared radar queue
+                radarQueueA.push_drop_oldest(std::move(batch));
+                hasNewRadarA.store(true);
             }
         }
-        if(hasNewRadarA)
+
+        // Notify the consumer that new radar data is available
+        if (hasNewRadarA)
         {
             dataCV.notify_one();
         }
@@ -231,7 +270,7 @@ void threadIwr6843B(void)
         {
             dataLock.unlock();
             // Wait for new data
-            usleep(1000);
+            usleep(10);
             continue;
         }
 
@@ -244,7 +283,8 @@ void threadIwr6843B(void)
         }
 
         dataLock.unlock();
-        vector<vector<ValidRadarPoint>> FrameBatchesB = extractValidRadarPoints(RadarFramesB); 
+        frameIdSensorB++;
+        vector<vector<ValidRadarPoint>> FrameBatchesB = extractValidRadarPoints(RadarFramesB, frameIdSensorB); 
 
         /* For each decoded frame */
         // If the batch is not empty
@@ -254,22 +294,37 @@ void threadIwr6843B(void)
                 lock_guard<mutex> lock(radarMutexB);
                 for (auto&& batch : FrameBatchesB)
                 {
-                    std::cout << "[SENSOR B] Frame batch of size: " << batch.size() << "\n";
-                    for (const auto& pt : batch)
+                    lock_guard<mutex> lock(csvMutexRadarB);
                     {
-                        std::cout   << " Frame=" << pt.frameId
-                                    << " Idx=" << pt.pointId
-                                    << " x=" << pt.x
-                                    << " y=" << pt.y
-                                    << " z=" << pt.z
-                                    << " doppler=" << pt.doppler
-                                    << " snr=" << pt.snr
-                                    << " noise=" << pt.noise << "\n"
-                                    << " timestamp=" << pt.timestamp << "\n";
+                        std::cout << "[SENSOR B] Frame batch of size: " << batch.size() << "\n";
+                        for (const auto& pt : batch)
+                        {
+                            csvRadarB   << pt.frameId   << CSV_TAB
+                                        << pt.pointId   << CSV_TAB
+                                        << pt.x         << CSV_TAB
+                                        << pt.y         << CSV_TAB
+                                        << pt.z         << CSV_TAB
+                                        << pt.doppler   << CSV_TAB
+                                        << pt.snr       << CSV_TAB
+                                        << pt.noise     << CSV_TAB
+                                        << pt.timestamp << "\n";
+                            /*
+                            std::cout   << " Frame=" << pt.frameId
+                                        << " Idx=" << pt.pointId
+                                        << " x=" << pt.x
+                                        << " y=" << pt.y
+                                        << " z=" << pt.z
+                                        << " doppler=" << pt.doppler
+                                        << " snr=" << pt.snr
+                                        << " noise=" << pt.noise << "\n"
+                                        << " timestamp=" << pt.timestamp << "\n";
+                                        */
+                        }
+                        csvRadarB.flush();
+                        radarQueueB.push_drop_oldest(move(batch));
+                        hasNewRadarB.store(true);
                     }
-                    radarQueueB.push_drop_oldest(move(batch));
-                    hasNewRadarB.store(true);
-                }
+                }   
             }
         }
         if(hasNewRadarB)
@@ -318,8 +373,8 @@ void threadWriter(bool enableRadar, bool enableImu)
 
     if (enableRadar)
     {
-        csvRadarA << "frame_id,point_id,x,y,z,doppler,snr,noise\n";
-        csvRadarB << "frame_id,point_id,x,y,z,doppler,snr,noise\n";
+        csvRadarA << "frame_id,point_id,x,y,z,doppler,snr,noise,timestamp\n";
+        csvRadarB << "frame_id,point_id,x,y,z,doppler,snr,noise,timestamp\n";
     }
     if (enableImu)
     {
@@ -466,11 +521,10 @@ void threadWriter(bool enableRadar, bool enableImu)
         }
     }
 }
-
+void flushSerialPort(const char* devicePath);
 /*=== MAIN ===*/
 int main(void)
 {
-    programStart = Clock::now(); // capture the global start time
     #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
     cout << "[INFO] Initializing radarA...\n";
     if (radarSensorA.init("/dev/ttyUSB0",
@@ -504,11 +558,20 @@ int main(void)
     #endif
 
     cout << "[INFO] Opening output files...\n";
-    if ((!csvRadarA.is_open()) || (!csvImu.is_open()))
+    if ((!csvRadarA.is_open()) || (!csvRadarB.is_open()) || (!csvImu.is_open()))
     {
         cerr << "[ERROR] Failed to open CSVs\n";
         return 1;
     }
+    csvRadarA << "frame_id,point_id,x,y,z,doppler,snr,noise,timestamp\n";
+    csvRadarB << "frame_id,point_id,x,y,z,doppler,snr,noise,timestamp\n";
+
+    this_thread::sleep_for(chrono::milliseconds(1000));
+
+    flushSerialPort("/dev/ttyUSB1");  // Clear input buffer of /dev/ttyUSB1
+    flushSerialPort("/dev/ttyUSB3"); // Clear input buffer of /dev/ttyUSB3
+
+    programStart = Clock::now(); // capture the global start time
 
     cout << "[INFO] Spawning threads...\n";
     #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
@@ -518,9 +581,9 @@ int main(void)
     #if ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3
     thread thread_mti710(threadMti710);
     #endif
-    thread thread_logger(threadWriter, 
-                        (ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3),
-                        (ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3));
+    //thread thread_logger(threadWriter, 
+    //                    (ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3),
+    //                    (ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3));
 
     /* Join threads (program runs until killed) */
     #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
@@ -530,10 +593,27 @@ int main(void)
     #if ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3
     thread_mti710.join();
     #endif
-    thread_logger.join();
+    //thread_logger.join();
 
     csvRadarA.close();
     csvImu.close();
 
     return 0;
+}
+
+void flushSerialPort(const char* devicePath)
+{
+    int fd = open(devicePath, O_RDWR | O_NOCTTY | O_NONBLOCK);
+    if (fd == -1) {
+        std::cerr << "[ERROR] Could not open " << devicePath << " for flushing\n";
+        return;
+    }
+
+    if (tcflush(fd, TCIFLUSH) == -1) {
+        std::cerr << "[ERROR] Failed to flush RX buffer for " << devicePath << "\n";
+    } else {
+        std::cout << "[INFO] Flushed RX buffer for " << devicePath << "\n";
+    }
+
+    close(fd);
 }

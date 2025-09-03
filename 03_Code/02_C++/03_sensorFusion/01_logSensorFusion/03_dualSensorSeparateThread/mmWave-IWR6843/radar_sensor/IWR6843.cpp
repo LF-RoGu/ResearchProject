@@ -75,6 +75,7 @@ int IWR6843::init(const std::string& configPort,
 int IWR6843::poll()
 {
     int bytesAvailable = 0;
+
     if (ioctl(dataPort_fd, FIONREAD, &bytesAvailable) == -1) {
         return -1;
     }
@@ -82,31 +83,56 @@ int IWR6843::poll()
         return 0;
     }
 
+    // === Read available bytes ===
     uint8_t buffer[1024];
     int bytesToRead = std::min(bytesAvailable, (int)sizeof(buffer));
-    int bytesRead   = read(dataPort_fd, buffer, bytesToRead);
-    dataBuffer.insert(dataBuffer.end(), buffer, buffer + bytesRead);
-
-    auto indexesOfMagicWords = findIndexesOfMagicWord();
-    if (indexesOfMagicWords.size() < 2) {
+    int bytesRead = read(dataPort_fd, buffer, bytesToRead);
+    if (bytesRead <= 0) {
         return 0;
     }
-    if (indexesOfMagicWords.front() != 0) {
-        dataBuffer.erase(dataBuffer.begin(), dataBuffer.begin() + indexesOfMagicWords.front());
-    }
-    auto sublists = splitIntoSublistsByIndexes(indexesOfMagicWords);
 
+    dataBuffer.insert(dataBuffer.end(), buffer, buffer + bytesRead);
+
+    // === Search for magic words ===
+    auto indexesOfMagicWords = findIndexesOfMagicWord();
+
+    if (indexesOfMagicWords.size() < 2) {
+        // Not enough data to confirm a full frame yet
+        return 0;
+    }
+
+    // === Extract full frames between magic words ===
+    std::vector<std::vector<uint8_t>> completeFrames;
+
+    for (size_t i = 0; i < indexesOfMagicWords.size() - 1; ++i)
+    {
+        size_t startIdx = indexesOfMagicWords[i];
+        size_t endIdx   = indexesOfMagicWords[i + 1];
+
+        if (endIdx > dataBuffer.size()) {
+            break; // shouldn't happen, but just in case
+        }
+
+        std::vector<uint8_t> oneFrame(dataBuffer.begin() + startIdx, dataBuffer.begin() + endIdx);
+        completeFrames.push_back(std::move(oneFrame));
+    }
+
+    // === Update buffer to keep only tail bytes after last full frame ===
+    size_t lastMagic = indexesOfMagicWords[indexesOfMagicWords.size() - 1];
+    if (lastMagic < dataBuffer.size()) {
+        dataBuffer.erase(dataBuffer.begin(), dataBuffer.begin() + lastMagic);
+    }
+
+    // === Push to decoded frame buffer ===
     pthread_mutex_lock(&decodedFrameBufferMutex);
-    for (auto& sub : sublists) {
-        decodedFrameBuffer.emplace_back(sub);
+    for (auto& frame : completeFrames) {
+        decodedFrameBuffer.emplace_back(frame);
     }
     pthread_mutex_unlock(&decodedFrameBufferMutex);
 
-    dataBuffer.erase(dataBuffer.begin() + indexesOfMagicWords.front(),
-                     dataBuffer.begin() + indexesOfMagicWords.back());
-
-    return sublists.size();
+    return completeFrames.size();
 }
+
 
 bool IWR6843::copyDecodedFramesFromTop(vector<SensorData>& destination,
                                        uint numFrames,
