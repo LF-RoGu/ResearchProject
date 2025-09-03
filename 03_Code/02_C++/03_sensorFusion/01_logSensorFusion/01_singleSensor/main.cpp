@@ -76,8 +76,15 @@ using Clock = std::chrono::steady_clock;
 Clock::time_point programStart;
 
 /* Output files */
-static ofstream csvRadar("_outFiles/radar_2GHzConfig2.csv");
-static ofstream csvImu  ("_outFiles/imu_2GHzConfig2.csv");
+static ofstream csvRadar("_outFiles/radar_sensorA.csv");
+static ofstream csvImu  ("_outFiles/imu_sensorA.csv");
+
+uint64_t elapsed_ms_since_start(std::chrono::steady_clock::time_point start) {
+    auto now = std::chrono::steady_clock::now();
+    return static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count()
+    );
+}
 
 static vector<vector<ValidRadarPoint>> extractValidRadarPoints(const vector<SensorData>& frames)
 {
@@ -85,8 +92,8 @@ static vector<vector<ValidRadarPoint>> extractValidRadarPoints(const vector<Sens
 
     for (const SensorData& frame : frames)
     {
-        Frame_header frameHeader = frame.getHeader();
-        uint32_t frameID = frameHeader.getFrameNumber();
+        const Frame_header frameHeader = frame.getHeader();
+        const uint32_t frameID = frameHeader.getFrameNumber();
 
         for (const TLVPayloadData& payloadData : frame.getTLVPayloadData())
         {
@@ -101,10 +108,10 @@ static vector<vector<ValidRadarPoint>> extractValidRadarPoints(const vector<Sens
             }
 
             vector<ValidRadarPoint> validPoints;
-            for (size_t i = 0UL; i < pd.DetectedPoints_str.size(); ++i)
+            for (size_t i = 0UL; i < payloadData.DetectedPoints_str.size(); i++)
             {
-                DetectedPoints& detectedPoints = payloadData.DetectedPoints_str[i];
-                SideInfoPoint& sideInfo = payloadData.SideInfoPoint_str[i];
+                const DetectedPoints& detectedPoints = payloadData.DetectedPoints_str[i];
+                const SideInfoPoint& sideInfo = payloadData.SideInfoPoint_str[i];
                 uint64_t timestamp = elapsed_ms_since_start(programStart);
 
                 validPoints.push_back(ValidRadarPoint{
@@ -128,14 +135,6 @@ static vector<vector<ValidRadarPoint>> extractValidRadarPoints(const vector<Sens
     }
     return validFrames;
 }
-
-uint64_t elapsed_ms_since_start(std::chrono::steady_clock::time_point start) {
-    auto now = std::chrono::steady_clock::now();
-    return static_cast<uint64_t>(
-        std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count()
-    );
-}
-
 
 /*=== threadIwr6843(): Radar acquisition & filtering ===*/
 void threadIwr6843(void)
@@ -164,7 +163,7 @@ void threadIwr6843(void)
             continue;
         }
 
-        const vector<vector<ValidRadarPoint>> FrameBatches = extractValidRadarPoints(RadarFrames); 
+        vector<vector<ValidRadarPoint>> FrameBatches = extractValidRadarPoints(RadarFrames); 
 
         /* For each decoded frame */
         // If the batch is not empty
@@ -358,8 +357,8 @@ int main(void)
     cout << "[INFO] Initializing radar...\n";
     if (radarSensorA.init("/dev/ttyUSB0",
                          "/dev/ttyUSB1",
-                         "../01_logSensorFusion/mmWave-IWR6843/configs/"
-                         "profile_azim60_elev30_optimized.cfg"
+                         "/home/luis/Desktop/ResearchProject/03_Code/02_C++/03_sensorFusion/01_logSensorFusion/01_singleSensor/mmWave-IWR6843/configs/"
+                         "right_profile_azim60_elev30_calibrator.cfg"
                         ) != 1)
     {
         cerr << "[ERROR] radarSensorA.init() failed\n";
