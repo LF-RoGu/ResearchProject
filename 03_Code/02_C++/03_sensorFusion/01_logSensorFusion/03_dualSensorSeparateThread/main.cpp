@@ -37,7 +37,7 @@ Macro to enable or disable sensors
  2 - enable only MTI
  3 - enable both
 */ 
-#define ENABLE_SENSORS 3
+#define ENABLE_SENSORS 1
 
 const char CSV_TAB = ',';
 
@@ -60,6 +60,8 @@ struct ValidRadarPoint
 /* Global synchronization objects */
 static mutex                   radarMutexA;  /* Protects radarQueueA  */
 static mutex                   radarMutexB;  /* Protects radarQueueB  */
+static mutex                   decodeMutexA; /* Protects decode radar A */
+static mutex                   decodeMutexB; /* Protects decode radar B */
 static atomic<bool>            hasNewRadarA = false;
 static atomic<bool>            hasNewRadarB = false;
 static mutex                   imuMutex;    /* Protects imuQueue    */
@@ -82,9 +84,17 @@ using Clock = std::chrono::steady_clock;
 Clock::time_point programStart;
 
 /* Output files */
-static ofstream csvRadarA("_outFiles/radarA_2GHzConfig2.csv");
-static ofstream csvRadarB("_outFiles/radarB_2GHzConfig2.csv");
+static ofstream csvRadarA("_outFiles/radar_sensorA.csv");
+static ofstream csvRadarB("_outFiles/radar_sensorB.csv");
 static ofstream csvImu  ("_outFiles/imu_2GHzConfig2.csv");
+
+
+uint64_t elapsed_ms_since_start(std::chrono::steady_clock::time_point start) {
+    auto now = std::chrono::steady_clock::now();
+    return static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count()
+    );
+}
 
 static vector<vector<ValidRadarPoint>> extractValidRadarPoints(const vector<SensorData>& frames)
 {
@@ -95,7 +105,7 @@ static vector<vector<ValidRadarPoint>> extractValidRadarPoints(const vector<Sens
         Frame_header frameHeader = frame.getHeader();
         uint32_t frameID = frameHeader.getFrameNumber();
 
-        for (const TLVPayloadData& payloadData : frame.getTLVPayloadData())
+        for (TLVPayloadData& payloadData : frame.getTLVPayloadData())
         {
             if (payloadData.SideInfoPoint_str.size() != payloadData.DetectedPoints_str.size())
             {
@@ -108,7 +118,7 @@ static vector<vector<ValidRadarPoint>> extractValidRadarPoints(const vector<Sens
             }
 
             vector<ValidRadarPoint> validPoints;
-            for (size_t i = 0UL; i < pd.DetectedPoints_str.size(); ++i)
+            for (size_t i = 0UL; i < payloadData.DetectedPoints_str.size(); i++)
             {
                 DetectedPoints& detectedPoints = payloadData.DetectedPoints_str[i];
                 SideInfoPoint& sideInfo = payloadData.SideInfoPoint_str[i];
@@ -136,29 +146,24 @@ static vector<vector<ValidRadarPoint>> extractValidRadarPoints(const vector<Sens
     return validFrames;
 }
 
-uint64_t elapsed_ms_since_start(std::chrono::steady_clock::time_point start) {
-    auto now = std::chrono::steady_clock::now();
-    return static_cast<uint64_t>(
-        std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count()
-    );
-}
-
-
 /*=== threadIwr6843A(): Radar acquisition & filtering ===*/
 void threadIwr6843A(void)
 {
     int32_t RadarCountA = 0;
     for (;;)
     {
+        unique_lock<mutex> dataLock(decodeMutexA);
         // Poll information from both radars
         RadarCountA = radarSensorA.poll();
         if ((RadarCountA < 0))
         {
+            dataLock.unlock();
             cerr << "[ERROR] Radar failed to poll\n";
             break;
         }
         if ((RadarCountA == 0))
         {
+            dataLock.unlock();
             // Wait for new data
             usleep(1000);
             continue;
@@ -171,7 +176,9 @@ void threadIwr6843A(void)
             continue;
         }
 
-        const vector<vector<ValidRadarPoint>> FrameBatchesA = extractValidRadarPoints(RadarFramesA); 
+        dataLock.unlock();
+
+        vector<vector<ValidRadarPoint>> FrameBatchesA = extractValidRadarPoints(RadarFramesA); 
 
         /* For each decoded frame */
         // If the batch is not empty
@@ -181,7 +188,7 @@ void threadIwr6843A(void)
                 lock_guard<mutex> lock(radarMutexA);
                 for (auto&& batch : FrameBatchesA)
                 {
-                    std::cout << "[DEBUG] Frame batch of size: " << batch.size() << "\n";
+                    std::cout << "[SENSOR A] Frame batch of size: " << batch.size() << "\n";
                     for (const auto& pt : batch)
                     {
                         std::cout   << " Frame=" << pt.frameId
@@ -211,15 +218,18 @@ void threadIwr6843B(void)
     int32_t RadarCountB = 0;
     for (;;)
     {
+        unique_lock<mutex> dataLock(decodeMutexB);
         // Poll information from both radars
         RadarCountB = radarSensorB.poll();
         if ((RadarCountB < 0))
         {
+            dataLock.unlock();
             cerr << "[ERROR] Radar failed to poll\n";
             break;
         }
         if ((RadarCountB == 0))
         {
+            dataLock.unlock();
             // Wait for new data
             usleep(1000);
             continue;
@@ -228,11 +238,13 @@ void threadIwr6843B(void)
         vector<SensorData> RadarFramesB;
         if (!radarSensorB.copyDecodedFramesFromTop(RadarFramesB, RadarCountB, true, 100))
         {
+            dataLock.unlock();
             cerr << "[ERROR] Timeout copying radar B frames\n";
             continue;
         }
 
-        const vector<vector<ValidRadarPoint>> FrameBatchesB = extractValidRadarPoints(RadarFramesB); 
+        dataLock.unlock();
+        vector<vector<ValidRadarPoint>> FrameBatchesB = extractValidRadarPoints(RadarFramesB); 
 
         /* For each decoded frame */
         // If the batch is not empty
@@ -242,7 +254,7 @@ void threadIwr6843B(void)
                 lock_guard<mutex> lock(radarMutexB);
                 for (auto&& batch : FrameBatchesB)
                 {
-                    std::cout << "[DEBUG] Frame batch of size: " << batch.size() << "\n";
+                    std::cout << "[SENSOR B] Frame batch of size: " << batch.size() << "\n";
                     for (const auto& pt : batch)
                     {
                         std::cout   << " Frame=" << pt.frameId
@@ -371,7 +383,7 @@ void threadWriter(bool enableRadar, bool enableImu)
             });
 
             imuSamples.reserve(imuNeeded);
-            for (size_t i = 0UL; i < imuNeeded; ++i)
+            for (size_t i = 0UL; i < imuNeeded; i++)
             {
                 imuSamples.push_back(imuQueue.front());
                 imuQueue.pop();
@@ -397,7 +409,7 @@ void threadWriter(bool enableRadar, bool enableImu)
             csvRadarA.flush();
             for (const auto& pt : radarPtsB)
             {
-                csvRadarA << pt.frameId  << CSV_TAB
+                csvRadarB << pt.frameId  << CSV_TAB
                          << pt.pointId  << CSV_TAB
                          << pt.x        << CSV_TAB
                          << pt.y        << CSV_TAB
@@ -413,7 +425,7 @@ void threadWriter(bool enableRadar, bool enableImu)
         /* === Write IMU data if enabled === */
         if (enableImu)
         {
-            for (size_t i = 0UL; i < imuSamples.size(); ++i)
+            for (size_t i = 0UL; i < imuSamples.size(); i++)
             {
                 const MTiData& imu = imuSamples[i];
                 csvImu << fid               << CSV_TAB
@@ -460,14 +472,24 @@ int main(void)
 {
     programStart = Clock::now(); // capture the global start time
     #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
-    cout << "[INFO] Initializing radar...\n";
+    cout << "[INFO] Initializing radarA...\n";
     if (radarSensorA.init("/dev/ttyUSB0",
                          "/dev/ttyUSB1",
-                         "../01_logSensorFusion/mmWave-IWR6843/configs/"
-                         "profile_azim60_elev30_optimized.cfg"
+                         "/home/luis/Desktop/ResearchProject/03_Code/02_C++/03_sensorFusion/01_logSensorFusion/03_dualSensorSeparateThread/mmWave-IWR6843/configs/"
+                         "left_profile_azim60_elev30_calibrator.cfg"
                         ) != 1)
     {
         cerr << "[ERROR] radarSensorA.init() failed\n";
+        return 1;
+    }
+    cout << "[INFO] Initializing radarB...\n";
+    if (radarSensorB.init("/dev/ttyUSB2",
+                         "/dev/ttyUSB3",
+                         "/home/luis/Desktop/ResearchProject/03_Code/02_C++/03_sensorFusion/01_logSensorFusion/03_dualSensorSeparateThread/mmWave-IWR6843/configs/"
+                         "right_profile_azim60_elev30_calibrator.cfg"
+                        ) != 1)
+    {
+        cerr << "[ERROR] radarSensorB.init() failed\n";
         return 1;
     }
     #endif
@@ -490,7 +512,8 @@ int main(void)
 
     cout << "[INFO] Spawning threads...\n";
     #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
-    thread thread_iwr6843(threadIwr6843A);
+    thread thread_iwr6843A(threadIwr6843A);
+    thread thread_iwr6843B(threadIwr6843B);
     #endif
     #if ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3
     thread thread_mti710(threadMti710);
@@ -501,7 +524,8 @@ int main(void)
 
     /* Join threads (program runs until killed) */
     #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
-    thread_iwr6843.join();
+    thread_iwr6843A.join();
+    thread_iwr6843B.join();
     #endif
     #if ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3
     thread_mti710.join();

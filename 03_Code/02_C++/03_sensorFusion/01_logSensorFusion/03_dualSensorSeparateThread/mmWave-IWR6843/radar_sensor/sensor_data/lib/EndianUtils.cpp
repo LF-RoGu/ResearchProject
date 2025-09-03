@@ -6,7 +6,7 @@
 uint16_t EndianUtils::toLittleEndian16(std::vector<uint8_t>& data, uint8_t bytesToCheck)
 {
     if (data.size() < bytesToCheck || bytesToCheck > 2) {
-        throw std::invalid_argument("Invalid number of bytes to process");
+        throw std::invalid_argument("16 Invalid number of bytes to process");
     }
 
     uint16_t result = 0;
@@ -23,7 +23,7 @@ uint32_t EndianUtils::toLittleEndian32(std::vector<uint8_t>& data, uint8_t bytes
 {
     // Ensure the vector has at least the required number of bytes
     if (data.size() < bytesToCheck || bytesToCheck > 4) {
-        throw std::invalid_argument("Invalid number of bytes to process");
+        throw std::invalid_argument("32 Invalid number of bytes to process");
     }
 
     uint32_t result = 0;
@@ -52,7 +52,7 @@ uint64_t EndianUtils::toLittleEndian64(std::vector<uint8_t>& data, uint8_t bytes
 {
     // Ensure the vector has at least the required number of bytes
     if (data.size() < bytesToCheck || bytesToCheck > 8) {
-        throw std::invalid_argument("Invalid number of bytes to process");
+        throw std::invalid_argument("64 Invalid number of bytes to process");
     }
 
     uint64_t result = 0;
