@@ -88,8 +88,8 @@ using Clock = std::chrono::steady_clock;
 Clock::time_point programStart;
 
 /* Output files */
-static ofstream csvRadarA("_outFiles/radar_sensorA.csv");
-static ofstream csvRadarB("_outFiles/radar_sensorB.csv");
+static ofstream csvRadarA("_outFiles/radar_sensorLeft.csv");
+static ofstream csvRadarB("_outFiles/radar_sensorRight.csv");
 static ofstream csvImu  ("_outFiles/imu_2GHzConfig2.csv");
 
 
@@ -527,6 +527,7 @@ int main(void)
 {
     #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
     cout << "[INFO] Initializing radarA...\n";
+    // Left sensor
     if (radarSensorA.init("/dev/ttyUSB0",
                          "/dev/ttyUSB1",
                          "/home/luis/Desktop/ResearchProject/03_Code/02_C++/03_sensorFusion/01_logSensorFusion/03_dualSensorSeparateThread/mmWave-IWR6843/configs/"
@@ -537,6 +538,7 @@ int main(void)
         return 1;
     }
     cout << "[INFO] Initializing radarB...\n";
+    // Right sensor
     if (radarSensorB.init("/dev/ttyUSB2",
                          "/dev/ttyUSB3",
                          "/home/luis/Desktop/ResearchProject/03_Code/02_C++/03_sensorFusion/01_logSensorFusion/03_dualSensorSeparateThread/mmWave-IWR6843/configs/"
