@@ -8,6 +8,9 @@ CXXFLAGS  := -std=c++17 -Wall -Wextra -pthread
 CC        := gcc
 CFLAGS    := -std=c11 -Wall -Wextra
 
+# OpenCV flags
+OPENCV_FLAGS := $(shell pkg-config --cflags --libs opencv4)
+
 # Include paths
 INCLUDES  := -I. -ImmWave-IWR6843 -IMTi-G-710 -Imisc
 
@@ -21,14 +24,15 @@ SRCS_CPP := \
   mmWave-IWR6843/radar_sensor/SensorData.cpp \
   mmWave-IWR6843/radar_sensor/sensor_data/UARTFrame.cpp \
   mmWave-IWR6843/radar_sensor/sensor_data/lib/EndianUtils.cpp \
-  MTi-G-710/xsens_mti710.cpp
+  MTi-G-710/xsens_mti710.cpp \
+  misc/CameraThread.cpp
 
 SRCS_C := \
   MTi-G-710/libs/xsens_mti.c \
   MTi-G-710/libs/xsens_utility.c \
   MTi-G-710/libs/xsens_mdata2.c
 
-# Convert source files to object files in _out directory
+# Object files
 OBJS_CPP := $(SRCS_CPP:.cpp=.o)
 OBJS_C   := $(SRCS_C:.c=.o)
 OBJS     := $(OBJS_CPP) $(OBJS_C)
@@ -44,12 +48,12 @@ $(OUT_DIR):
 	mkdir -p $(OUT_DIR)
 
 $(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $(OBJS) -ludev
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $(OBJS) -ludev $(OPENCV_FLAGS)
 
 # C++ compilation rule
 $(OUT_DIR)/%.o: %.cpp
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(OPENCV_FLAGS) -c $< -o $@
 
 # C compilation rule
 $(OUT_DIR)/%.o: %.c

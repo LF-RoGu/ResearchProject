@@ -30,6 +30,8 @@
 #include "misc/BoundedQueue.h"
 #include "misc/tcpConnection.h"
 
+#include "misc/CameraThread.h"
+
 using namespace std;
 
 #define RADAR_A_READY 0x1
@@ -41,6 +43,13 @@ Macro to enable the TCP/UDP server for real-time data visualization
  1 - enable
 */
 #define ENABLE_REAL_TIME 0
+
+/*
+Macro to enable the camera visualization
+ 0 - disable
+ 1 - enable
+*/
+#define ENABLE_CAMERA 0
 
 /*
 Macro to enable or disable sensors
@@ -574,6 +583,9 @@ void flushSerialPort(const char* devicePath);
 /*=== MAIN ===*/
 int main(void)
 {
+    #if ENABLE_CAMERA == 1
+    CameraThread camera;
+    #endif
     #if ENABLE_REAL_TIME
         int socketFd = -1;
         socketFd = setupTcpSocket("0.0.0.0", 8888);  // Or your desired bind IP
@@ -650,6 +662,10 @@ int main(void)
 
     programStart = Clock::now(); // capture the global start time
 
+    #if ENABLE_CAMERA == 1
+    camera.start();  // Start camera thread (~10 FPS image saving)
+    #endif
+
     cout << "[INFO] Spawning threads...\n";
     #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
     thread thread_iwr6843A(threadIwr6843A);
@@ -674,6 +690,9 @@ int main(void)
     tcpThread.join();
     closeTcpSocket(socketFd);
     std::cout << "[INFO] TCP socket closed\n";
+    #endif
+    #if ENABLE_CAMERA == 1
+    camera.stop();  // Stop camera thread (~10 FPS image saving)
     #endif
 
     csvRadarA.close();
