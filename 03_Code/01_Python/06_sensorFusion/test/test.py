@@ -1,91 +1,117 @@
+import socket
+import time
 import sys
-import pandas as pd
-from PyQt5.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QSlider, QLabel
-)
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout
+from PyQt5.QtCore import QTimer
 import pyqtgraph as pg
 
-class RadarVisualizer(QWidget):
-    def __init__(self, csv_path_1, csv_path_2):
+TCP_IP = "192.168.38.97"
+TCP_PORT = 8888
+RETRY_INTERVAL = 1.0  # Seconds
+
+
+class RadarViewer(QWidget):
+    def __init__(self):
         super().__init__()
-        self.setWindowTitle("Radar Point Visualizer (2D) - Dual Dataset")
-        self.resize(1200, 600)
+        self.setWindowTitle("Radar Viewer (Sensor A & B)")
 
-        # Load both datasets
-        self.data1 = pd.read_csv(csv_path_1)
-        self.data2 = pd.read_csv(csv_path_2)
-
-        # Determine frame ranges
-        self.frames1 = sorted(self.data1['frame_id'].unique())
-        self.frames2 = sorted(self.data2['frame_id'].unique())
-        self.max_frame1 = max(self.frames1)
-        self.max_frame2 = max(self.frames2)
-
-        # Setup UI
+        # === Layout with 2 PlotWidgets ===
         layout = QHBoxLayout()
+        self.plotA = pg.PlotWidget(title="Sensor A - Point Cloud")
+        self.plotB = pg.PlotWidget(title="Sensor B - Point Cloud")
+
+        for plot in [self.plotA, self.plotB]:
+            plot.setXRange(-10, 10)
+            plot.setYRange(0, 15)
+            plot.setLabel("left", "Y (forward) [m]")
+            plot.setLabel("bottom", "X (sideways) [m]")
+            plot.showGrid(x=True, y=True)
+
+        layout.addWidget(self.plotA)
+        layout.addWidget(self.plotB)
         self.setLayout(layout)
 
-        self.panel1 = self.create_panel("Dataset 1", self.max_frame1)
-        self.panel2 = self.create_panel("Dataset 2", self.max_frame2)
+        # === Scatter plot handles ===
+        self.scatterA = pg.ScatterPlotItem(pen=pg.mkPen(None), brush=pg.mkBrush(255, 0, 0, 120), size=7)
+        self.scatterB = pg.ScatterPlotItem(pen=pg.mkPen(None), brush=pg.mkBrush(0, 255, 0, 120), size=7)
+        self.plotA.addItem(self.scatterA)
+        self.plotB.addItem(self.scatterB)
 
-        layout.addLayout(self.panel1["layout"])
-        layout.addLayout(self.panel2["layout"])
+        # === TCP connection ===
+        self.sock = self.wait_for_connection()
+        self.buffer = ""
+        self.radarA_points = []
+        self.radarB_points = []
 
-        # Initial plot
-        self.update_plot(self.panel1, self.data1, 1)
-        self.update_plot(self.panel2, self.data2, 1)
+        # === Timer for reading and updating plots ===
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.read_data)
+        self.timer.start(30)  # ms
 
-    def create_panel(self, title, max_frame):
-        panel = {}
-        panel["layout"] = QVBoxLayout()
+    def wait_for_connection(self):
+        while True:
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.connect((TCP_IP, TCP_PORT))
+                sock.setblocking(False)  # ⚠️ Important line
+                print(f"[PYTHON] Connected to {TCP_IP}:{TCP_PORT}")
+                return sock
+            except socket.error:
+                print(f"[PYTHON] Server not ready, retrying in {RETRY_INTERVAL} sec...")
+                time.sleep(RETRY_INTERVAL)
 
-        # Plot
-        panel["plot_widget"] = pg.PlotWidget(title=title)
-        panel["plot"] = panel["plot_widget"].plot([], [], pen=None, symbol='o', symbolBrush='b')
-        panel["plot_widget"].setLabel('left', 'Y')
-        panel["plot_widget"].setLabel('bottom', 'X')
-        panel["plot_widget"].setAspectLocked(True)
+    def read_data(self):
+        try:
+            data = self.sock.recv(4096)
+            if data:
+                self.buffer += data.decode('utf-8')
+                while '\n' in self.buffer:
+                    line, self.buffer = self.buffer.split('\n', 1)
+                    self.parse_line(line.strip())
+        except BlockingIOError:
+            pass  # No data available yet
+        except Exception as e:
+            print(f"[PYTHON ERROR] {e}")
+            self.timer.stop()
 
-        # Slider
-        panel["slider"] = QSlider(Qt.Horizontal)
-        panel["slider"].setMinimum(1)
-        panel["slider"].setMaximum(max_frame)
-        panel["slider"].setValue(1)
-        panel["label"] = QLabel(f"Frame ID: 1")
+    def parse_line(self, line):
+        if line.startswith("RADAR_A,"):
+            self.radarA_points.clear()
+            self.expectedA = int(line.split(',')[1])
+            self.readingA = True
+            self.readingB = False
+            return
+        if line.startswith("RADAR_B,"):
+            self.radarB_points.clear()
+            self.expectedB = int(line.split(',')[1])
+            self.readingA = False
+            self.readingB = True
+            return
+        if line.startswith("IMU,"):
+            # Optionally print IMU data or process later
+            return
 
-        # Connect with update function
-        panel["slider"].valueChanged.connect(
-            lambda val, p=panel, d=title: self.slider_callback(p, val, d)
-        )
+        parts = line.split(',')
+        if len(parts) != 5:
+            return  # Invalid line
 
-        # Assemble layout
-        panel["layout"].addWidget(panel["plot_widget"])
-        panel["layout"].addWidget(panel["slider"])
-        panel["layout"].addWidget(panel["label"])
+        try:
+            _, x, y, z, doppler = map(float, parts)
+            if self.readingA:
+                self.radarA_points.append({'pos': (x, y)})
+                if len(self.radarA_points) == self.expectedA:
+                    self.scatterA.setData(self.radarA_points)
+            elif self.readingB:
+                self.radarB_points.append({'pos': (x, y)})
+                if len(self.radarB_points) == self.expectedB:
+                    self.scatterB.setData(self.radarB_points)
+        except ValueError:
+            return
 
-        return panel
-
-    def slider_callback(self, panel, value, dataset_id):
-        if dataset_id == "Dataset 1":
-            self.update_plot(panel, self.data1, value)
-        elif dataset_id == "Dataset 2":
-            self.update_plot(panel, self.data2, value)
-
-    def update_plot(self, panel, dataset, frame_id):
-        subset = dataset[dataset["frame_id"] == frame_id]
-        x = subset["x"].values
-        y = subset["y"].values
-        panel["plot"].setData(x, y)
-        panel["label"].setText(f"Frame ID: {frame_id}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-
-    # Manually set CSV file paths
-    csv_path_1 = "radar_SensorA.csv"
-    csv_path_2 = "radar_SensorB.csv"
-
-    viewer = RadarVisualizer(csv_path_1, csv_path_2)
+    viewer = RadarViewer()
+    viewer.resize(1000, 500)
     viewer.show()
     sys.exit(app.exec_())
