@@ -26,6 +26,7 @@
 #include "MTi-G-710/xsens_mti710.hpp"
 
 #include "misc/BoundedQueue.h"
+#include "misc/tcpConnection.h"
 
 using namespace std;
 
@@ -37,7 +38,7 @@ Macro to enable the TCP/UDP server for real-time data visualization
  0 - disable
  1 - enable
 */
-#define ENABLE_REAL_TIME 0
+#define ENABLE_REAL_TIME 1
 
 /*
 Macro to enable or disable sensors
@@ -494,10 +495,58 @@ void threadMti710(void)
     }
 }
 
+#if ENABLE_REAL_TIME
+void threadRealTimeTransmit(int tcpSocketFd) {
+    std::cout << "[REALTIME] TCP transmitter thread started\n";
+
+    for (;;) {
+        MTiData imuData;
+        std::vector<ValidRadarPoint> radarDataA;
+        std::vector<ValidRadarPoint> radarDataB;
+
+        bool hasImu = imuQueue.try_pop(imuData);
+        bool hasRadarA = radarQueueA.try_pop(radarDataA);
+        bool hasRadarB = radarQueueB.try_pop(radarDataB);
+
+        if (hasImu && hasRadarA && hasRadarB) {
+            std::ostringstream ss;
+            ss << "IMU," << imuData.quaternion[0] << "," << imuData.quaternion[1] << "," << imuData.quaternion[2] << "," << imuData.quaternion[3] << "\n";
+            ss << "RADAR_A," << radarDataA.size() << "\n";
+            for (const auto& pt : radarDataA) {
+                ss << pt.frameId << "," << pt.x << "," << pt.y << "," << pt.z << "," << pt.doppler << "\n";
+            }
+            ss << "RADAR_B," << radarDataB.size() << "\n";
+            for (const auto& pt : radarDataB) {
+                ss << pt.frameId << "," << pt.x << "," << pt.y << "," << pt.z << "," << pt.doppler << "\n";
+            }
+
+            std::string packet = ss.str();
+            ssize_t sent = send(tcpSocketFd, packet.c_str(), packet.size(), 0);
+            if (sent < 0) {
+                perror("[REALTIME] send");
+                break;
+            }
+        } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        }
+    }
+
+    close(tcpSocketFd);
+}
+#endif
+
+
 void flushSerialPort(const char* devicePath);
 /*=== MAIN ===*/
 int main(void)
 {
+    #if ENABLE_REAL_TIME
+    int tcpSock = setupTcpSocket("127.0.0.1", 5555);
+    if (tcpSock >= 0) {
+        std::thread tcpThread(threadRealTimeTransmit, tcpSock);
+        tcpThread.detach(); // or store for joining later
+    }
+    #endif
     #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
     cout << "[INFO] Initializing radarA...\n";
     // Left sensor
@@ -573,6 +622,9 @@ int main(void)
     #if ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3
     thread thread_mti710(threadMti710);
     #endif
+    #if ENABLE_REAL_TIME
+    thread tcpThread(threadRealTimeTransmit);
+    #endif
 
     /* Join threads (program runs until killed) */
     #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
@@ -581,6 +633,9 @@ int main(void)
     #endif
     #if ENABLE_SENSORS == 2 || ENABLE_SENSORS == 3
     thread_mti710.join();
+    #endif
+    #if ENABLE_REAL_TIME
+    tcpThread.join();
     #endif
 
     csvRadarA.close();
