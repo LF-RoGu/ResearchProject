@@ -48,30 +48,6 @@ SensorData::SensorData(std::vector<uint8_t> rawData)
     // Parse TLV payload
     payload = TLV_payload(alignedData, header.getNumObjDetecter(), header.getNumTLV());
     payload_data_vect = payload.getTLVPayloadData();
-
-#ifdef DEBUG_FRAME_TLV
-    std::cout << "\n================== SENSOR DATA DEBUG ==================\n";
-    for (const TLVPayloadData& pd : payload_data_vect)
-    {
-        // Detected Points
-        for (const DetectedPoints& dp : pd.DetectedPoints_str) {
-            std::cout << "Converted Floats:\n";
-            std::cout << "  x: " << dp.x_f << " meters\n";
-            std::cout << "  y: " << dp.y_f << " meters\n";
-            std::cout << "  z: " << dp.z_f << " meters\n";
-            std::cout << "  doppler: " << dp.doppler_f << " m/s\n";
-        }
-
-        // Side Info Points
-        for (size_t j = 0; j < pd.SideInfoPoint_str.size(); ++j) {
-            const SideInfoPoint& si = pd.SideInfoPoint_str[j];
-            std::cout << "[DEBUG] SideInfo #" << j
-                      << " SNR: " << si.snr
-                      << " Noise: " << si.noise << "\n";
-        }
-    }
-    std::cout << "=======================================================\n";
-#endif
 }
 
 Frame_header SensorData::getHeader() const
