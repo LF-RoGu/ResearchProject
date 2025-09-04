@@ -40,7 +40,7 @@ Macro to enable the TCP/UDP server for real-time data visualization
  0 - disable
  1 - enable
 */
-#define ENABLE_REAL_TIME 1
+#define ENABLE_REAL_TIME 0
 
 /*
 Macro to enable or disable sensors
@@ -103,7 +103,7 @@ using Clock = std::chrono::steady_clock;
 Clock::time_point programStart;
 
 /* Output files */
-const string fileSuffix = "test";  // << Change this only once
+const string fileSuffix = "calibration1";  // << Change this only once
 static ofstream csvRadarA("_outFiles/radarA_" + fileSuffix + ".csv");
 static ofstream csvRadarB("_outFiles/radarB_" + fileSuffix + ".csv");
 static ofstream csvImu   ("_outFiles/imu_" + fileSuffix + ".csv");
