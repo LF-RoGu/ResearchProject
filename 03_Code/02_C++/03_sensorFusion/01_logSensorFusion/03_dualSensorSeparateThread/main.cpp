@@ -20,6 +20,8 @@
 #include <unistd.h>
 #include <chrono>
 #include <atomic>
+#include <sstream>
+
 
 #include "mmWave-IWR6843/radar_sensor/IWR6843.h"
 #include "mmWave-IWR6843/radar_sensor/SensorData.h"
@@ -83,6 +85,7 @@ static condition_variable      dataCV;      /* Signals data ready   */
 static mutex                   csvMutexRadarA;  /* Protects csvRadarA   */
 static mutex                   csvMutexRadarB;  /* Protects csvRadarB   */
 static mutex                   csvMutexIMU;     /* Protects csvRadarB   */
+static mutex                   dataAccessMutex; /* Protects decode radar */
 
 /* Queues for inter-thread communication */
 #define MAX_BOUNDED_QUEUE_SIZE 4000
@@ -354,7 +357,6 @@ void threadIwr6843B(void)
                         std::cout << "[SENSOR B] Frame batch of size: " << batch.size() << "\n";
                         for (const auto& pt : batch)
                         {
-                            
                             csvRadarB   << pt.frameId   << CSV_TAB
                                         << pt.pointId   << CSV_TAB
                                         << pt.x         << CSV_TAB
@@ -499,24 +501,47 @@ void threadMti710(void)
 void threadRealTimeTransmit(int tcpSocketFd) {
     std::cout << "[REALTIME] TCP transmitter thread started\n";
 
+    MTiData latestImu;
+    std::vector<ValidRadarPoint> latestRadarA;
+    std::vector<ValidRadarPoint> latestRadarB;
+
     for (;;) {
+        bool updated = false;
+
         MTiData imuData;
         std::vector<ValidRadarPoint> radarDataA;
         std::vector<ValidRadarPoint> radarDataB;
 
-        bool hasImu = imuQueue.try_pop(imuData);
-        bool hasRadarA = radarQueueA.try_pop(radarDataA);
-        bool hasRadarB = radarQueueB.try_pop(radarDataB);
+        if (imuQueue.try_pop(imuData)) {
+            latestImu = imuData;
+            updated = true;
+            std::cout << "[TCP] Got IMU data\n";
+        }
 
-        if (hasImu && hasRadarA && hasRadarB) {
+        if (radarQueueA.try_pop(radarDataA)) {
+            latestRadarA = std::move(radarDataA);
+            updated = true;
+            std::cout << "[TCP] Got Radar A data\n";
+        }
+
+        if (radarQueueB.try_pop(radarDataB)) {
+            latestRadarB = std::move(radarDataB);
+            updated = true;
+            std::cout << "[TCP] Got Radar B data\n";
+        }
+
+        if (updated) {
             std::ostringstream ss;
-            ss << "IMU," << imuData.quaternion[0] << "," << imuData.quaternion[1] << "," << imuData.quaternion[2] << "," << imuData.quaternion[3] << "\n";
-            ss << "RADAR_A," << radarDataA.size() << "\n";
-            for (const auto& pt : radarDataA) {
+            ss << "IMU," << latestImu.quaternion[0] << "," << latestImu.quaternion[1]
+               << "," << latestImu.quaternion[2] << "," << latestImu.quaternion[3] << "\n";
+
+            ss << "RADAR_A," << latestRadarA.size() << "\n";
+            for (const auto& pt : latestRadarA) {
                 ss << pt.frameId << "," << pt.x << "," << pt.y << "," << pt.z << "," << pt.doppler << "\n";
             }
-            ss << "RADAR_B," << radarDataB.size() << "\n";
-            for (const auto& pt : radarDataB) {
+
+            ss << "RADAR_B," << latestRadarB.size() << "\n";
+            for (const auto& pt : latestRadarB) {
                 ss << pt.frameId << "," << pt.x << "," << pt.y << "," << pt.z << "," << pt.doppler << "\n";
             }
 
@@ -526,6 +551,8 @@ void threadRealTimeTransmit(int tcpSocketFd) {
                 perror("[REALTIME] send");
                 break;
             }
+
+            std::cout << "[TCP] Packet sent. Size: " << sent << " bytes\n";
         } else {
             std::this_thread::sleep_for(std::chrono::milliseconds(2));
         }
@@ -533,6 +560,7 @@ void threadRealTimeTransmit(int tcpSocketFd) {
 
     close(tcpSocketFd);
 }
+
 #endif
 
 
@@ -541,11 +569,13 @@ void flushSerialPort(const char* devicePath);
 int main(void)
 {
     #if ENABLE_REAL_TIME
-    int tcpSock = setupTcpSocket("127.0.0.1", 5555);
-    if (tcpSock >= 0) {
-        std::thread tcpThread(threadRealTimeTransmit, tcpSock);
-        tcpThread.detach(); // or store for joining later
-    }
+        int socketFd = -1;
+        socketFd = setupTcpSocket("0.0.0.0", 8888);  // Or your desired bind IP
+        if (socketFd < 0) {
+            std::cerr << "[ERROR] Could not initialize TCP socket.\n";
+            return 1;
+        }
+        std::cout << "[INFO] TCP socket opened on port 8888\n";
     #endif
     #if ENABLE_SENSORS == 1 || ENABLE_SENSORS == 3
     cout << "[INFO] Initializing radarA...\n";
@@ -623,7 +653,7 @@ int main(void)
     thread thread_mti710(threadMti710);
     #endif
     #if ENABLE_REAL_TIME
-    thread tcpThread(threadRealTimeTransmit);
+    thread tcpThread(threadRealTimeTransmit, socketFd);
     #endif
 
     /* Join threads (program runs until killed) */
@@ -636,6 +666,8 @@ int main(void)
     #endif
     #if ENABLE_REAL_TIME
     tcpThread.join();
+    closeTcpSocket(socketFd);
+    std::cout << "[INFO] TCP socket closed\n";
     #endif
 
     csvRadarA.close();
