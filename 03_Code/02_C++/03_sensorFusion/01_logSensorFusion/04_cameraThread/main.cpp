@@ -584,7 +584,7 @@ void flushSerialPort(const char* devicePath);
 int main(void)
 {
     #if ENABLE_CAMERA == 1
-    CameraThread camera;
+    CameraThread camera("/dev/video0", "camera_output", 10);
     #endif
     #if ENABLE_REAL_TIME
         int socketFd = -1;

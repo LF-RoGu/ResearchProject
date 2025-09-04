@@ -3,24 +3,25 @@
 
 #include <atomic>
 #include <thread>
+#include <string>
 #include <opencv2/opencv.hpp>
 
 class CameraThread {
 public:
-    CameraThread(int deviceIndex = 0, int fps = 10);
+    CameraThread(const std::string& devicePath, const std::string& outputDir = "camera_output", int fps = 10);
     ~CameraThread();
 
     void start();
     void stop();
-    void captureOnce();  // Optional for timer-based capture
+    void captureOnce();  // Optional
 
 private:
     void run();
 
-    int cameraId_;
+    std::string devicePath_;
+    std::string outputDir_;
     int frameCounter_;
     int frameIntervalMs_;
-    int deviceIndex_;
     std::atomic<bool> running_;
     std::thread thread_;
     cv::VideoCapture cap_;
