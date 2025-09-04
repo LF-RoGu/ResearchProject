@@ -73,7 +73,7 @@ T_global = np.eye(3)  # initial pose at origin
 
 
 folderName = "13_dualSensorTest/02_RPi5"  # Folder where CSV files are stored
-testType = "calibration1.csv"  # Type of test data
+testType = "driveAround1.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarLoaderA = RadarCSVReader("radarA_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 radarLoaderB = RadarCSVReader("radarB_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
@@ -471,20 +471,21 @@ class ClusterViewer(QWidget):
         
         for frame in self.radarA_frames:
             for point in frame:
-                point.x += 0.58  # Adjust radar A points by +58cm on x-axis
                 point.x, point.y = helper.rotate_point_A(point.x, point.y)
+                point.x += 0.70  # Adjust radar A points by +58cm on x-axis
 
 
         for frame in self.radarB_frames:
             for point in frame:
-                point.x -= 0.58  # Adjust radar A points by +58cm on x-axis
                 point.x, point.y = helper.rotate_point_B(point.x, point.y)
-        
+                point.x -= 0.70  # Adjust radar A points by +58cm on x-axis
+
         if(len(self.radarA_frames) == len(self.radarB_frames)):
             self.radarDataSetLength = len(self.radarA_frames)
         else:
             print(f"Warning: Radar A and B frame counts differ ({len(self.radarA_frames)} vs {len(self.radarB_frames)}). Using {self.radarDataSetLength} frames.")
             sys.exit(1)
+
         self.currentFrame = -1
 
         # Plot will now use spatial matching with tuned parameters; others remain default

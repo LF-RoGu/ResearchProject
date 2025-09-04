@@ -94,8 +94,10 @@ class RadarCSVReader:
             print(f"⚠️ Skipping malformed radar row: {row} — {e}")
             return None
 
-    def load_all(self, filter_enabled: bool = False, start_frame: int = 0) -> list[RadarRecord]:
+    def load_all(self, filter_enabled: bool = False, start_frame: int = 0) -> list[list[RadarRecord]]:
         grouped_frames = defaultdict(list)
+        all_frame_ids = set()
+
         with open(self.csv_path, newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
@@ -103,7 +105,22 @@ class RadarCSVReader:
                 if record:
                     if not filter_enabled or record.frame_id > start_frame:
                         grouped_frames[record.frame_id].append(record)
-        return [grouped_frames[frame_id] for frame_id in sorted(grouped_frames)]
+                        all_frame_ids.add(record.frame_id)
+
+        # Fill missing frames with dummy data
+        max_frame_id = max(all_frame_ids)
+        min_frame_id = min(all_frame_ids)
+
+        # We build the full list with gaps filled
+        result = []
+        for frame_id in range(min_frame_id, max_frame_id + 1):
+            if frame_id in grouped_frames:
+                result.append(grouped_frames[frame_id])
+            else:
+                result.append([])  # You can use [] if you want truly empty frames
+
+        return result
+
 
     
 class ImuCSVReader:
@@ -188,8 +205,10 @@ class ImuCSVReader:
             print(f"⚠️ Skipping malformed IMU row: {row} — {e}")
             return None
 
-    def load_all(self, filter_enabled: bool = False, start_frame: int = 0) -> list[ImuRecord]:
+    def load_all(self, filter_enabled: bool = False, start_frame: int = 0) -> list[list[ImuRecord]]:
         grouped_frames = defaultdict(list)
+        all_frame_ids = set()
+
         with open(self.csv_path, newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
@@ -197,4 +216,20 @@ class ImuCSVReader:
                 if record:
                     if not filter_enabled or record.frame_id > start_frame:
                         grouped_frames[record.frame_id].append(record)
-        return [grouped_frames[frame_id] for frame_id in sorted(grouped_frames)]
+                        all_frame_ids.add(record.frame_id)
+
+        if not all_frame_ids:
+            return []
+
+        min_frame_id = min(all_frame_ids)
+        max_frame_id = max(all_frame_ids)
+
+        result = []
+        for frame_id in range(min_frame_id, max_frame_id + 1):
+            if frame_id in grouped_frames:
+                result.append(grouped_frames[frame_id])
+            else:
+                result.append([])
+
+        return result
+
