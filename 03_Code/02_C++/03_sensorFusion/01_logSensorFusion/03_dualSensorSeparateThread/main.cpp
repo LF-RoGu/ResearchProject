@@ -103,7 +103,7 @@ using Clock = std::chrono::steady_clock;
 Clock::time_point programStart;
 
 /* Output files */
-const string fileSuffix = "calibration1";  // << Change this only once
+const string fileSuffix = "calibration2";  // << Change this only once
 static ofstream csvRadarA("_outFiles/radarA_" + fileSuffix + ".csv");
 static ofstream csvRadarB("_outFiles/radarB_" + fileSuffix + ".csv");
 static ofstream csvImu   ("_outFiles/imu_" + fileSuffix + ".csv");
@@ -413,6 +413,8 @@ void threadMti710(void)
             dataCV.wait(lock, [&] {
                 return hasNewRadarA.load() && hasNewRadarB.load();
             });
+            hasNewRadarA.store(false);
+            hasNewRadarB.store(false);
         }
         imuSamples.clear();
 
@@ -472,6 +474,10 @@ void threadMti710(void)
             }
             csvImu.flush();
             hasNewImu.store(true);
+            std::cout   << "[SYNC] IMU Frame = " << frameIdImu
+                        << ", RadarA Frame = " << frameIdSensorA
+                        << ", RadarB Frame = " << frameIdSensorB << "\n";
+
         }
         #if ENABLE_REAL_TIME
         {
