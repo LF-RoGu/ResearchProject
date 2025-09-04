@@ -69,16 +69,17 @@ trajectory_cluster_imu = [(0.0, 0.0)]
 trajectory_global_imu = [(0.0, 0.0)]
 imu_heading_rad = None
 
-
 T_global = np.eye(3)  # initial pose at origin
 
 
-folderName = "12_calibTesting"  # Folder where CSV files are stored
-testType = "4GHzConfig.csv"  # Type of test data
+folderName = "13_dualSensorTest/02_RPi5"  # Folder where CSV files are stored
+testType = "calibration1.csv"  # Type of test data
 # Instantiate readers and global aggregators
-radarLoader = RadarCSVReader("radar_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
+radarLoaderA = RadarCSVReader("radarA_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
+radarLoaderB = RadarCSVReader("radarB_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 imuLoader   = ImuCSVReader("imu_" + testType, folderName) if ENABLE_SENSORS in (2, 3) else None
-_radarAgg         = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
+_radarA_Agg         = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
+_radarB_Agg         = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 _imuAgg           = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 
 # Two‐stage DBSCAN processors
@@ -137,7 +138,7 @@ def pretty_print_clusters(clusters, label="Clusters"):
 def plot1(plot_widget, pointCloud):
     """
     Render only the filtered point cloud (pointCloud),
-    which may be a list of {'x','y',…} dicts.
+    plotting Sensor A and Sensor B in different colors.
     """
     import pyqtgraph as pg
 
@@ -149,30 +150,43 @@ def plot1(plot_widget, pointCloud):
     if not pointCloud:
         return
 
-    # 3) Extract x/y coords from each dict
-    x, y = [], []
-    for p in pointCloud:
-        # safely skip any malformed entries
-        if isinstance(p, dict) and 'x' in p and 'y' in p:
-            x.append(p['x'])
-            y.append(p['y'])
+    # 3) Split points by sensor ID
+    points_a = [p for p in pointCloud if p.get('sensorId') == 'A']
+    points_b = [p for p in pointCloud if p.get('sensorId') == 'B']
 
-    # 4) Plot if we got any points
-    scatter = pg.ScatterPlotItem(
-        x=x,
-        y=y,
+    def extract_xy(points):
+        return [p['x'] for p in points], [p['y'] for p in points]
+
+    # 4) Plot Sensor A (green)
+    x_a, y_a = extract_xy(points_a)
+    scatter_a = pg.ScatterPlotItem(
+        x=x_a,
+        y=y_a,
         size=8,
         pen=None,
         brush=pg.mkBrush(0, 200, 0, 150)
     )
-    plot_widget.addItem(scatter)
+    plot_widget.addItem(scatter_a)
 
+    # 5) Plot Sensor B (blue)
+    x_b, y_b = extract_xy(points_b)
+    scatter_b = pg.ScatterPlotItem(
+        x=x_b,
+        y=y_b,
+        size=8,
+        pen=None,
+        brush=pg.mkBrush(0, 0, 255, 150)
+    )
+    plot_widget.addItem(scatter_b)
+
+    # 6) Add Doppler text to all
     for p in pointCloud:
         if isinstance(p, dict) and 'x' in p and 'y' in p and 'doppler' in p:
             dop = p['doppler']
-            txt = pg.TextItem(f"{dop:.2f}", color='y', anchor=(0,1))
+            txt = pg.TextItem(f"{dop:.2f}", color='y', anchor=(0, 1))
             txt.setPos(p['x'] + 0.1, p['y'] + 0.1)
             plot_widget.addItem(txt)
+
 
 
 # ------------------------------
@@ -451,9 +465,26 @@ class ClusterViewer(QWidget):
         self.resize(1200,900)
 
         # Load data once
-        self.imu_frames = imuLoader.load_all(True, 310) if imuLoader else []
-        self.radar_frames = radarLoader.load_all(True, 310) if radarLoader else []
-        self.radarDataSetLength = len(self.radar_frames) if self.radar_frames else 0
+        self.imu_frames = imuLoader.load_all(False) if imuLoader else []
+        self.radarA_frames = radarLoaderA.load_all(False) if radarLoaderA else []
+        self.radarB_frames = radarLoaderB.load_all(False) if radarLoaderB else []
+        
+        for frame in self.radarA_frames:
+            for point in frame:
+                point.x += 0.58  # Adjust radar A points by +58cm on x-axis
+                point.x, point.y = helper.rotate_point_A(point.x, point.y)
+
+
+        for frame in self.radarB_frames:
+            for point in frame:
+                point.x -= 0.58  # Adjust radar A points by +58cm on x-axis
+                point.x, point.y = helper.rotate_point_B(point.x, point.y)
+        
+        if(len(self.radarA_frames) == len(self.radarB_frames)):
+            self.radarDataSetLength = len(self.radarA_frames)
+        else:
+            print(f"Warning: Radar A and B frame counts differ ({len(self.radarA_frames)} vs {len(self.radarB_frames)}). Using {self.radarDataSetLength} frames.")
+            sys.exit(1)
         self.currentFrame = -1
 
         # Plot will now use spatial matching with tuned parameters; others remain default
@@ -525,15 +556,19 @@ class ClusterViewer(QWidget):
         # rewind on backward move
         if newFrame < self.currentFrame:
             if ENABLE_SENSORS in (1, 3):
-                _radarAgg.clearBuffer()
+                _radarA_Agg.clearBuffer()
+                _radarB_Agg.clearBuffer()
             if ENABLE_SENSORS in (2, 3):
                 _imuAgg.clearBuffer()
             self.currentFrame = -1
 
         # aggregate only new frames
         for f in range(self.currentFrame + 1, newFrame + 1):
-            if ENABLE_SENSORS in (1, 3) and f < len(self.radar_frames):
-                _radarAgg.updateBuffer(self.radar_frames[f])
+            if ENABLE_SENSORS in (1, 3) and f < len(self.radarA_frames):
+                _radarA_Agg.updateBuffer(self.radarA_frames[f])
+            if ENABLE_SENSORS in (1, 3) and f < len(self.radarB_frames):
+                _radarB_Agg.updateBuffer(self.radarB_frames[f])
+            
             if ENABLE_SENSORS in (2, 3) and f < len(self.imu_frames):
                 _imuAgg.updateBuffer(self.imu_frames[f])
 
@@ -559,7 +594,17 @@ class ClusterViewer(QWidget):
         global cumulative_distance_global, cumulative_heading_global
         global cumulative_distance_cluster, cumulative_heading_cluster
         # Filtern Pipeline information (Plot 1 only)
-        rawPointCloud = _radarAgg.getPoints() if ENABLE_SENSORS in (1, 3) else []
+        if ENABLE_SENSORS in (1, 3):
+            latestFrameA = _radarA_Agg.getPoints()
+            latestFrameB = _radarB_Agg.getPoints()
+
+            for point in latestFrameA:
+                point["sensorId"] = "A"
+            for point in latestFrameB:
+                point["sensorId"]  = "B"
+            rawPointCloud = latestFrameA + latestFrameB
+        else:
+            rawPointCloud = []
         pointCloud = pointFilter.filterDoppler(rawPointCloud, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
         #pointCloud = pointFilter.filterSNRmin( rawPointCloud, FILTER_SNR_MIN)
         #pointCloud = pointFilter.filterCartesianZ(pointCloud, FILTER_Z_MIN, FILTER_Z_MAX)
