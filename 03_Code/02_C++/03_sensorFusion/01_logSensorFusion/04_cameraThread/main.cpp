@@ -17,9 +17,10 @@ mutex queueMutex;
 condition_variable frameAvailable;
 atomic<bool> stopSignal(false);
 
-const string outputPath = "_outFiles/video/output_threaded_keypress.avi";
+// Output path for grayscale video
+const string outputPath = "_outFiles/video/output_threaded_gray_10fps.avi";
+const int fps = 10;  // 10 frames per second
 
-// Set stdin to non-canonical mode (no Enter required)
 void setNonBlockingInput(bool enable) {
     static struct termios oldt, newt;
     if (enable) {
@@ -52,7 +53,7 @@ void threadKeyboard() {
             if (ch == 'q') {
                 cout << "[KEYBOARD] 'q' pressed. Stopping recording." << endl;
                 stopSignal.store(true);
-                frameAvailable.notify_all(); // Wake up saving thread
+                frameAvailable.notify_all();
                 break;
             }
         }
@@ -65,7 +66,7 @@ void threadKeyboard() {
 void threadCapture(cv::VideoCapture& cap) {
     cout << "[CAPTURE] Thread started." << endl;
     while (!stopSignal.load()) {
-        cv::Mat frame;
+        cv::Mat frame, gray;
         cap >> frame;
 
         if (frame.empty()) {
@@ -73,13 +74,16 @@ void threadCapture(cv::VideoCapture& cap) {
             continue;
         }
 
+        // Convert to grayscale
+        cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+
         {
             lock_guard<mutex> lock(queueMutex);
-            frameQueue.push(frame.clone());
+            frameQueue.push(gray.clone());
         }
 
         frameAvailable.notify_one();
-        this_thread::sleep_for(chrono::milliseconds(50));  // ~20 FPS
+        this_thread::sleep_for(chrono::milliseconds(100));  // 10 FPS
     }
     cout << "[CAPTURE] Thread exiting." << endl;
 }
@@ -87,7 +91,9 @@ void threadCapture(cv::VideoCapture& cap) {
 void threadSave(int width, int height) {
     cout << "[SAVE] Thread started." << endl;
 
-    cv::VideoWriter writer(outputPath, cv::VideoWriter::fourcc('M','J','P','G'), 20, cv::Size(width, height));
+    // IMPORTANT: Grayscale video still needs 3 channels for most codecs
+    cv::VideoWriter writer(outputPath, cv::VideoWriter::fourcc('M','J','P','G'), fps, cv::Size(width, height), false);  // false = grayscale
+
     if (!writer.isOpened()) {
         cerr << "[SAVE] Failed to open output file." << endl;
         return;
@@ -98,11 +104,11 @@ void threadSave(int width, int height) {
         frameAvailable.wait(lock, []{ return !frameQueue.empty() || stopSignal.load(); });
 
         while (!frameQueue.empty()) {
-            cv::Mat frame = frameQueue.front();
+            cv::Mat grayFrame = frameQueue.front();
             frameQueue.pop();
             lock.unlock();
 
-            writer.write(frame);
+            writer.write(grayFrame);
 
             lock.lock();
         }
@@ -113,7 +119,7 @@ void threadSave(int width, int height) {
 }
 
 int main() {
-    cout << "[MAIN] Starting threaded webcam recording with key interrupt..." << endl;
+    cout << "[MAIN] Starting threaded grayscale webcam recorder at " << fps << " FPS...\n";
 
     cv::VideoCapture cap(0);
     if (!cap.isOpened()) {
@@ -127,7 +133,7 @@ int main() {
 
     thread t1(threadCapture, ref(cap));
     thread t2(threadSave, width, height);
-    thread t3(threadKeyboard);  // Listen for 'q'
+    thread t3(threadKeyboard);
 
     t1.join();
     t2.join();
