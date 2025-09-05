@@ -115,6 +115,7 @@ static XsensMti710 imuSensor;
 static atomic<bool>       videoStopSignal = false;
 static const string       videoOutputPath = "_outFiles/video/output_gray_10fps.avi";
 static const int               videoFps = 10; /* Target FPS for recording */
+static mutex        videoWriteMutex;
 #endif
 
 /* Global timer to obtain the program timestamp */
@@ -643,93 +644,91 @@ void threadVideoKeyWatcher(void)
 
 void threadWebcamRecorder(void)
 {
+    std::cout << "[VIDEO] Thread started." << std::endl;
+
     /* Ensure output directory exists */
-    try
-    {
+    try {
         std::filesystem::create_directories("_outFiles/video");
-    }
-    catch (const std::exception& e)
-    {
-        std::cerr << "[VIDEO][ERROR] Failed to create _outFiles/video: " << e.what() << std::endl;
+        std::cout << "[VIDEO] Created _outFiles/video directory." << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "[VIDEO][ERROR] Failed to create directory: " << e.what() << std::endl;
         return;
     }
 
-    /* Open default camera (/dev/video0) */
+    /* Open webcam using GStreamer pipeline */
     std::cout << "[VIDEO] Opening /dev/video0..." << std::endl;
-    cv::VideoCapture cap(0);
-    if (!cap.isOpened())
-    {
-        std::cerr << "[VIDEO][ERROR] Cannot open /dev/video0" << std::endl;
+    cv::VideoCapture cap(
+        "v4l2src device=/dev/video0 ! image/jpeg, width=640, height=480, framerate=10/1 ! jpegdec ! videoconvert ! appsink",
+        cv::CAP_GSTREAMER);
+
+    if (!cap.isOpened()) {
+        std::cerr << "[VIDEO][ERROR] Failed to open /dev/video0 via GStreamer." << std::endl;
         return;
     }
 
-    /* Hint FPS to driver (may not be honored by all devices) */
-    cap.set(cv::CAP_PROP_FPS, static_cast<double>(videoFps));
-
-    /* Query resolution actually provided by the camera */
     const int width  = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
     const int height = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
-    std::cout << "[VIDEO] Resolution: " << width << "x" << height
-              << " @ " << videoFps << " FPS" << std::endl;
+    std::cout << "[VIDEO] Resolution: " << width << "x" << height << " @ " << videoFps << " FPS" << std::endl;
 
-    /* Initialize grayscale writer (isColor=false) */
-    cv::VideoWriter writer(
-        videoOutputPath,
-        cv::VideoWriter::fourcc('M','J','P','G'),
-        static_cast<double>(videoFps),
-        cv::Size(width, height),
-        false /* grayscale */
-    );
+    /* Create local video writer */
+    cv::VideoWriter writer;
 
-    if (!writer.isOpened())
     {
+        std::lock_guard<std::mutex> lock(videoWriteMutex);
+        writer.open(
+            videoOutputPath,
+            cv::VideoWriter::fourcc('M','J','P','G'),
+            static_cast<double>(videoFps),
+            cv::Size(width, height),
+            false);  // Grayscale
+    }
+
+    if (!writer.isOpened()) {
         std::cerr << "[VIDEO][ERROR] Cannot open output file: " << videoOutputPath << std::endl;
         return;
     }
-    std::cout << "[VIDEO] Recording to: " << videoOutputPath << std::endl;
 
-    /* Pace loop to ~10 FPS */
+    std::cout << "[VIDEO] Recording to: " << videoOutputPath << std::endl;
+    std::cout << "[VIDEO] Press 'q' to stop video recording..." << std::endl;
+
     const auto framePeriod = std::chrono::milliseconds(1000 / (videoFps > 0 ? videoFps : 1));
     auto nextTick = std::chrono::steady_clock::now();
-    std::size_t frameCount = 0UL;
+    std::size_t frameCount = 0;
 
-    for (;;)
-    {
-        if (videoStopSignal.load())
-        {
-            break;
-        }
-
+    while (!videoStopSignal.load()) {
         cv::Mat frame, gray;
         cap >> frame;
-        if (frame.empty())
-        {
-            std::cerr << "[VIDEO][WARN] Empty frame. Continuing..." << std::endl;
+
+        if (frame.empty()) {
+            std::cerr << "[VIDEO][WARN] Empty frame received. Continuing..." << std::endl;
             nextTick += framePeriod;
             std::this_thread::sleep_until(nextTick);
             continue;
         }
 
-        /* Convert to grayscale to reduce data size and bandwidth */
         cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
 
-        /* Write single-channel frame to file */
-        writer.write(gray);
-        frameCount++;
+        {
+            std::lock_guard<std::mutex> lock(videoWriteMutex);
+            writer.write(gray);
+        }
 
-        /* Sleep to maintain ~10 FPS */
-        nextTick += framePeriod;
-        std::this_thread::sleep_until(nextTick);
+        frameCount++;
+        std::this_thread::sleep_until(nextTick += framePeriod);
     }
 
-    writer.release();
+    {
+        std::lock_guard<std::mutex> lock(videoWriteMutex);
+        writer.release();
+    }
+
     cap.release();
     std::cout << "[VIDEO] Stopped. Frames written: " << frameCount << std::endl;
 }
 #endif
 
 void flushSerialPort(const char* devicePath);
-/*=== MAIN ===*/
+
 int main(void)
 {
     #if ENABLE_REAL_TIME
