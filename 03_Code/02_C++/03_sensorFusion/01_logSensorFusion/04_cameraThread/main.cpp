@@ -113,7 +113,7 @@ static XsensMti710 imuSensor;
 
 #if ENABLE_VIDEO
 static atomic<bool>       videoStopSignal = false;
-static const string       videoOutputPath = "_outFiles/video/output_gray_10fps3.avi";
+static const string       videoOutputPath = "_outFiles/video/output_gray_10fps7.avi";
 static const int               videoFps = 10; /* Target FPS for recording */
 static mutex        videoWriteMutex;
 #endif
@@ -123,7 +123,7 @@ using Clock = std::chrono::steady_clock;
 Clock::time_point programStart;
 
 /* Output files */
-const string fileSuffix = "outside3";  // << Change this only once
+const string fileSuffix = "outside7";  // << Change this only once
 static ofstream csvRadarA("_outFiles/radarA_" + fileSuffix + ".csv");
 static ofstream csvRadarB("_outFiles/radarB_" + fileSuffix + ".csv");
 static ofstream csvImu   ("_outFiles/imu_" + fileSuffix + ".csv");
