@@ -37,7 +37,7 @@ ENABLE_SENSORS = 3
 
 FRAME_AGGREGATOR_NUM_PAST_FRAMES = 7
 FILTER_SNR_MIN                  = 12
-FILTER_Z_MIN, FILTER_Z_MAX      = -2, 2
+FILTER_Z_MIN, FILTER_Z_MAX      = 0, 4
 FILTER_Y_MIN, FILTER_Y_MAX      = 0.6, 15
 FILTER_PHI_MIN, FILTER_PHI_MAX  = -85, 85
 FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX = 0.01, 8.0
@@ -72,8 +72,8 @@ imu_heading_rad = None
 T_global = np.eye(3)  # initial pose at origin
 
 
-folderName = "13_dualSensorTest/02_RPi5"  # Folder where CSV files are stored
-testType = "driveAround1.csv"  # Type of test data
+folderName = "14_outside"  # Folder where CSV files are stored
+testType = "outside7.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarLoaderA = RadarCSVReader("radarA_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 radarLoaderB = RadarCSVReader("radarB_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
@@ -480,11 +480,17 @@ class ClusterViewer(QWidget):
                 point.x, point.y = helper.rotate_point_B(point.x, point.y)
                 point.x -= 0.70  # Adjust radar A points by +58cm on x-axis
 
-        if(len(self.radarA_frames) == len(self.radarB_frames)):
-            self.radarDataSetLength = len(self.radarA_frames)
-        else:
-            print(f"Warning: Radar A and B frame counts differ ({len(self.radarA_frames)} vs {len(self.radarB_frames)}). Using {self.radarDataSetLength} frames.")
-            sys.exit(1)
+        len_a = len(self.radarA_frames)
+        len_b = len(self.radarB_frames)
+        max_len = max(len_a, len_b)
+
+        # Pad shorter one
+        if len_a < max_len:
+            self.radarA_frames.extend([None] * (max_len - len_a))
+        elif len_b < max_len:
+            self.radarB_frames.extend([None] * (max_len - len_b))
+
+        self.radarDataSetLength = max_len
 
         self.currentFrame = -1
 
@@ -608,8 +614,8 @@ class ClusterViewer(QWidget):
             rawPointCloud = []
         pointCloud = pointFilter.filterDoppler(rawPointCloud, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
         #pointCloud = pointFilter.filterSNRmin( rawPointCloud, FILTER_SNR_MIN)
-        #pointCloud = pointFilter.filterCartesianZ(pointCloud, FILTER_Z_MIN, FILTER_Z_MAX)
-        #pointCloud = pointFilter.filterCartesianY(pointCloud, FILTER_Y_MIN, FILTER_Y_MAX)
+        pointCloud = pointFilter.filterCartesianZ(pointCloud, FILTER_Z_MIN, FILTER_Z_MAX)
+        pointCloud = pointFilter.filterCartesianY(pointCloud, FILTER_Y_MIN, FILTER_Y_MAX)
         #pointCloud = pointFilter.filterSphericalPhi(pointCloud, FILTER_PHI_MIN, FILTER_PHI_MAX)
         
         
