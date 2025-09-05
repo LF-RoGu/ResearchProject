@@ -24,8 +24,7 @@ SRCS_CPP := \
   mmWave-IWR6843/radar_sensor/SensorData.cpp \
   mmWave-IWR6843/radar_sensor/sensor_data/UARTFrame.cpp \
   mmWave-IWR6843/radar_sensor/sensor_data/lib/EndianUtils.cpp \
-  MTi-G-710/xsens_mti710.cpp \
-  misc/CameraThread.cpp
+  MTi-G-710/xsens_mti710.cpp
 
 SRCS_C := \
   MTi-G-710/libs/xsens_mti.c \
