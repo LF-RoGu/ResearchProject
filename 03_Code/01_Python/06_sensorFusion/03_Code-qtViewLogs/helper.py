@@ -17,6 +17,12 @@ ROTATION_RAD_B = math.radians(ROTATION_DEG_B)
 COS_THETA_B = math.cos(ROTATION_RAD_B)
 SIN_THETA_B = math.sin(ROTATION_RAD_B)
 
+PITCH_DEG = -15  # Compensate upward tilt by rotating downward
+PITCH_RAD = math.radians(PITCH_DEG)
+COS_PITCH = math.cos(PITCH_RAD)
+SIN_PITCH = math.sin(PITCH_RAD)
+
+
 
 def rotate_point_A(x, y):
     x_new = COS_THETA_A * x - SIN_THETA_A * y
@@ -27,6 +33,12 @@ def rotate_point_B(x, y):
     x_new = COS_THETA_B * x - SIN_THETA_B * y
     y_new = SIN_THETA_B * x + COS_THETA_B * y
     return x_new, y_new
+
+def compensate_pitch(x, y, z):
+    # Rotate around the X-axis: affects y (forward) and z (upward)
+    y_new = COS_PITCH * y - SIN_PITCH * z
+    z_new = SIN_PITCH * y + COS_PITCH * z
+    return x, y_new, z_new
 
 
 

@@ -91,7 +91,7 @@ class RadarCSVReader:
                 noise=float(row["noise"]) / 10
             )
         except (ValueError, KeyError) as e:
-            print(f"⚠️ Skipping malformed radar row: {row} — {e}")
+            print(f" Skipping malformed radar row: {row} — {e}")
             return None
 
     def load_all(self, filter_enabled: bool = False, start_frame: int = 0) -> list[list[RadarRecord]]:
@@ -202,7 +202,7 @@ class ImuCSVReader:
                 time_fine      = float(row["time_fine"]),
             )
         except (ValueError, KeyError) as e:
-            print(f"⚠️ Skipping malformed IMU row: {row} — {e}")
+            print(f" Skipping malformed IMU row: {row} — {e}")
             return None
 
     def load_all(self, filter_enabled: bool = False, start_frame: int = 0) -> list[list[ImuRecord]]:

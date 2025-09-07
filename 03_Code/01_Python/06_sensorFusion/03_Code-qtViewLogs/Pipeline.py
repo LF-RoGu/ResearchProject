@@ -37,8 +37,8 @@ ENABLE_SENSORS = 3
 
 FRAME_AGGREGATOR_NUM_PAST_FRAMES = 7
 FILTER_SNR_MIN                  = 12
-FILTER_Z_MIN, FILTER_Z_MAX      = 0, 4
-FILTER_Y_MIN, FILTER_Y_MAX      = 0.6, 15
+FILTER_Z_MIN, FILTER_Z_MAX      = -2, 10
+FILTER_Y_MIN, FILTER_Y_MAX      = 1.2, 15
 FILTER_PHI_MIN, FILTER_PHI_MAX  = -85, 85
 FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX = 0.01, 8.0
 TRACKER_MAX_MISSES  = 10     # how many frames a track can disappear before deletion
@@ -73,7 +73,7 @@ T_global = np.eye(3)  # initial pose at origin
 
 
 folderName = "14_outside"  # Folder where CSV files are stored
-testType = "outside7.csv"  # Type of test data
+testType = "outside2.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarLoaderA = RadarCSVReader("radarA_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 radarLoaderB = RadarCSVReader("radarB_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None

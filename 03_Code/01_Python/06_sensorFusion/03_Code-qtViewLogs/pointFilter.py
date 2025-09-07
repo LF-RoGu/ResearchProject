@@ -127,7 +127,7 @@ def filter_moving_objects_ransac(pointCloud, return_model=False):
         # RANSAC model for 2nd-degree polynomial
         model = make_pipeline(
             PolynomialFeatures(degree=2),
-            RANSACRegressor(min_samples=0.3, residual_threshold=1.5)
+            RANSACRegressor(min_samples=1, residual_threshold=0.6)
         )
         model.fit(X, y)
 
