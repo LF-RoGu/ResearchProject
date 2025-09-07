@@ -1,37 +1,89 @@
-\documentclass{article}
-\usepackage[utf8]{inputenc}
-
-\title{youtube get started}
-\author{Federi Tartarini}
-\date{April 2020}
-
-\usepackage{natbib}
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
 \usepackage{graphicx}
+\usepackage{listings}
+\lstset{breaklines=true}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{dirtree}
+\graphicspath{ {images/} }
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{todonotes}
+\usepackage{subcaption}
+\usepackage{placeins}
+\usepackage{comment}
+
+\usepackage{tikz}
+\usetikzlibrary{calc, patterns, patterns.meta, shapes.geometric, arrows.meta, positioning, fit, decorations.pathreplacing, trees, arrows, shapes.misc, angles, quotes}
+%Go-kart command \gokart{"x"}{"y"}{"rot_in_deg"}
+\def\gokart#1#2#3{
+    \begin{scope}[shift={(#1,#2)}, rotate=#3]
+        \begin{scope}[shift={(0,-0.85)}] %Offset so (x,y) is the front bumper
+            %Front bumper
+            \draw[very thick] (-0.7, 0.75) -- (-0.5, 0.85) -- (0.5, 0.85) -- (0.7, 0.75);
+            %Body
+            \draw[fill=gray!30] (-0.5,-0.75) rectangle (0.5,0.75);
+            %Wheels
+            \draw[fill=black, rounded corners=0.75] (-0.6,0.6) rectangle (-0.4, 0.3); % Front left
+            \draw[fill=black, rounded corners=0.75] (0.6,0.6) rectangle (0.4, 0.3); % Front right
+            \draw[fill=black, rounded corners=0.75] (-0.6,-0.6) rectangle (-0.4, -0.3); % Rear left
+            \draw[fill=black, rounded corners=0.75] (0.6,-0.6) rectangle (0.4, -0.3); % Rear right
+            %Rear bumper
+            \draw[very thick] (-0.6, -0.75) -- (-0.5, -0.8) -- (0.5, -0.8) -- (0.6, -0.75);
+        \end{scope}
+    \end{scope}
+}
+
+
+\usepackage{siunitx} 
+\sisetup{locale = US}
+\DeclareSIUnit{\Bit}{Bit}
+\DeclareSIUnit{\baud}{Baud}
+\DeclareSIUnit{\frame}{f}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+
+\pagestyle{plain}
 
 \begin{document}
 
+\title{Development of a Radar-Based Emergency Braking System\\
+{\large Leveraging mmWave Radar Sensor Technology for Object Detection}
+}
+
+\author{\IEEEauthorblockN{Luis Fernando Rodriguez Gutierrez}
+\IEEEauthorblockA{\textit{Fachhochschule Dortmund} \\
+\textit{M.Eng. Embedded Systems Engineering}\\
+luis.rodriguez001@stud.fh-dortmund.de}
+
+}
+
+
 \maketitle
 
-\section{Introduction}
-There is a theory which states that if ever anyone discovers exactly what the Universe is for and why it is here, it will instantly disappear and be replaced by something even more bizarre and inexplicable \cite{databaseII}.
-There is another model which states that this has already happened.
 
-\section{Methodology}
-This is the methodology section.
+\input{section/00abstract}
+\input{section/01introduction}
+\input{section/02Objective}
+\input{section/03InterfacingTheSensor}
+\input{section/05Pipeline}
+\input{section/06FrameAggregator}
+\input{section/07StaticFilter}
+\input{section/08SelfSpeedEstimation}
+\input{section/09Kalman}
+\input{section/10VeVsSelfspeed}
+\input{section/11Clustering}
+\input{section/12BrakingSystem}
+\input{section/Conclusion}
+%\input{section/XX_WIP}
+\input{Bibliography}
 
-\section{Results}
-This is the results section.
 
-\begin{figure}[h!]
-\centering
-\includegraphics[scale=1.7]{universe}
-\caption{The Universe}
-\label{fig:universe}
-\end{figure}
-
-\section{Conclusion}
-``I always thought something was fundamentally wrong with the universe'' \citep{adams1995hitchhiker}
-
-\bibliographystyle{plain}
-\bibliography{references}
 \end{document}

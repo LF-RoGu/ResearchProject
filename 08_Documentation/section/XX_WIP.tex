@@ -1,0 +1,106 @@
+\section{WIP - Storing TikZ graphics}
+
+\begin{figure}[!htbp]
+    \centering
+    \resizebox{0.48\textwidth}{!}{
+        \begin{tikzpicture}
+            % Block styles
+            \tikzstyle{block} = [rectangle, draw, text width=4.5em, text centered, minimum width=6em, minimum height=4em]
+            \tikzstyle{block_dashed} = [rectangle, draw, text width=2em, text centered, minimum width=4em, minimum height=4em, dashed]
+            % Input and output
+            \node[block, right=of antenna, minimum width=4em, minimum height=4em] (frames) {Frames};
+            \node[block, right=of frames] (frame_aggr) {Frame\\Aggregator};
+            \node[block, right=of frame_aggr] (coord_filter) {Filter\\$x,y,z$\\$\phi,SNR$};
+            \node[block, right=of coord_filter] (self_speed_estim) {Self-speed Estimator};
+            \node[block, right=of self_speed_estim] (self_speed_kalman) {Kalman Filter};
+            \node[block, below=of self_speed_estim] (ve_speed_calc) {Calculation\\of $v_{e}$};
+            \node[block, right=of ve_speed_calc] (ve_filter) {Filter\\$v_{e}$ vs. self-speed};
+            \node[block, right=of ve_filter] (clustering) {Clustering};
+            % Connections
+            \draw[->] (frames) -- (frame_aggr); % Connection from antenna to RF amplifier
+            \draw[->] (frame_aggr) -- (coord_filter);
+            \draw[->] (coord_filter) -- (self_speed_estim);
+            \draw[->] (coord_filter.south) |- (ve_speed_calc.west);
+            \draw[->] (self_speed_estim) -- (self_speed_kalman);
+            \draw[->] (self_speed_kalman) -- (ve_filter);
+            \draw[->] (ve_speed_calc) -- (ve_filter);
+            \draw[->] (ve_filter) -- (clustering);
+        \end{tikzpicture}
+    }
+    \caption{Block diagram of the pipeline}
+    \label{fig:block_diag_pipeline}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \resizebox{0.48\textwidth}{!}{
+        \begin{tikzpicture}
+            % Block styles
+            \tikzstyle{block} = [rectangle, draw, text width=4.5em, text centered, minimum width=6em, minimum height=4em]
+            \tikzstyle{block_dashed} = [rectangle, draw, text width=2em, text centered, minimum width=4em, minimum height=4em, dashed]
+            % Input and output
+            \node[block] (uart) {UART\\Data};
+            \node[block, right=of uart] (decoder) {Data decoder};
+            \node[block, right=of decoder] (frames) {Frames};
+            \node[block, right=of frames] (frame_aggr) {Frame\\Aggregator};
+            \node[block, right=of frame_aggr] (coord_filter) {Filter\\$x,y,z$\\$\phi,SNR$};
+            \node[block, right=of coord_filter] (self_speed_estim) {Self-speed Estimator};
+            \node[block, right=of self_speed_estim] (self_speed_kalman) {Kalman Filter};
+            \node[block, below=of self_speed_estim] (ve_speed_calc) {Calculation\\of $v_{e}$};
+            \node[block, right=of ve_speed_calc] (ve_filter) {Filter\\$v_{e}$ vs. self-speed};
+            \node[block, right=of ve_filter] (clustering) {Clustering};
+            \node[block, right=of clustering] (grid_mapping) {Grid Mapping};
+            \node[block, right=of grid_mapping.east, yshift=2.5em] (grid_cartesian) {Cartesian\\Map};
+            \node[block, right=of grid_mapping.east, yshift=-2.5em] (grid_polar) {Polar\\Map};
+            \node[block, below=of grid_mapping] (brake) {Brake\\Controller};
+            % Connections
+            \draw[->] (uart) -- (decoder);
+            \draw[->] (decoder) -- (frames);
+            \draw[->] (frames) -- (frame_aggr); % Connection from antenna to RF amplifier
+            \draw[->] (frame_aggr) -- (coord_filter);
+            \draw[->] (coord_filter) -- (self_speed_estim);
+            \draw[->] (coord_filter.south) |- (ve_speed_calc.west);
+            \draw[->] (self_speed_estim) -- (self_speed_kalman);
+            \draw[->] (self_speed_kalman) -- (ve_filter);
+            \draw[->] (ve_speed_calc) -- (ve_filter);
+            \draw[->] (ve_filter) -- (clustering);
+
+            \draw[-] (clustering.east) --++(1.5em, 0) coordinate (arrw_clustering);
+            \draw[->] (arrw_clustering) -- (grid_mapping);
+             \draw[->] (arrw_clustering) |- (brake);
+
+            \draw[-] (grid_mapping.east) --++(1.5em, 0) coordinate (arrw_mapping_grids);
+            \draw[->] (arrw_mapping_grids) |- (grid_cartesian.west);
+            \draw[->] (arrw_mapping_grids) |- (grid_polar);
+
+            \draw [decorate, decoration = {brace, mirror, raise=10pt}] (uart.south west) --  (frames.south east) node[pos=0.5,below=15pt,black]{Sensor Data Preprocessing};
+        \end{tikzpicture}
+    }
+    \caption{Block diagram of the pipeline}
+    \label{fig:block_diag_pipeline}
+\end{figure}
+
+
+\begin{figure}[!htbp]
+    \centering
+    \resizebox{0.48\textwidth}{!}{
+        \begin{tikzpicture}
+            % Block styles
+            \tikzstyle{block} = [rectangle, draw, text width=6.5em, text centered, minimum width=8em, minimum height=4em]
+            \tikzstyle{block_dashed} = [rectangle, draw, text width=2em, text centered, minimum width=4em, minimum height=4em, dashed]
+            % Input and output
+            \node[block] (radar) {IWR6843\\Radar Sensor};
+            \node[block, right=of radar] (rpi) {Raspberry\\Pi 3 B+};
+            \node[block, right=of rpi] (analog_summ) {Analog Summing\\Circuit};
+            \node[block, below=of rpi] (brake_pedal) {Brake Pedal};
+            \node[block, right=of analog_summ] (remote) {Go-kart\\Remote Control};
+            % Connections
+            \draw[->] (radar) -- (rpi);
+            \draw[->] (rpi) -- (analog_summ);
+            \draw[->] (brake_pedal) -| (analog_summ);
+            \draw[->] (analog_summ) -- (remote);
+        \end{tikzpicture}
+    }
+    \caption{Block diagram of the pipeline}
+    \label{fig:block_diag_pipeline}
+\end{figure}
