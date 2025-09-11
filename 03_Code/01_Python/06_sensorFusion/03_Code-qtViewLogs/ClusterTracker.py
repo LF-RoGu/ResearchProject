@@ -30,10 +30,12 @@ class ClusterTracker:
         self.maximum_segment_length = maximum_segment_length
 
     def _get_new_track_id(self):
+        # reuse ID if available, else mint a new one
+        if self.recycled_track_ids:
+            return self.recycled_track_ids.pop(0)
         tid = self.next_track_id
         self.next_track_id += 1
         return tid
-
 
     def _fit_line_to_history(self, history_points):
         # history_points: list of [x,y] arrays, len ≥ 2
@@ -140,7 +142,7 @@ class ClusterTracker:
             trk = self.tracks[tid]
             trk['miss_count'] += 1
             if trk['miss_count'] > self.maximum_misses:
-                #self.recycled_track_ids.append(tid)
+                self.recycled_track_ids.append(tid)
                 del self.tracks[tid]
 
     def get_active_tracks(self):

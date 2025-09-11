@@ -107,53 +107,64 @@ def icp_pointCloudeWise_vectors(P, Q):
 
 def icp_clusterWise_vectors(P_clusters, Q_clusters):
     """
-    Cluster-wise ICP for 2D radar odometry.
-    Uses icp_pointCloudeWise_vectors for each cluster individually.
-    Computes translation and rotation per cluster and a global average.
+    Cluster-wise ICP with ID-based matching.
+    Matches clusters only if IDs are present in both P_clusters and Q_clusters.
+    Runs point-wise ICP for each matched pair.
     """
 
     translations_per_cluster = {}
     rotations_per_cluster = {}
-
     translations = []
     rotations = []
 
-    if P_clusters is None or Q_clusters is None or len(P_clusters) == 0 or len(Q_clusters) == 0:
+    # Guard for empty inputs
+    if not P_clusters or not Q_clusters:
         return {
-            'per_cluster': {
-                'translations': {},
-                'rotations': {}
-            },
-            'global': {
-                'translation': (0.0, 0.0),
-                'rotation': 0.0
-            }
+            'per_cluster': {'translations': {}, 'rotations': {}},
+            'global': {'translation': (0.0, 0.0), 'rotation': 0.0}
         }
 
-    for cid, P_data in P_clusters.items():
+    for cid in P_clusters:
         if cid not in Q_clusters:
             continue
 
-        # Prepare inputs for the per-point ICP
-        P_points = [{'x': p[0], 'y': p[1]} for p in P_data['points']]
-        Q_points = [{'x': q[0], 'y': q[1]} for q in Q_clusters[cid]['points']]
+        P_data = P_clusters[cid]
+        Q_data = Q_clusters[cid]
 
-        # Reuse the pairwise ICP function
-        cluster_result = icp_pointCloudeWise_vectors(P_points, Q_points)
+        P_points = P_data.get('points')
+        Q_points = Q_data.get('points')
 
+        if P_points is None or len(P_points) == 0 or Q_points is None or len(Q_points) == 0:
+            continue
+
+        # Convert to [{'x':, 'y':}, ...] for compatibility with icp_pointCloudeWise_vectors
+        P_list = [{'x': float(p[0]), 'y': float(p[1])} for p in P_points]
+        Q_list = [{'x': float(q[0]), 'y': float(q[1])} for q in Q_points]
+
+        # Run per-cluster ICP
+        cluster_result = icp_pointCloudeWise_vectors(P_list, Q_list)
         avg_tx, avg_ty = cluster_result['global']['translation']
         avg_angle = cluster_result['global']['rotation']
 
         translations_per_cluster[cid] = (avg_tx, avg_ty)
         rotations_per_cluster[cid] = avg_angle
-
         translations.append((avg_tx, avg_ty))
         rotations.append(avg_angle)
 
-    if translations:
-        translations = np.array(translations)
-        rotations = np.array(rotations)
+        # Debugging info
+        centroid_P = np.mean(P_points, axis=0)
+        centroid_Q = np.mean(Q_points, axis=0)
+        centroid_dist = np.linalg.norm(centroid_P - centroid_Q)
 
+        print(
+            f"[Cluster P{cid} → Q{cid}] "
+            f"centroid_dist={centroid_dist:.3f} | "
+            f"nP={len(P_points)}, nQ={len(Q_points)} | "
+            f"Δ=({avg_tx:.3f}, {avg_ty:.3f}) θ={avg_angle:.3f}"
+        )
+
+    # Compute global average
+    if translations:
         global_tx = np.mean([t[0] for t in translations])
         global_ty = np.mean([t[1] for t in translations])
         global_angle = np.mean(rotations)
@@ -161,14 +172,10 @@ def icp_clusterWise_vectors(P_clusters, Q_clusters):
         global_tx, global_ty, global_angle = 0.0, 0.0, 0.0
 
     return {
-        'per_cluster': {
-            'translations': translations_per_cluster,
-            'rotations': rotations_per_cluster
-        },
-        'global': {
-            'translation': (global_tx, global_ty),
-            'rotation': global_angle
-        }
+        'per_cluster': {'translations': translations_per_cluster,
+                        'rotations': rotations_per_cluster},
+        'global': {'translation': (global_tx, global_ty),
+                   'rotation': global_angle}
     }
 
 

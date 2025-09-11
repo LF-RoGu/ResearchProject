@@ -75,7 +75,7 @@ T_global = np.eye(3)  # initial pose at origin
 
 
 folderName = "15_Logs-11092025"  # Folder where CSV files are stored
-testType = "labDriveAround1.csv"  # Type of test data
+testType = "labDriveAround2.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarLoaderA = RadarCSVReader("radarA_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 radarLoaderB = RadarCSVReader("radarB_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
@@ -667,12 +667,6 @@ class ClusterViewer(QWidget):
         else:
             clusterProcessor_final = {}
 
-        # Store value that was stored in P into Q
-        #Q = P
-        # Obtain the current cluster set of points
-        #P = clusterProcessor_final
-
-
         # now draw each plot
         for name, plot_item in self.plots.items():
 
@@ -731,15 +725,8 @@ class ClusterViewer(QWidget):
                 Q = P # Obtained only last sample to avoid errors that could have been accumulated
                 P = targetCluster # Obtain the current cluster set of points
 
-                common_ids = []
-                for pid in P:
-                    if pid in Q:
-                        common_ids.append(pid)
-                P_matched = {cid: P[cid] for cid in common_ids}
-                Q_matched = {cid: Q[cid] for cid in common_ids}
-
                 # Run ICP only on matched clusters
-                resultVectors_cluster = icp.icp_clusterWise_vectors(P_matched, Q_matched)
+                resultVectors_cluster = icp.icp_clusterWise_vectors(P, Q)
 
                 Ticp_global = icp.icp_transformation_matrix({
                     'translation_avg': resultVectors_global['global']['translation'],
@@ -784,6 +771,15 @@ class ClusterViewer(QWidget):
                 
                 cumulative_distance_cluster += step_distance
                 cumulative_heading_cluster += theta_local
+
+                """
+                print(
+                    f"[Frame {self.currentFrame}] "
+                    f"Global Distance = {cumulative_distance_global:.3f} m | "
+                    f"Cluster Distance = {cumulative_distance_cluster:.3f} m | "
+                    f"Difference = {(cumulative_distance_global - cumulative_distance_cluster):.3f} m"
+                )
+                """
 
                 # Store in egoMotion_global
                 egoMotion_cluster['translation'].append(cumulative_distance_cluster)
