@@ -123,7 +123,7 @@ using Clock = std::chrono::steady_clock;
 Clock::time_point programStart;
 
 /* Output files */
-const string fileSuffix = "outside7";  // << Change this only once
+const string fileSuffix = "calib2mts2";  // << Change this only once
 static ofstream csvRadarA("_outFiles/radarA_" + fileSuffix + ".csv");
 static ofstream csvRadarB("_outFiles/radarB_" + fileSuffix + ".csv");
 static ofstream csvImu   ("_outFiles/imu_" + fileSuffix + ".csv");
