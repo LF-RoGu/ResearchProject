@@ -72,8 +72,8 @@ imu_heading_rad = None
 T_global = np.eye(3)  # initial pose at origin
 
 
-folderName = "14_outside"  # Folder where CSV files are stored
-testType = "outside2.csv"  # Type of test data
+folderName = "13_dualSensorTest/02_RPi5"  # Folder where CSV files are stored
+testType = "driveAround1.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarLoaderA = RadarCSVReader("radarA_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 radarLoaderB = RadarCSVReader("radarB_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
@@ -88,32 +88,27 @@ cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.0, min_samples=3)
 
 Vego_filter = KalmanFilter(process_variance=0.02, measurement_variance=0.5)
 
-def plot_trajectory(plot_widget, trajectory, label, color='g', extra_lines=None):
+def plot_trajectory(plot_widget, plot_title,
+                    trajectory1=None, label1=None, color1='g',
+                    trajectory2=None, label2=None, color2='b'):
     plot_widget.clear()
-    plot_widget.setTitle(label)
+    plot_widget.setTitle(plot_title)
     plot_widget.showGrid(x=True, y=True)
 
-    if len(trajectory) < 1:
-        return
+    def _plot(traj, label, color):
+        if traj and len(traj) > 0:
+            xs, ys = zip(*traj)
+            plot_widget.plot(xs, ys,
+                             pen=pg.mkPen(color, width=2,
+                                          style=pg.QtCore.Qt.DashLine))
+            last_x, last_y = xs[-1], ys[-1]
+            label_item = pg.TextItem(f"{label}\nX={last_x:.2f}, Y={last_y:.2f}",
+                                     color=color)
+            label_item.setPos(last_x, last_y)
+            plot_widget.addItem(label_item)
 
-    # --- Plot main trajectory
-    xs, ys = zip(*trajectory)
-    plot_widget.plot(xs, ys, pen=pg.mkPen(color, width=2))
-    last_x, last_y = xs[-1], ys[-1]
-    label_item = pg.TextItem(f"{label}\nX={last_x:.2f}, Y={last_y:.2f}", color=color)
-    label_item.setPos(last_x, last_y)
-    plot_widget.addItem(label_item)
-
-    # --- Plot extra lines if any
-    if extra_lines:
-        for extra in extra_lines:
-            xs2, ys2 = zip(*extra['trajectory']) if len(extra['trajectory']) > 0 else ([], [])
-            if xs2 and ys2:
-                plot_widget.plot(xs2, ys2, pen=pg.mkPen(extra.get('color', 'r'), width=2, style=pg.QtCore.Qt.DashLine))
-                last_x2, last_y2 = xs2[-1], ys2[-1]
-                label_item2 = pg.TextItem(extra.get('label', ''), color=extra.get('color', 'r'))
-                label_item2.setPos(last_x2, last_y2)
-                plot_widget.addItem(label_item2)
+    _plot(trajectory1, label1, color1)
+    _plot(trajectory2, label2, color2)
 
 def pretty_print_clusters(clusters, label="Clusters"):
     """
@@ -380,6 +375,7 @@ def plot7(plot_widget, imu_average):
     heading_deg = np.degrees(heading_rad)  # raw yaw
 
     imu_heading_rad = heading_rad
+    print(f"IMU heading (rad): {imu_heading_rad:.3f}")
 
     # 5) Rotate to compass convention: 0°=West, 90°=North, etc.
     display_rad = np.pi - heading_rad
@@ -694,19 +690,28 @@ class ClusterViewer(QWidget):
                 plot3(plot_item, rawPointCloud, ransac_output)
             
             if name == "plot4":
-                plot_trajectory(plot_item, trajectory_cluster, "EgoMotion Cluster", color='g', extra_lines=[
-                    {'trajectory': trajectory_cluster_imu, 'label': 'IMU-Based', 'color': 'b'}])
+                plot_trajectory(plot_widget=plot_item, plot_title="EgoMotion Cluster", trajectory1=trajectory_cluster, label1="Rotation Cluster", color1='g',
+                                trajectory2=trajectory_cluster_imu, label2="Rotation IMU", color2='b')
 
             if name == "plot5":
-                plot_trajectory(plot_item, trajectory_global, "EgoMotion Global", color='g', extra_lines=[
-                    {'trajectory': trajectory_global_imu, 'label': 'IMU-Based', 'color': 'b'}])
+                plot_trajectory(plot_widget=plot_item, plot_title="EgoMotion Global", trajectory1=trajectory_global, label1="Rotation Global", color1='g',
+                                trajectory2=trajectory_global_imu, label2="Rotation IMU", color2='b')
 
             if name == "plot6":
                 # update the tracker with the fresh Stage-2 clusters
                 self.trackers[name].update(clusterProcessor_final)
 
                 # pull out the tracks (persistent IDs) and their data
+                maxHits = 0
+                targetCluster = None
                 clusters = self.trackers[name].get_active_tracks()
+                for key, cluster in clusters.items(): 
+                    if cluster.get("hit_count", 0) > maxHits:
+                        maxHits = cluster.get("hit_count", 0)
+                        targetCluster = {key: cluster}
+                    elif cluster.get("hit_count", 0) == maxHits:
+                        # another cluster with same max → add it
+                        targetCluster[key] = cluster
 
                 # Store value that was stored in P into Q
                 Q_global = P_global # Obtained only last sample to avoid errors that could have been accumulated
@@ -719,7 +724,7 @@ class ClusterViewer(QWidget):
 
                 # Store value that was stored in P into Q
                 Q = P # Obtained only last sample to avoid errors that could have been accumulated
-                P = clusters # Obtain the current cluster set of points
+                P = targetCluster # Obtain the current cluster set of points
 
                 resultVectors_cluster = icp.icp_clusterWise_vectors(P, Q)
 
@@ -745,7 +750,8 @@ class ClusterViewer(QWidget):
                 # Extract local translation and rotation from Ticp_global
                 dx_local = Tego_global[0, 2]
                 dy_local = Tego_global[1, 2]
-                theta_local = np.arctan2(Tego_global[1, 0], Tego_global[0, 0])
+                theta_local = np.arctan2(Rrot_global[0, 1], Rrot_global[0, 0])
+                print(f"theta_global from matrix: {theta_local:.3f}")
 
                 step_distance = np.sqrt(dx_local**2 + dy_local**2)
                 
@@ -760,7 +766,8 @@ class ClusterViewer(QWidget):
                 # Extract local translation and rotation from Ticp_global
                 dx_local = Tego_cluster[0, 2]
                 dy_local = Tego_cluster[1, 2]
-                theta_local = np.arctan2(Tego_cluster[1, 0], Tego_cluster[0, 0])
+                theta_local = np.arctan2(Rrot_cluster[0,1], Rrot_cluster[0, 0])
+                print(f"theta_local from matrix: {theta_local:.3f}")
 
                 step_distance = np.sqrt(dx_local**2 + dy_local**2)
                 

@@ -52,3 +52,20 @@ def average_imu_records(imu_records):
                       if isinstance(v, (int, float))]
     return {f: np.mean([getattr(r, f) for r in imu_records])
             for f in numeric_fields}
+
+
+def normalize_icp_heading(rotation_avg_rad):
+    """
+    Converts ICP's rotation angle into IMU-compatible heading (Y-forward, CCW+).
+    Assumes original ICP θ is relative rotation in robot frame.
+
+    Adjustments:
+    - Flip rotation direction
+    - Shift axes: make 0 point to Y-axis (forward)
+
+    Result is normalized to [-π, π]
+    """
+    # Flip direction and rotate -90° to align with Y-forward convention
+    heading = np.pi - rotation_avg_rad - (np.pi / 2)
+    heading = (heading + np.pi) % (2 * np.pi) - np.pi  # normalize to [-π, π]
+    return heading
