@@ -22,8 +22,6 @@ PITCH_RAD = math.radians(PITCH_DEG)
 COS_PITCH = math.cos(PITCH_RAD)
 SIN_PITCH = math.sin(PITCH_RAD)
 
-
-
 def rotate_point_A(x, y):
     x_new = COS_THETA_A * x - SIN_THETA_A * y
     y_new = SIN_THETA_A * x + COS_THETA_A * y

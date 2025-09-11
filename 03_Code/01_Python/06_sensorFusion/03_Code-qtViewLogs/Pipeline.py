@@ -73,7 +73,7 @@ T_global = np.eye(3)  # initial pose at origin
 
 
 folderName = "13_dualSensorTest/02_RPi5"  # Folder where CSV files are stored
-testType = "driveAround1.csv"  # Type of test data
+testType = "calibration1.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarLoaderA = RadarCSVReader("radarA_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 radarLoaderB = RadarCSVReader("radarB_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
@@ -473,12 +473,13 @@ class ClusterViewer(QWidget):
             for point in frame:
                 point.x, point.y = helper.rotate_point_A(point.x, point.y)
                 point.x += 0.70  # Adjust radar A points by +58cm on x-axis
-
+                point.x, point.y, point.z = helper.compensate_pitch(point.x, point.y, point.z)
 
         for frame in self.radarB_frames:
             for point in frame:
                 point.x, point.y = helper.rotate_point_B(point.x, point.y)
                 point.x -= 0.70  # Adjust radar A points by +58cm on x-axis
+                point.x, point.y, point.z = helper.compensate_pitch(point.x, point.y, point.z)
 
         len_a = len(self.radarA_frames)
         len_b = len(self.radarB_frames)
