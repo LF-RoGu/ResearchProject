@@ -156,12 +156,14 @@ def icp_clusterWise_vectors(P_clusters, Q_clusters):
         centroid_Q = np.mean(Q_points, axis=0)
         centroid_dist = np.linalg.norm(centroid_P - centroid_Q)
 
+        """
         print(
             f"[Cluster P{cid} → Q{cid}] "
             f"centroid_dist={centroid_dist:.3f} | "
             f"nP={len(P_points)}, nQ={len(Q_points)} | "
             f"Δ=({avg_tx:.3f}, {avg_ty:.3f}) θ={avg_angle:.3f}"
         )
+        """
 
     # Compute global average
     if translations:

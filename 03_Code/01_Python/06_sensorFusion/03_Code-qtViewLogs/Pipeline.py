@@ -71,11 +71,9 @@ trajectory_cluster_imu = [(0.0, 0.0)]
 trajectory_global_imu = [(0.0, 0.0)]
 imu_heading_rad = None
 
-T_global = np.eye(3)  # initial pose at origin
 
-
-folderName = "15_Logs-11092025"  # Folder where CSV files are stored
-testType = "labDriveAround2.csv"  # Type of test data
+folderName = "14_outside"  # Folder where CSV files are stored
+testType = "outside3.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarLoaderA = RadarCSVReader("radarA_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 radarLoaderB = RadarCSVReader("radarB_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
@@ -342,6 +340,52 @@ def plot4(plot_widget, ego_matrix, translation_history):
     txt = pg.TextItem(f"Translation:\nX={tx:.2f}, Y={ty:.2f}", color='b')
     txt.setPos(tx, ty)
     plot_widget.addItem(txt)
+
+# ------------------------------
+# Plot-5’s 
+# ------------------------------
+def plot5(plot_widget, clusters, trajectory):
+    """
+    Stage 1: 2D mapping visualization.
+    - Projects cluster points into global coordinates using trajectory.
+    - Displays accumulated global map as scatter.
+    - Overlays ego trajectory.
+    """
+    plot_widget.clear()
+    plot_widget.setTitle("2D Mapping (Stage 1)")
+    plot_widget.showGrid(x=True, y=True)
+
+    if not clusters or not trajectory:
+        txt = pg.TextItem("No data", color='r')
+        txt.setPos(0, 0)
+        plot_widget.addItem(txt)
+        return
+
+    # Last global pose (x,y,theta)
+    x_pose, y_pose = trajectory[-1]
+    theta_pose = egoMotion_global['rotations'][-1] if egoMotion_global['rotations'] else 0.0
+
+    R = np.array([[np.cos(theta_pose), -np.sin(theta_pose)],
+                  [np.sin(theta_pose),  np.cos(theta_pose)]])
+
+    # Plot each cluster in global coordinates
+    for cid, data in clusters.items():
+        pts = data.get('points')
+        if pts is None or len(pts) == 0:
+            continue
+        pts = np.array(pts[:, :2])  # take (x,y)
+        pts_global = (R @ pts.T).T + np.array([x_pose, y_pose])
+
+        scatter = pg.ScatterPlotItem(
+            x=pts_global[:, 0], y=pts_global[:, 1],
+            size=5, pen=None, brush=pg.mkBrush(100, 200, 255, 150)
+        )
+        plot_widget.addItem(scatter)
+
+    # Overlay ego trajectory
+    xs, ys = zip(*trajectory)
+    plot_widget.plot(xs, ys, pen=pg.mkPen('g', width=2))
+
 
 # ------------------------------
 # Plot-7’s 
@@ -686,11 +730,11 @@ class ClusterViewer(QWidget):
                 plot3(plot_item, rawPointCloud, ransac_output)
             
             if name == "plot4":
-                plot_trajectory(plot_widget=plot_item, plot_title="EgoMotion Cluster", trajectory1=trajectory_cluster_imu, label1="Rotation Cluster", color1='g')
+                plot_trajectory(plot_widget=plot_item, plot_title="EgoMotion Global", trajectory1=trajectory_global_imu, label1="Rotation Global", color1='g')
+                #plot_trajectory(plot_widget=plot_item, plot_title="EgoMotion Cluster", trajectory1=trajectory_cluster_imu, label1="Rotation Cluster", color1='g')
 
             if name == "plot5":
-                plot_trajectory(plot_widget=plot_item, plot_title="EgoMotion Global", trajectory1=trajectory_global_imu, label1="Rotation Global", color1='g')
-
+                plot5(plot_widget=plot_item, clusters=clusterProcessor_final, trajectory=trajectory_global_imu)
             if name == "plot6":
                 # update the tracker with the fresh Stage-2 clusters
                 self.trackers[name].update(clusterProcessor_final)
