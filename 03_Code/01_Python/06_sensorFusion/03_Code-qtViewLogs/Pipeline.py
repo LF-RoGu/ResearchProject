@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import (
     QLabel, QSlider, QPushButton
 )
 from PyQt5.QtCore import Qt
+from collections import deque
 
 from ClusterTracker import ClusterTracker
 from decodeFile import ImuCSVReader, RadarCSVReader
@@ -375,7 +376,6 @@ def plot7(plot_widget, imu_average):
     heading_deg = np.degrees(heading_rad)  # raw yaw
 
     imu_heading_rad = heading_rad
-    print(f"IMU heading (rad): {imu_heading_rad:.3f}")
 
     # 5) Rotate to compass convention: 0°=West, 90°=North, etc.
     display_rad = np.pi - heading_rad
@@ -395,8 +395,6 @@ def plot7(plot_widget, imu_average):
     lbl = pg.TextItem(f"{shifted_deg:.1f}°", color='c', anchor=(0.5, -0.2))
     lbl.setPos(tip_x, tip_y)
     plot_widget.addItem(lbl)
-
-    #print(f"[IMU] Heading Angle: {shifted_deg:.2f}°")
 
 # ------------------------------
 # Plot-6’s 
@@ -448,8 +446,6 @@ def plot6(plot_widget, ego_matrix):
     txt.setPos(-1.5, -1.5)
     plot_widget.addItem(txt)
 
-    #print(f"[ICP] Heading Angle: {shifted_deg:.2f}°")
-
 
 # ------------------------------
 # Main Viewer
@@ -459,6 +455,8 @@ class ClusterViewer(QWidget):
         super().__init__()
         self.setWindowTitle("Pipeline Viewer")
         self.resize(1200,900)
+
+        self.cluster_history = deque(maxlen=FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 
         # Load data once
         self.imu_frames = imuLoader.load_all(False) if imuLoader else []
@@ -597,6 +595,7 @@ class ClusterViewer(QWidget):
         global T_global
         global cumulative_distance_global, cumulative_heading_global
         global cumulative_distance_cluster, cumulative_heading_cluster
+        global imu_heading_rad
         # Filtern Pipeline information (Plot 1 only)
         if ENABLE_SENSORS in (1, 3):
             latestFrameA = _radarA_Agg.getPoints()
@@ -703,14 +702,19 @@ class ClusterViewer(QWidget):
 
                 # pull out the tracks (persistent IDs) and their data
                 maxHits = 0
-                targetCluster = None
+                targetCluster = {}
                 clusters = self.trackers[name].get_active_tracks()
-                for key, cluster in clusters.items(): 
-                    if cluster.get("hit_count", 0) > maxHits:
-                        maxHits = cluster.get("hit_count", 0)
-                        targetCluster = {key: cluster}
-                    elif cluster.get("hit_count", 0) == maxHits:
-                        # another cluster with same max → add it
+                # First, determine the max hit count
+                for key, cluster in clusters.items():
+                    hits = cluster.get("hit_count", 0)
+                    if hits > maxHits:
+                        maxHits = hits
+
+                # Second, collect clusters above the threshold (>= maxHits / 2)
+                threshold = maxHits / 2
+                for key, cluster in clusters.items():
+                    hits = cluster.get("hit_count", 0)
+                    if hits >= threshold:
                         targetCluster[key] = cluster
 
                 # Store value that was stored in P into Q
@@ -722,9 +726,18 @@ class ClusterViewer(QWidget):
                 matched_points = resultVectors_global['global']['matched_points']
                 centroid_disp = resultVectors_global['global']['centroid_displacement']
 
-                # Store value that was stored in P into Q
-                Q = P # Obtained only last sample to avoid errors that could have been accumulated
-                P = targetCluster # Obtain the current cluster set of points
+                if targetCluster:
+                    self.cluster_history.append(targetCluster)
+                    # Store value that was stored in P into Q
+                    Q = P # Obtained only last sample to avoid errors that could have been accumulated
+                    P = targetCluster # Obtain the current cluster set of points
+                else:
+                    if self.cluster_history:
+                        Q = P
+                        P = self.cluster_history[-1]
+                    else:
+                        Q = P
+                        P = None
 
                 resultVectors_cluster = icp.icp_clusterWise_vectors(P, Q)
 
@@ -750,8 +763,7 @@ class ClusterViewer(QWidget):
                 # Extract local translation and rotation from Ticp_global
                 dx_local = Tego_global[0, 2]
                 dy_local = Tego_global[1, 2]
-                theta_local = np.arctan2(Rrot_global[0, 1], Rrot_global[0, 0])
-                print(f"theta_global from matrix: {theta_local:.3f}")
+                theta_local = np.arctan2(-Rrot_global[1, 0], Rrot_global[0, 0])
 
                 step_distance = np.sqrt(dx_local**2 + dy_local**2)
                 
@@ -766,8 +778,13 @@ class ClusterViewer(QWidget):
                 # Extract local translation and rotation from Ticp_global
                 dx_local = Tego_cluster[0, 2]
                 dy_local = Tego_cluster[1, 2]
-                theta_local = np.arctan2(Rrot_cluster[0,1], Rrot_cluster[0, 0])
-                print(f"theta_local from matrix: {theta_local:.3f}")
+                # Rrot_cluster[1, 0] -> sin(theta)
+                # Rrot_cluster[0, 0] -> cos(theta)
+                theta_local = np.arctan2(-Rrot_cluster[1, 0], Rrot_cluster[0, 0])
+                print(f"[ICP] θ(rad): {theta_local:.3f}, θ(deg): {np.degrees(theta_local):.1f}")
+                print(f"[ICP] R = \n{Rrot_cluster}, det = {np.linalg.det(Rrot_cluster):.6f}")
+                if imu_heading_rad is not None:
+                    print(f"[IMU] θ(rad): {imu_heading_rad:.3f}, θ(deg): {np.degrees(imu_heading_rad):.1f}")
 
                 step_distance = np.sqrt(dx_local**2 + dy_local**2)
                 
