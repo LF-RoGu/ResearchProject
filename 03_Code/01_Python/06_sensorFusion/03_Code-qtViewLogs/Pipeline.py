@@ -35,10 +35,10 @@ from ClusterTracker import (
 # 1 = Radar only, 2 = IMU only, 3 = Both
 ENABLE_SENSORS = 3
 
-FRAME_AGGREGATOR_NUM_PAST_FRAMES = 7
+FRAME_AGGREGATOR_NUM_PAST_FRAMES = 10
 FILTER_SNR_MIN                  = 12
 FILTER_Z_MIN, FILTER_Z_MAX      = -2, 10
-FILTER_Y_MIN, FILTER_Y_MAX      = 1.2, 15
+FILTER_Y_MIN, FILTER_Y_MAX      = 1.5, 15
 FILTER_PHI_MIN, FILTER_PHI_MAX  = -85, 85
 FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX = 0.01, 8.0
 TRACKER_MAX_MISSES  = 10     # how many frames a track can disappear before deletion
@@ -49,6 +49,8 @@ P = None  # clusters for current frame t
 Q = None  # clusters for previous frame t-1
 P_global = None  # clusters for current frame t
 Q_global = None  # clusters for previous frame t-1
+P_matched = None
+Q_matched = None
 egoMotion_global = {
     'translation':       [],  # Store cumulative global translations (x, y)
     'rotations':         []   # Store cumulative global heading (theta)
@@ -593,6 +595,7 @@ class ClusterViewer(QWidget):
     def update_all_plots(self):
         global P, Q
         global P_global, Q_global
+        global P_matched, Q_matched
         global T_global
         global cumulative_distance_global, cumulative_heading_global
         global cumulative_distance_cluster, cumulative_heading_cluster
@@ -610,7 +613,7 @@ class ClusterViewer(QWidget):
             rawPointCloud = []
         pointCloud = pointFilter.filterDoppler(rawPointCloud, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
         #pointCloud = pointFilter.filterSNRmin( rawPointCloud, FILTER_SNR_MIN)
-        pointCloud = pointFilter.filterCartesianZ(pointCloud, FILTER_Z_MIN, FILTER_Z_MAX)
+        #pointCloud = pointFilter.filterCartesianZ(pointCloud, FILTER_Z_MIN, FILTER_Z_MAX)
         pointCloud = pointFilter.filterCartesianY(pointCloud, FILTER_Y_MIN, FILTER_Y_MAX)
         #pointCloud = pointFilter.filterSphericalPhi(pointCloud, FILTER_PHI_MIN, FILTER_PHI_MAX)
         
@@ -689,19 +692,31 @@ class ClusterViewer(QWidget):
                 plot3(plot_item, rawPointCloud, ransac_output)
             
             if name == "plot4":
-                plot_trajectory(plot_widget=plot_item, plot_title="EgoMotion Cluster", trajectory1=trajectory_cluster, label1="Rotation Cluster", color1='g',
-                                trajectory2=trajectory_cluster_imu, label2="Rotation IMU", color2='b')
+                plot_trajectory(plot_widget=plot_item, plot_title="EgoMotion Cluster", trajectory1=trajectory_cluster_imu, label1="Rotation Cluster", color1='g')
 
             if name == "plot5":
-                plot_trajectory(plot_widget=plot_item, plot_title="EgoMotion Global", trajectory1=trajectory_global, label1="Rotation Global", color1='g',
-                                trajectory2=trajectory_global_imu, label2="Rotation IMU", color2='b')
+                plot_trajectory(plot_widget=plot_item, plot_title="EgoMotion Global", trajectory1=trajectory_global_imu, label1="Rotation Global", color1='g')
 
             if name == "plot6":
                 # update the tracker with the fresh Stage-2 clusters
                 self.trackers[name].update(clusterProcessor_final)
 
                 # pull out the tracks (persistent IDs) and their data
+                maxHits = 0
+                targetCluster = {}
                 clusters = self.trackers[name].get_active_tracks()
+                # First, determine the max hit count
+                for key, cluster in clusters.items():
+                    hits = cluster.get("hit_count", 0)
+                    if hits > maxHits:
+                        maxHits = hits
+
+                # Second, collect clusters above the threshold (>= maxHits / 2)
+                threshold = maxHits / 2
+                for key, cluster in clusters.items():
+                    hits = cluster.get("hit_count", 0)
+                    if hits >= threshold:
+                        targetCluster[key] = cluster
 
                 # Store value that was stored in P into Q
                 Q_global = P_global # Obtained only last sample to avoid errors that could have been accumulated
@@ -714,9 +729,17 @@ class ClusterViewer(QWidget):
 
                 # Store value that was stored in P into Q
                 Q = P # Obtained only last sample to avoid errors that could have been accumulated
-                P = clusters # Obtain the current cluster set of points
+                P = targetCluster # Obtain the current cluster set of points
 
-                resultVectors_cluster = icp.icp_clusterWise_vectors(P, Q)
+                common_ids = []
+                for pid in P:
+                    if pid in Q:
+                        common_ids.append(pid)
+                P_matched = {cid: P[cid] for cid in common_ids}
+                Q_matched = {cid: Q[cid] for cid in common_ids}
+
+                # Run ICP only on matched clusters
+                resultVectors_cluster = icp.icp_clusterWise_vectors(P_matched, Q_matched)
 
                 Ticp_global = icp.icp_transformation_matrix({
                     'translation_avg': resultVectors_global['global']['translation'],
