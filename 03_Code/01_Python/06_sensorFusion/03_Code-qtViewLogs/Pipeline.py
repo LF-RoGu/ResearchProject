@@ -72,8 +72,8 @@ imu_heading_rad = None
 T_global = np.eye(3)  # initial pose at origin
 
 
-folderName = "13_dualSensorTest/02_RPi5"  # Folder where CSV files are stored
-testType = "calibration1.csv"  # Type of test data
+folderName = "14_outside"  # Folder where CSV files are stored
+testType = "outside2.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarLoaderA = RadarCSVReader("radarA_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 radarLoaderB = RadarCSVReader("radarB_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
@@ -84,7 +84,7 @@ _imuAgg           = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 
 # Two‐stage DBSCAN processors
 cluster_processor_stage1 = dbCluster.ClusterProcessor(eps=2.0, min_samples=2)
-cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.5, min_samples=3)
+cluster_processor_stage2 = dbCluster.ClusterProcessor(eps=1.0, min_samples=3)
 
 Vego_filter = KalmanFilter(process_variance=0.02, measurement_variance=0.5)
 
@@ -472,13 +472,13 @@ class ClusterViewer(QWidget):
         for frame in self.radarA_frames:
             for point in frame:
                 point.x, point.y = helper.rotate_point_A(point.x, point.y)
-                point.x += 0.70  # Adjust radar A points by +58cm on x-axis
+                point.x -= 0.32  # Adjust radar A points by +58cm on x-axis
                 point.x, point.y, point.z = helper.compensate_pitch(point.x, point.y, point.z)
 
         for frame in self.radarB_frames:
             for point in frame:
                 point.x, point.y = helper.rotate_point_B(point.x, point.y)
-                point.x -= 0.70  # Adjust radar A points by +58cm on x-axis
+                point.x -= 0.28  # Adjust radar A points by +58cm on x-axis
                 point.x, point.y, point.z = helper.compensate_pitch(point.x, point.y, point.z)
 
         len_a = len(self.radarA_frames)
@@ -644,11 +644,12 @@ class ClusterViewer(QWidget):
         else:
             escalarVego = 0.0
             vectorVego = (0.0, 0.0)
-        print(
-                f"Frame {self.currentFrame}: "
-                f"Velocity Scalar = {escalarVego:.4f}, "
-                f"Velocity Vectorial = ({vectorVego[0]:.4f}), ({vectorVego[1]:.4f})"
-            )
+
+        #print(
+        #        f"Frame {self.currentFrame}: "
+        #        f"Velocity Scalar = {escalarVego:.4f}, "
+        #        f"Velocity Vectorial = ({vectorVego[0]:.4f}), ({vectorVego[1]:.4f})"
+        #    )
 
         imu_records = []
         if ENABLE_SENSORS in (2, 3):
