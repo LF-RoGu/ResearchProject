@@ -111,9 +111,10 @@ static IWR6843     radarSensorA;
 static IWR6843     radarSensorB;
 static XsensMti710 imuSensor;
 
+const string fileSuffix = "calib2mts2";  // << Change this only once
 #if ENABLE_VIDEO
 static atomic<bool>       videoStopSignal = false;
-static const string       videoOutputPath = "_outFiles/video/output_gray_10fps7.avi";
+static const string       videoOutputPath = "_outFiles/video/output_10fps_" + fileSuffix + ".avi";
 static const int               videoFps = 10; /* Target FPS for recording */
 static mutex        videoWriteMutex;
 #endif
@@ -123,7 +124,6 @@ using Clock = std::chrono::steady_clock;
 Clock::time_point programStart;
 
 /* Output files */
-const string fileSuffix = "calib2mts2";  // << Change this only once
 static ofstream csvRadarA("_outFiles/radarA_" + fileSuffix + ".csv");
 static ofstream csvRadarB("_outFiles/radarB_" + fileSuffix + ".csv");
 static ofstream csvImu   ("_outFiles/imu_" + fileSuffix + ".csv");
