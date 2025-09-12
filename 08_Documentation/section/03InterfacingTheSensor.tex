@@ -1,3 +1,5 @@
+\newpage
+
 \section{IWR6843 Radar Interface and Configuration}
 \label{sec:IWR6843 Radar Interface and Configuration}
 The IWR6843AOPEVM development board from Texas Instruments features the IWR6843AOP, a high performance 4D mmWave FMCW radar sensor with Antenna On Package (AOP) design.
@@ -26,8 +28,6 @@ Application-specific processing of the point cloud itself is executed on an exte
 The main demo application ("mmWave SDK demo") allows a versatile customization of the radar sensor's operating parameters and its discrimination capabilities while outputting the point cloud via its UART interface, accessible via the on-board USB to UART converter.
 Although the demo seems to be intended to be used only for demonstration purposes, many projects based on Texas Instruments' mmWave radar sensors utilize it, because it poses a generic solution for obtaining (close to) real-time point cloud data from the sensor without prior development of a custom user-application for the radar sensor's internal microcontroller.
 This setup was therefore chosen for supplying the emergency braking system with data.
-
-\subsection{}
 
 \subsection{Utilizing the mmWave SDK demo}
 The "mmWave SDK demo" was developed by Texas Instruments for showcasing the abilities of their mmWave radar sensors.
@@ -77,6 +77,88 @@ Each TLV type needs to be decoded differently, as it represents a different type
 \end{figure}
 \FloatBarrier
 
+\subsection{Sensor Tuning}
+As some operating parameters influence each other, their selection must be done carefully while observing the influence of the trade-offs involved.
+This could be referred to as "sensor tuning" and is a critical step because it directly impacts the system's accuracy and performance.
+\begin{comment}
+Proper sensor tuning is critical because it directly impacts the accuracy and performance of the self-speed estimation, including the precision of the radial velocity and distance measurements derived from the returned radar waves.
+
+Before initiating the sensor setup, it is crucial to identify the key parameters that will be monitored and adjusted. These parameters determine which aspects of the sensor's configuration need modification and help define the target performance criteria. Examples of these parameters include:
+\end{comment}
+The following operating parameters can be tuned:
+\begin{itemize}
+    \item Frame rate
+    \item Range resolution
+    \item Maximum unambigious range
+    \item Maximum radial velocity
+    \item Radial velocity resolution
+\end{itemize}
+
+Tuning these operating parameters introduces trade-offs by influencing each other in the following ways:
+\begin{table}[h]
+    \centering
+    \resizebox{\columnwidth}{!}{%
+    \begin{tabular}{|l|l|p{3.5cm}|p{3.5cm}|p{3.5cm}|}
+        \hline
+        \textbf{Tuning Parameter} & \textbf{Effect on Performance} & \textbf{Related HW Block} & \textbf{Trade-Off} \\
+        \hline
+        Frame Rate & Higher FPS = faster updates but more processing load & C674x DSP, Radar Data Memory & Higher FPS reduces maximum range \\
+        \hline
+        Range Resolution & Higher resolution = better object separation & ADC, 1D FFT (Range FFT) & Higher resolution reduces max range \\
+        \hline
+        Maximum Range & Determines farthest detectable object & RF Front-End, PA, LNA, ADC & Higher range lowers resolution \\
+        \hline
+        Radial Velocity Resolution & Improves speed accuracy & DSP, 2D FFT (Doppler FFT) & Higher resolution requires more chirps \\
+        \hline
+        Maximum Radial Velocity & Detects fast-moving objects & Chirp rate, TX Antennas, 2D FFT & Higher max velocity reduces resolution \\
+        \hline
+        %% [24/03/2025] Leander: Commented out because RCS depends on the target can not be tuned; is only used as a reference for calculating the range and stuff like this
+        %Radar Cross Section (RCS) & Controls detection sensitivity based on object reflectivity & RF Front-End, LNA, ADC, DSP Filtering & Higher RCS increases range but may include unwanted reflections; Lower RCS improves accuracy but may miss small objects \\
+        %\hline
+    \end{tabular}%
+    }
+    \caption{Radar System Tuning Parameters and Trade-offs}
+    \label{tab:mmWave_Sensor_Parameters}
+\end{table}
+The resulting overall accuracy of the velocity and distance measurements is again dependent on these operating parameters:
+\begin{itemize}
+    \item Radial velocity accuracy: A fine balance between velocity resolution and frame rate must be maintained to ensure precise doppler shift measurements. Lower resolution results in rounded velocity values, while an excessively high frame rate may introduce computational bottlenecks.
+    \item Distance accuracy: Optimizing range resolution and maximum range ensures that detected objects are positioned accurately within the environment. Increasing range often sacrifices resolution, leading to potential inaccuracies in close-range detections.
+    \item Signal Processing Considerations: The FFT calculation parameters directly affect both range and doppler calculations, influencing the ability to distinguish between objects and detect small velocity variations.
+\end{itemize}
+This shows that finding exact values for the operation parameters by adjusting them while carefully watching their influences is crucial and heavily dependent on the particular application.
+The test scenario required an unambigious range of at least \SI{10}{\meter} and a maximum radial velocity of \SI{10}{\meter\per\second} due to its boundary conditions, together with the desire of the highest possible resolution of the radial velocity to ensure a reliable operation of the radar-based self-speed estimation.
+Tuning yieled a configuration with the following operating parameters:
+\begin{itemize}
+    \item Frame rate: \SI{30}{\frame\per\second}
+    \item Range resolution: \SI{0.178}{\meter}
+    \item Maximum unambigious range: \SI{18.22}{\meter}
+    \item Maximum radial velocity: \SI{10.24}{\meter\per\second}
+    \item Radial velocity resolution: \SI{0.16}{\meter\per\second}
+\end{itemize}
+
+Tuning and choosing the sensor's parameters carefully is extremely important as it defines the accuracy of 
+therefore influences the reliability of the entire radar system.
+Fine-tuning these settings ensures that the sensor operates optimally, enabling more precise self-speed estimation and overall system performance.
+The accuracy of radial speed estimation and distance measurements depends directly on the tuning of these parameters. A poorly configured sensor can result in erroneous velocity estimations, unreliable object detection, or excessive noise in Doppler measurements. An example of the influence of the selection of the correct parameters on the output point cloud of the radar sensor can be found in Fig.~\ref{fig:IWR6843AOP Calibration example2 for the sensor}.
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=1.0\linewidth]{images/calib_ex.png}
+    \caption{Output of the IWR6843AOP prior sensor tuning.}
+    \label{fig:IWR6843AOP Calibration example for the sensor}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=1.0\linewidth]{images/calib_ex2.png}
+    \caption{Output of the IWR6843AOP after sensor tuning.}
+    \label{fig:IWR6843AOP Calibration example2 for the sensor}
+\end{figure}
+
+
+% TODO: This should have its own section
+% TODO: Place chirp configuration after interface setup
 \subsection{CHIRP Sequence Configuration}
 \label{sec:chirp}
 
@@ -194,82 +276,4 @@ Several theoretical trade-offs can be discussed:
 In summary, the design of the chirp sequence determines whether the radar is optimized for high range resolution, high velocity resolution, or long-range coverage.  
 Since odometry requires both reliable range accuracy for static structures and robust velocity estimation, careful balancing of these parameters is critical.  
 
-\subsection{Sensor Tuning}
-As some operating parameters influence each other, their selection must be done carefully while observing the influence of the trade-offs involved.
-This could be referred to as "sensor tuning" and is a critical step because it directly impacts the system's accuracy and performance.
-\begin{comment}
-Proper sensor tuning is critical because it directly impacts the accuracy and performance of the self-speed estimation, including the precision of the radial velocity and distance measurements derived from the returned radar waves.
-
-Before initiating the sensor setup, it is crucial to identify the key parameters that will be monitored and adjusted. These parameters determine which aspects of the sensor's configuration need modification and help define the target performance criteria. Examples of these parameters include:
-\end{comment}
-The following operating parameters can be tuned:
-\begin{itemize}
-    \item Frame rate
-    \item Range resolution
-    \item Maximum unambigious range
-    \item Maximum radial velocity
-    \item Radial velocity resolution
-\end{itemize}
-
-Tuning these operating parameters introduces trade-offs by influencing each other in the following ways:
-\begin{table}[h]
-    \centering
-    \resizebox{\columnwidth}{!}{%
-    \begin{tabular}{|l|l|p{3.5cm}|p{3.5cm}|p{3.5cm}|}
-        \hline
-        \textbf{Tuning Parameter} & \textbf{Effect on Performance} & \textbf{Related HW Block} & \textbf{Trade-Off} \\
-        \hline
-        Frame Rate & Higher FPS = faster updates but more processing load & C674x DSP, Radar Data Memory & Higher FPS reduces maximum range \\
-        \hline
-        Range Resolution & Higher resolution = better object separation & ADC, 1D FFT (Range FFT) & Higher resolution reduces max range \\
-        \hline
-        Maximum Range & Determines farthest detectable object & RF Front-End, PA, LNA, ADC & Higher range lowers resolution \\
-        \hline
-        Radial Velocity Resolution & Improves speed accuracy & DSP, 2D FFT (Doppler FFT) & Higher resolution requires more chirps \\
-        \hline
-        Maximum Radial Velocity & Detects fast-moving objects & Chirp rate, TX Antennas, 2D FFT & Higher max velocity reduces resolution \\
-        \hline
-        %% [24/03/2025] Leander: Commented out because RCS depends on the target can not be tuned; is only used as a reference for calculating the range and stuff like this
-        %Radar Cross Section (RCS) & Controls detection sensitivity based on object reflectivity & RF Front-End, LNA, ADC, DSP Filtering & Higher RCS increases range but may include unwanted reflections; Lower RCS improves accuracy but may miss small objects \\
-        %\hline
-    \end{tabular}%
-    }
-    \caption{Radar System Tuning Parameters and Trade-offs}
-    \label{tab:mmWave_Sensor_Parameters}
-\end{table}
-The resulting overall accuracy of the velocity and distance measurements is again dependent on these operating parameters:
-\begin{itemize}
-    \item Radial velocity accuracy: A fine balance between velocity resolution and frame rate must be maintained to ensure precise doppler shift measurements. Lower resolution results in rounded velocity values, while an excessively high frame rate may introduce computational bottlenecks.
-    \item Distance accuracy: Optimizing range resolution and maximum range ensures that detected objects are positioned accurately within the environment. Increasing range often sacrifices resolution, leading to potential inaccuracies in close-range detections.
-    \item Signal Processing Considerations: The FFT calculation parameters directly affect both range and doppler calculations, influencing the ability to distinguish between objects and detect small velocity variations.
-\end{itemize}
-This shows that finding exact values for the operation parameters by adjusting them while carefully watching their influences is crucial and heavily dependent on the particular application.
-The test scenario required an unambigious range of at least \SI{10}{\meter} and a maximum radial velocity of \SI{10}{\meter\per\second} due to its boundary conditions, together with the desire of the highest possible resolution of the radial velocity to ensure a reliable operation of the radar-based self-speed estimation.
-Tuning yieled a configuration with the following operating parameters:
-\begin{itemize}
-    \item Frame rate: \SI{30}{\frame\per\second}
-    \item Range resolution: \SI{0.178}{\meter}
-    \item Maximum unambigious range: \SI{18.22}{\meter}
-    \item Maximum radial velocity: \SI{10.24}{\meter\per\second}
-    \item Radial velocity resolution: \SI{0.16}{\meter\per\second}
-\end{itemize}
-
-Tuning and choosing the sensor's parameters carefully is extremely important as it defines the accuracy of 
-therefore influences the reliability of the entire radar system.
-Fine-tuning these settings ensures that the sensor operates optimally, enabling more precise self-speed estimation and overall system performance.
-The accuracy of radial speed estimation and distance measurements depends directly on the tuning of these parameters. A poorly configured sensor can result in erroneous velocity estimations, unreliable object detection, or excessive noise in Doppler measurements. An example of the influence of the selection of the correct parameters on the output point cloud of the radar sensor can be found in Fig.~\ref{fig:IWR6843AOP Calibration example2 for the sensor}.
-
-\begin{figure}[!htbp]
-    \centering
-    \includegraphics[width=1.0\linewidth]{images/calib_ex.png}
-    \caption{Output of the IWR6843AOP prior sensor tuning.}
-    \label{fig:IWR6843AOP Calibration example for the sensor}
-\end{figure}
-
-\begin{figure}[!htbp]
-    \centering
-    \includegraphics[width=1.0\linewidth]{images/calib_ex2.png}
-    \caption{Output of the IWR6843AOP after sensor tuning.}
-    \label{fig:IWR6843AOP Calibration example2 for the sensor}
-\end{figure}
 \FloatBarrier

@@ -2,32 +2,45 @@
 \label{sec:intoduction}
 
 Accurate and reliable ego-motion estimation is a fundamental requirement for mobile robotic systems and autonomous vehicles solutions.
-Most of the current odometry implementations rely on vision- or LiDAR-based sensors, which provide dense environmental information.
+
+Traditionally or in most scenarios, this task has been accomplished using a combination of wheel encoders, inertial measurement units (IMUs), and GPS.
+In the most recent years, odometry has been implemented using vision (cameras) or LiDAR-based sensors, which offer dense information about the environment.
 However, these modalities often suffer from high cost and performance degradation under adverse conditions such as low illumination, fog, rain, or snow.
-In such scenarios, the accuracy and robustness of odometry are significantly reduced, raising the demand for complementary sensing solutions.
+As a result of this performance degradation, the accuracy and robustness of odometry are significantly limited and reduced, raising the demand for complementary sensing solutions which may offer a more robust solution in such scenarios.
 
 Odometry provides the basis for localization, mapping, and navigation, serving as a core component in modern perception solutions.  
 In most scenarios, odometry has been implemented using vision- or LiDAR-based sensors, which offer dense information about the environment.  
 However, these modalities often suffer from performance degradation from high memory consumption and being under adverse conditions such as low illumination, fog, rain, or snow.  
 In such scenarios, the accuracy and robustness of odometry are significantly limited and reduced, raising the demand for complementary sensing solutions.  
 
-Millimeter-wave (mmWave) radar has emerged as a promising candidate to address these challenges.  
+Millimeter-wave (mmWave) radar has emerged as a promising candidate to address these challenges. Due to its resilience to environmental variability, low cost and native capability to measure both range and veloticy.
 Radar sensors are compact, cost-efficient, and resilient to weather and lighting variations, making them attractive for robotic and automotive applications.  
 Unlike vision or LiDAR, radar directly measures range and Doppler velocity, providing unique information for motion estimation.  
-Nevertheless, radar data presents notable challenges: the resulting point clouds are sparse, noisy, and subject to reflections from dynamic objects, complicating the task of reliable odometry.  
-This problem that creates an unreliable and unstable odometry calculation, which is a critical issue for autonomous systems that require precise and consistent motion calculation, we can say that what is obtained is an estimation.
-With the goal of obtaining an accurate estimation.
 
-This work explores the use of a single front-mounted mmWave radar sensor to estimate vehicle ego-motion without relying on additional sensor modalities.  
-To achieve this, an implementation for processing that integrates clustering methods to structure radar detections, Doppler velocity augmentation to exploit velocity measurements, and point-to-point iterative closest point (ICP) optimization for scan-to-scan registration.  
-A submap-based approach is further applied to increase stability by aggregating multiple frames, thereby improving alignment despite noise and sparsity.  
-Importantly, the point-to-point ICP method eliminates the need for an initial pose guess, which is difficult to obtain in radar data, making it particularly suitable for this application.  
+Nevertheless, radar data presents notable challenges: the resulting point clouds are sparse, noisy, and often subject to multipath reflections. 
+Thus complicating the task of reliable odometry.  
+These limitations hinder the direct application of a traditional scan-matching techniques, commonly used in LiDAR odometry. In which the assumption of a highly structured and dense point cloud is made.
+
+This work explores the use of using mmWave sensors mounted in a vehicle with the goal of obtaining the ego-motion of the vehicle.
+To solve the challange presented by the sparsity and noise that is inate to data obtained from mmWave sensors, a combination of techniques is proposed. 
+Presented in a pipeline that is easy to understand.
+The proposed workflow relies heavily in leveraging the Doppler effect and iterative closest point (ICP) alignment between submaps of frames to obtain a more accurate information for this purpose.
+
+Instead of applying ICP globally, the key insight of this work is to track multiple clusters frame by frame, performing ICP iteratively on the aggregated submap and tracked clusters. 
+By doing so, the sparsity of radar data is mitigated, and the robustness of the odometry estimation is improved.
+This approach enhances the stability and accuracy by focusing the motion on the "tragets" that are considered static in the environment and using them as a reference for the ego-motion estimation.
+
+The full pipeline inclused a RANSAC-based Doppler filter to remove the dynamic point by making the assumption that the mayority of the detected points or reflections are static objects. 
+The assumption that any reflection from a dynamic object o target will have a Doppler velocity closer to zero and different from the fitted curve model that RANSAC will provide.
 
 The contributions of this work can be summarized as follows:  
 \begin{enumerate}
-    \item A radar-only odometry using a single mmWave sensor, minimizing hardware cost and complexity.  
-    \item Integration of Doppler velocity information into the registration process to enhance accuracy.  
-    \item Use of submap aggregation to mitigate sparsity and improve robustness in dynamic environments.  
+    \item A radar ego-motion pipeline using mmWave sensors and an IMU for rotation, minimizing the hardware cost and system complexity.
+    \item Integration of Doppler velocity and RANSAC filtering improves the distinction between static and dynamic objects.
+    \item Submap aggregation to mitigate point cloud sparsity and improve alignment stability.
     \item Object tracking via clusters to identify and filter dynamic objects from the ego-motion estimation.
-    \item Experimental evaluation of the proposed approach under realistic driving conditions.  
+    \item Experimental validation using real-world data collected from a vehicle-mounted mmWave radar sensor.  
 \end{enumerate}
+
+
+
