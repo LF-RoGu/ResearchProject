@@ -1,53 +1,167 @@
 %% \section{Theoretical Foundations: Mathematical Models and Algorithms for Radar-Based Object Detection}
 %% \label{sec:Mathematical Models and Algorithms for Radar-Based Object Detection}
-
-\section{Pipeline implementation: Modules implemented and mathematical explanation}
+\section{Pipeline Implementation: Modules Implemented and Mathematical Explanation}
 \label{sec:Mathematical Models and Algorithms for Radar-Based Object Detection}
-As the radar sensor outputs its raw data in frames which contain a raw point cloud, a modular processing pipeline was developed.
-This pipeline consists of different modules implementing the needed stages for pre-processing the sensor's data, filtering the point cloud, clustering and object detection.
-The modular design allows the modification and adaption to different environments.
-\par
-In a pre-processing stage, the sensor's raw data frames, obtained via UART, are decoded and translated into frames containing individual points in a usable format with information about their $x,y,z,v_{r}$ and $SNR$ values.
-They are then passed into a "Frame Aggregator" which stores a certain amount of frames in order to supply the later stages with the data from multiple frames and thus compensate for possible data sparsity.
-The aggregated data is filtered by multiple filtering stages, starting with static parameters for the spatial dimension and the SNR, followed by a dynamic filtering stage using a comparison of the vehicle's estimated self-speed to the points' speeds for filtering.
-The filtered points are then clustered using a two-stage approach and forwarded to the brake controller for object detection. The reason for the 2 stages of clustering is that for any given object that may be detected there would be noise or segmentation caused by some space between objects. So this 2 stages help us discard information that could be just a reflection and focus into the points that are considered as objects. This being done by having a permissive first stage, and afterwards a strict clustering stage to be able to label an object with a cluster ID for further processing.
+
+To reliably interpret radar sensor data for dynamic object detection and ego-motion estimation, a modular processing pipeline was developed. 
+This pipeline supports both single-radar and dual-radar configurations, and includes integration with an Inertial Measurement Unit (IMU) to compensate for rotational motion of the platform. 
+The modular design allows adaptation to different vehicle setups and deployment conditions.
+
+\subsection*{Sensor Data Preprocessing}
+In the single-radar setup, radar data is received over UART in the form of raw frames containing point cloud information. 
+Each point includes its spatial coordinates $(x, y, z)$, radial velocity $v_r$, and signal-to-noise ratio (SNR). 
+The raw bytes are decoded and structured into frame objects, which are then passed through a Physical Transformation module. 
+This step converts the frame coordinates into the vehicle's local frame, accounting for radar mounting position and orientation. 
+The transformed frames are then passed to the Frame Aggregator.
+The aggregator buffers several frames, creating a temporal submap that increases point density and improves the stability of downstream operations. 
+This aggregation step is especially important for low frame-rate radars or environments with sparse returns.
+
+\subsection*{Dual-Radar and IMU Integration}
+In the enhanced dual-radar configuration, two front-facing radar sensors—mounted on the left and right sides—provide overlapping fields of view. 
+Their data streams are synchronized and passed through an IMU module before aggregation.
+Before being fused in the IMU module, both radar streams undergo an initial Physical Transformation step to account for their respective mounting positions.
+The IMU plays a critical role in estimating the rotation of the system (typically yaw, $\theta$), which is then used to correctly transform radar point clouds into a common reference frame. 
+This correction is essential when performing operations such as frame aggregation and ego-motion estimation, especially during turning maneuvers or curved trajectories.
+By incorporating rotation from the IMU, we avoid accumulating drift in the pose estimation and ensure consistent alignment across frames. 
+The rotation is applied as a transformation matrix $R(\theta)$ during the aggregation step.
+
+\subsection*{Filtering and Self-Speed Estimation}
+Once points are aggregated and aligned, the pipeline performs filtering in two stages:
+
+\begin{itemize}
+    \item \textbf{Coordinate and SNR Filtering:} Removes points outside valid spatial boundaries or below a configurable SNR threshold.
+    \item \textbf{Velocity-based Filtering:} Compares each point's Doppler-derived velocity $v_r$ against the estimated self-velocity $v_e$ to remove static or inconsistent returns. This step also serves as a soft segmentation between dynamic and static points.
+\end{itemize}
+
+Self-speed estimation is derived from the filtered points and refined using a Kalman filter to stabilize fluctuations. This self-speed value is used both for filtering and for downstream modules.
+
+\subsection*{Robust Clustering and Ego-Motion Estimation}
+The filtered data is processed using a two-stage clustering algorithm:
+
+\begin{itemize}
+    \item The first stage is permissive, allowing loosely grouped points to form clusters.
+    \item The second stage is strict, refining the clusters to remove noise and assigning each a stable ID.
+\end{itemize}
+
+This approach enables robust tracking of objects over time, even in cluttered or partially occluded environments.
+To improve robustness against outliers, RANSAC is applied before clustering, ensuring that spurious points do not skew the detection.
+Finally, ICP (Iterative Closest Point) is used to align point clusters between consecutive frames. 
+Combined with known vehicle motion and IMU-based rotation, this allows for accurate ego-motion estimation and the construction of a consistent world model.
+
+
 \begin{figure}[!htbp]
     \centering
     \resizebox{0.48\textwidth}{!}{
         \begin{tikzpicture}
             % Block styles
             \tikzstyle{block} = [rectangle, draw, text width=4.5em, text centered, minimum width=6em, minimum height=4em]
-            \tikzstyle{block_dashed} = [rectangle, draw, text width=2em, text centered, minimum width=4em, minimum height=4em, dashed]
+
             % Input and output
             \node[block] (uart) {UART\\Data};
             \node[block, right=of uart] (decoder) {Data decoder};
             \node[block, right=of decoder] (frames) {Frame};
-            \node[block, right=of frames] (frame_aggr) {Frame\\Aggregator};
-            \node[block, right=of frame_aggr] (coord_filter) {Filter\\$x,y,z$\\$\phi,SNR$};
+            \node[block, right=of frames] (transform) {Physical\\Transformations};
+            \node[block, right=of transform] (frame_aggr) {Frame\\Aggregator};
+            \node[block, right=of frame_aggr] (coord_filter) {Filter\\$x,y,z$\\$\phi$, SNR};
             \node[block, right=of coord_filter] (self_speed_estim) {Self-speed Estimator};
             \node[block, right=of self_speed_estim] (self_speed_kalman) {Kalman Filter};
             \node[block, below=of self_speed_estim] (ve_speed_calc) {Calculation\\of $v_{e}$};
-            \node[block, right=of ve_speed_calc] (ve_filter) {Filter\\$v_{e}$ vs. self-speed};
-            \node[block, right=of ve_filter] (clustering) {Clustering};
-            \node[block, right=of clustering] (brake_controller) {Brake\\Controller};
+            \node[block, right=of ve_speed_calc] (ransac) {RANSAC};
+            \node[block, right=of ransac] (clustering) {Clustering};
+            \node[block, right=of clustering] (icp) {ICP};
+            \node[block, right=of icp] (ego) {ego-motion};
+
+            % IMU block
+            \node[block, below=1.3cm of decoder] (imu) {IMU\\Data};
+
             % Connections
             \draw[->] (uart) -- (decoder);
             \draw[->] (decoder) -- (frames);
-            \draw[->] (frames) -- (frame_aggr); % Connection from antenna to RF amplifier
+            \draw[->] (frames) -- (transform);
+            \draw[->] (transform) -- (frame_aggr);
+            \draw[->] (imu.east) -| ([yshift=-1.5em]frame_aggr.south) -| (frame_aggr.south);
+
             \draw[->] (frame_aggr) -- (coord_filter);
             \draw[->] (coord_filter) -- (self_speed_estim);
             \draw[->] (coord_filter.south) |- (ve_speed_calc.west);
             \draw[->] (self_speed_estim) -- (self_speed_kalman);
-            \draw[->] (self_speed_kalman) -- (ve_filter);
-            \draw[->] (ve_speed_calc) -- (ve_filter);
-            \draw[->] (ve_filter) -- (clustering);
-            \draw[->] (clustering) -- (brake_controller);
+            \draw[->] (self_speed_kalman) -- (ransac);
+            \draw[->] (ve_speed_calc) -- (ransac);
+            \draw[->] (ransac) -- (clustering);
+            \draw[->] (clustering) -- (icp);
+            \draw[->] (icp) -- (ego);
 
-            \draw [decorate, decoration = {brace, mirror, raise=10pt}] (uart.south west) --  (frames.south east) node[pos=0.5,below=15pt,black]{Sensor Data Preprocessing};
+            % Bottom brace for preprocessing
+            \draw [decorate, decoration = {brace, mirror, raise=10pt}]
+                (uart.south west) -- (transform.south east)
+                node[pos=0.5,below=15pt,black]{Sensor Data Preprocessing};
         \end{tikzpicture}
     }
     \caption{Block diagram of the pipeline}
-    \label{fig:block_diag_pipeline}
+    \label{fig:single_radar_pipeline}
 \end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \resizebox{0.48\textwidth}{!}{
+        \begin{tikzpicture}
+            % Block styles
+            \tikzstyle{block} = [rectangle, draw, text width=4.5em, text centered, minimum width=6em, minimum height=4em]
+
+            % Radar input branches
+            \node[block] (radar1) {Radar\\Front Left};
+            \node[block, below=1.2cm of radar1] (radar2) {Radar\\Front Right};
+
+            % Physical transformation blocks
+            \node[block, right=1.8cm of radar1] (transform1) {Physical\\Transform};
+            \node[block, below=1.2cm of transform1] (transform2) {Physical\\Transform};
+
+            % Merging point
+            \node[block, right=1.8cm of transform1] (merge) {Radar Merge};
+
+            % IMU and aggregation path
+            \node[block, right=of merge] (imu) {IMU};
+            \node[block, right=of imu] (frame_aggr) {Frame\\Aggregator};
+            \node[block, right=of frame_aggr] (coord_filter) {Filter\\$x,y,z$\\$\phi$, SNR};
+            \node[block, right=of coord_filter] (self_speed_estim) {Self-speed Estimator};
+            \node[block, right=of self_speed_estim] (self_speed_kalman) {Kalman Filter};
+            \node[block, below=1.2cm of self_speed_estim] (ve_speed_calc) {Calculation\\of $v_e$};
+            \node[block, right=of ve_speed_calc] (ransac) {RANSAC};
+            \node[block, right=of ransac] (clustering) {Clustering};
+            \node[block, right=of clustering] (icp) {ICP};
+            \node[block, right=of icp] (ego) {Ego-motion};
+
+            % Connections (rectangular style)
+            \draw[->] (radar1) -- (transform1);
+            \draw[->] (radar2) -- (transform2);
+            \draw[->] (transform1) -- (merge);
+            \draw[->] (transform2) -| (merge);
+            \draw[->] (merge) -- (imu);
+            \draw[->] (imu) -- (frame_aggr);
+            \draw[->] (frame_aggr) -- (coord_filter);
+            \draw[->] (coord_filter) -- (self_speed_estim);
+            \draw[->] (coord_filter.south) |- (ve_speed_calc.west);
+            \draw[->] (self_speed_estim) -- (self_speed_kalman);
+            \draw[->] (self_speed_kalman) -- (ransac);
+            \draw[->] (ve_speed_calc) -- (ransac);
+            \draw[->] (ransac) -- (clustering);
+            \draw[->] (clustering) -- (icp);
+            \draw[->] (icp) -- (ego);
+
+            % Bottom brace under radar2
+            \draw [decorate, decoration = {brace, mirror, raise=8pt}] 
+                ([xshift=-2em,yshift=-1em]radar2.south west) -- 
+                ([xshift=2em,yshift=-1em]radar2.south east)
+                node[midway, below=12pt] {Dual-Radar Inputs};
+        \end{tikzpicture}
+    }
+    \caption{Dual Radar Pipeline with Physical Transformations and IMU Integration}
+    \label{fig:dual_radar_pipeline}
+\end{figure}
+
+
+
+
+
 
 \FloatBarrier\noindent
