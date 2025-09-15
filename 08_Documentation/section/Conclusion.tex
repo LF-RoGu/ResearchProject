@@ -1,34 +1,3 @@
 \section{Summary and Outlook}
 
-% Summary and leasons learned
-In this project, an object detection system for a consumer-grade electric go-kart was implemented by using a mmWave radar sensor.
-The system successfully meets its primary objectives by accurately detecting obstacles through a custom point-cloud analysis algorithm.
-Although the current implementation is limited to stationary objects, it establishes a strong foundation for future development.
-All necessary components, including a modular processing pipeline and a hardware interface for safely manipulating the go-kart's brake signal, were developed.
-\par
-The pipeline's modular architecture proved to support a dynamic developing process, which turned out to be necessary when working with point clouds from radar sensors and an electric go-kart that was not intended to be modified by the end-user.
-It also enables further development by expanding, exchanging or modifying processing stages.
-During the development, two stages turned out to be extraordinary helpful when it comes to mitigating the influences of the potentially heavily fluctuating point cloud data.
-The frame aggregator in combination with running the radar sensor at a high frame rate successfully tackled the problem of data sparsity that sometimes occurred in the test scenario environment.
-This was caused by the scenario's "clean" setup without a huge number of targets.
-The two-stage clustering approach using the DBSCAN algorithm proved to be able to reliably filter out outliers caused by clutter or noise and was able to provide the brake controller with stable information on stationary objects.
-\par
-In addition to those two stages, the usage of multiple filtering stages of static and dynamic behavior proved to support the reliability of the whole system.
-Static filtering stages early in the pipeline are able to filter out irrelevant points or those with a low level of confidence by using their spatial coordinates and $SNR$ information.
-This reduces the required processing time of the later stages by condensing the mass of data to the relevant points.
-The dynamic filtering stage allows a reliable differentiation between points that are caused by stationary and moving targets by leveraging the information of the radar-only self-speed estimation.
-The approach of using a distance that is linear to the vehicle's velocity to decide whether an emergency braking event should be triggered, and outputting a binary signal, turned out to be sufficient, as the balance board's internal controller prevents the wheels from locking.
-\par\bigskip
-As with any project, there is always room for improvement, and this work is no exception.
-Although the current implementation meets the initial goals and requirements, the algorithm can still be refined.
-The project is currently implemented in a threaded solution using Python, which is a result of the dynamic development process where a lot of different techniques and approaches where implemented, tested and sometimes discarded.
-Switching from C++, which was used initially used for development, to Python allowed for a quicker development with simpler possibilities of visualization, but also caused a noticeable lack of performance.
-This lack of performance showed up in the last stages of development, during testing, and created a delay in the response when tested in an autonomous environment, meaning that when the implementation was not powered by a sufficient power supply, the implemented system showed certain delays in the response when an object was detected in the area for activation of the brake.
-It is assumed that the delay originates from Python's heavyweight interpreter and should vanish after porting the system's implementation back to C++.
-As for this reason, the decision of not fully merging the existing system into the test vehicle at this stage of the development was made, as it did not provided a fully safe environment for testing.
-The validation was done with a LED to indicate the activation of the emergency brake.
-An improvement or next step would be to migrate the system back to C++, where the threaded implementation would provide a better response time for each running task.
-Further improvements can also be made by incorporating occupancy grids through a Bayesian filter to enhance object detection, allowing the system to go beyond stationary targets.
-By improving the system's object detection capabilities to cover moving targets, it would also be possible to estimate their direction of movement, which could significantly improve the driving assistance algorithm and contribute to accident prevention through a more precise analysis.
-\par\bigskip
-The present status of this project is available in the following GitHub repository: \href{https://github.com/LF-RoGu/Radar-mmWave}{Radar-mmWave on GitHub}.
+Insert conclusion here

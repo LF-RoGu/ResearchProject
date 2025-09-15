@@ -29,31 +29,6 @@ The filtered point cloud is then passed to the next stages, the self-speed estim
 \end{figure}
 \FloatBarrier\noindent
 
-%% [20/03/2025] Leander: Rework done, commentend out bc. probably not needed anymore
-%% ---------------------------------------
-\begin{comment}
-(effectively the radar sensor's mounting height as the coordinate's origin is at the sensor; approx. \SI{30}{\centi\meter} above ground) and \SI{2}{} 
-Physical filtering further refines the data, this by removing points that can be considered as environmental noise or clutter, points outside the sensor’s effective monitoring area, or points whose radar cross-section (RCS) values fall below a predetermined threshold.
-By mentioning the sensor effective monitoring area it is considered as area that the sensor will gather the information, process it and then give it as a result. But we might not be interested in all of this information.
-
-\begin{figure}[!htbp]
-\centering
-\begin{subfigure}{0.24\textwidth}
-  \centering
-  \includegraphics[width=\textwidth]{images/filter.png}
-\end{subfigure}
-\begin{subfigure}{0.24\textwidth}
-  \centering
-  \includegraphics[width=\textwidth]{images/No_filter.png}
-\end{subfigure}
-\caption{The physical filters help us consider only information that may be caught by the sensor, but is of no use for us.}
-\label{fig:remote_controller_components}
-\end{figure}
-
-For the project application and sensor location, it is considered that a Z-axis filter it is needed. As it will add more points that we will process if we don't discard them for the processing of the point-cloud.
-
-This same concept may apply for other physical values of the point-cloud data, this being radial speed. If a point with a radial speed that is considered just ridiculous, then we add that point to the discarded data.
-\end{comment}
 
 
 \subsection{Static vs Non-static objects}
