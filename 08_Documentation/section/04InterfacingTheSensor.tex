@@ -150,8 +150,8 @@ An example of the influence of the selection of the correct parameters on the ou
     \label{fig:IWR6843AOP Calibration example2 for the sensor}
 \end{figure}
 
-\subsection{Dual Sensor-Tuning}
-In addition to the individual calibration of each radar, further adjustments were required to enable a dual-sensor configuration with overlapping fields of view.
+\subsection{Dual Sensor-Tuning} 
+In addition to the individual calibration of each radar, further adjustments were required to enable a dual-sensor configuration with overlapping fields of view. 
 The sensors were physically rotated around the $Z$-axis to widen the horizontal coverage and tilted by $15^\circ$ around the $X$-axis to prevent ground reflections and reduce clutter in the point clouds. 
 
 \subsubsection{Chirp Calibration with Frequency Shift} 
@@ -163,8 +163,59 @@ This configuration allowed the sensors to operate simultaneously without cross-t
 \subsubsection{Geometric Transformations} 
 To merge both radar outputs into a consistent reference frame, rigid-body transformations were applied to compensate for rotation, tilt, and translation offsets between the sensors. 
 Each radar detections were first processed in its local coordinate frame and then transformed into the vehicle-centric frame before fusion into a single point cloud. 
-%%Figures~\ref{fig:pointcloud_unaligned} and~\ref{fig:pointcloud_aligned} 
-illustrate the effect of this calibration step, showing the raw unaligned point clouds compared to the corrected and merged representation. 
-The transformed data provided a coherent input for the odometry estimation pipeline, ensuring that static landmarks were consistently aligned across both sensors. 
+
+Figures~\ref{fig:dualSensorCalib_rawComparison}--\ref{fig:dualSensorCalib_RANSACComparison} illustrate the effect of this calibration process at different processing stages: 
+\begin{itemize} 
+    \item \textbf{Raw point clouds:} Before calibration (Fig.~\ref{fig:dualSensorCalib_rawComparison}a), the detections from each sensor appear misaligned, producing duplicated landmarks. After applying the transformations (Fig.~\ref{fig:dualSensorCalib_rawComparison}b), both perspectives are fused into a coherent scene. 
+    \item \textbf{Clustered view:} When clustering is applied, the uncalibrated data (Fig.~\ref{fig:dualSensorCalib_clusterComparison}a) shows inconsistent cluster centers, while the calibrated version (Fig.~\ref{fig:dualSensorCalib_clusterComparison}b) produces compact and aligned clusters. 
+    \item \textbf{RANSAC Doppler fitting:} Similarly, Doppler–azimuth consistency improves after calibration. Uncalibrated detections (Fig.~\ref{fig:dualSensorCalib_RANSACComparison}a) yield noisier distributions, while the calibrated outputs (Fig.~\ref{fig:dualSensorCalib_RANSACComparison}b) produce smoother fits with fewer outliers. 
+\end{itemize} 
+
+The transformed data thus provides a coherent and stable input for the odometry estimation pipeline, ensuring that static landmarks are consistently aligned across both sensors.  
+
+\begin{figure}[ht]
+    \centering
+    \begin{subfigure}[b]{0.45\textwidth}
+        \includegraphics[width=\textwidth]{images/dualSensorCalib_2mts.png}
+        \caption{Raw point cloud before calibration}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\textwidth}
+        \includegraphics[width=\textwidth]{images/AFTERdualSensorCalib_2mts.png}
+        \caption{Raw point cloud after calibration}
+    \end{subfigure}
+    \caption{Dual-sensor raw detections before and after applying geometric transformations.}
+    \label{fig:dualSensorCalib_rawComparison}
+\end{figure}
+
+\begin{figure}[ht]
+    \centering
+    \begin{subfigure}[b]{0.3\textwidth}
+        \includegraphics[width=\textwidth]{images/dualSensorCalibCluster_2mts.png}
+        \caption{Clustered detections before calibration}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.3\textwidth}
+        \includegraphics[width=\textwidth]{images/AFTERdualSensorCalibCluster_2mts.png}
+        \caption{Clustered detections after calibration}
+    \end{subfigure}
+    \caption{Effect of calibration on cluster alignment across sensors.}
+    \label{fig:dualSensorCalib_clusterComparison}
+\end{figure}
+
+\begin{figure}[ht]
+    \centering
+    \begin{subfigure}[b]{0.3\textwidth}
+        \includegraphics[width=\textwidth]{images/dualSensorCalibRANSAC_2mts.png}
+        \caption{RANSAC Doppler fitting before calibration}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.3\textwidth}
+        \includegraphics[width=\textwidth]{images/AFTERdualSensorCalibRANSAC_2mts.png}
+        \caption{RANSAC Doppler fitting after calibration}
+    \end{subfigure}
+    \caption{Improvement in Doppler-azimuth consistency after calibration.}
+    \label{fig:dualSensorCalib_RANSACComparison}
+\end{figure}
 
 \FloatBarrier
