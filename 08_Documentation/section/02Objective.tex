@@ -1,7 +1,8 @@
 \section{Objective and Sub-Tasks}
 \label{sec:objective}
-The main objective of this work is the development of a radar-based odometry system that estimates the vehicle ego-mmotion using mmWave radar sensors mounted at the fron of the vehicle.
+The main objective of this work is the development of a radar-based odometry system that estimates the vehicle ego-mmotion using mmWave radar sensors mounted at the fron of the vehicle setup in combination with an IMU for rotation compensation.
 That motivation behind this approach is to explore radar as a cost-effective and robust alternative to the existing solutions based in vision or LiDAR-based odometry, particularly in conditions where those have the tendency to fail.
+This builds on prior evidence that radar can support instantaneous ego-motion estimation through Doppler velocity cues \cite{EgoMotion_DopplerRadar}.
 
 The system processes radar point cloud data enriched with range, angle and the most important of all, Doppler velocity, aiming to extract accurate motion for ego-velocity or speed estimation.
 This to be able to recreate the trajectory of the vehicle and be able to use this information for SLAM applications.
@@ -31,22 +32,23 @@ This to be able to recreate the trajectory of the vehicle and be able to use thi
     \label{fig:test_scenario}
 \end{figure}
 
-The experimental setup is illustrated in Figure \ref{fig:test_scenario}, where 2 mmWave radar sensors are mounted at the front of a vehicle, providing overlapping fields of view to enhance environmental perception.
-The dual sensor congfiguration improves the spatial coverage, reducing the blind spots and providing a more dense amount of information about the environment for a more stable processing for odometry compared to a single sensor configuration.
-Each sensor provides a point cloud with range, angle, and Doppler velocity information.
-Both perspectives are processed by each sensor independently and then merge into a single point cloud for further processing.
-Creating a more robust and reliable input for the odometry estimation pipeline, enabling the evaluation of radar-based odometry performance in realistic driving scenarios.
+The experimental setup is illustrated in Figure \ref{fig:test_scenario}, where two mmWave radar sensors are mounted at the front of a vehicle, providing overlapping fields of view to enhance environmental perception.
+The dual-sensor configuration improves spatial coverage, reduces blind spots, and increases point density, resulting in more stable odometry processing compared to a single-sensor setup—an approach that aligns with multimodal methods for robust state estimation \cite{Multimodal_Offroad,HighSpeed_Estimation}.
 
+By combining data from both sensors, including radial speed measurements derived from the Doppler effect, with the inertial measurement unit (IMU) for rotation compensation, the proposed system aims to ensure resilient odometry performance even under high-speed or degraded environmental conditions, where LiDAR-based odometry may fail \cite{HighSpeed_Estimation}.
+
+Each radar perspective is processed independently and then merged into a single point cloud for further analysis.
+This integration creates a more robust and reliable input for the odometry estimation pipeline, enabling the evaluation of radar-based odometry performance in realistic driving scenarios.
 
 \subsection{Sub-Tasks}
 
 The research objective, together with the constraints of using a dual-radar sensor, implied several practical sub-tasks:  
 \begin{itemize}
     \item Designing a modular pipeline to acquire and decode synchronized radar data from both sensors.
-    \item Investigating suitable sensor configurations to balance field of view, update rate, and data density.  
-    \item Selecting sensor configurations that balance chirp bandwidth, update rate, and detection density.
+    \item Investigating suitable sensor configurations to balance field of view, chirp bandwidth, update rate, and detection density.  
     \item Applying RANSAC filtering on Doppler velocities to reject dynamic points and outliers.
     \item Implementing clustering methods to structure radar detections and isolate relevant features.  
+    \item Optimizing the raw radar point cloud using additional information provided by the sensor itself (e.g., SNR, RCS, or range validity) to improve reliability before odometry processing.  
     \item Integrating Doppler velocity information into the odometry estimation process.   
     \item Employing submap aggregation to mitigate sparsity and improve stability. 
     \item Performing ICP alignment between submaps aggregated from both sensors to mitigate sparsity and noise. 
@@ -55,3 +57,4 @@ The research objective, together with the constraints of using a dual-radar sens
 \end{itemize}
 
 As each sub-task builds upon the results of the previous one, the work followed an iterative and modular development approach, enabling gradual integration and continuous evaluation of the proposed system.  
+The following sections detail the implementation and evaluation of each sub-task, culminating in a comprehensive radar-based odometry solution.

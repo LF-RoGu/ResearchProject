@@ -12,14 +12,18 @@ Odometry provides the basis for localization, mapping, and navigation, serving a
 In most scenarios, odometry has been implemented using vision- or LiDAR-based sensors, which offer dense information about the environment.  
 However, these modalities often suffer from performance degradation from high memory consumption and being under adverse conditions such as low illumination, fog, rain, or snow.  
 In such scenarios, the accuracy and robustness of odometry are significantly limited and reduced, raising the demand for complementary sensing solutions.  
+This demand is particularly critical at higher speeds, where LiDAR odometry may face challenges when the environment is not as optimal for this sensor usage, but radar velocity factors have been proven to enhance robustness and accuracy \cite{HighSpeed_Estimation}.
+
 
 Millimeter-wave (mmWave) radar has emerged as a promising candidate to address these challenges. Due to its resilience to environmental variability, low cost and native capability to measure both range and veloticy.
 Radar sensors are compact, cost-efficient, and resilient to weather and lighting variations, making them attractive for robotic and automotive applications.  
 Unlike vision or LiDAR, radar directly measures range and Doppler velocity, providing unique information for motion estimation.  
+Such Doppler-based measurements have already been demonstrated as effective for drect ego-motion estimation, showing that radar alone can support reliable vehicle odometry \cite{EgoMotion_DopplerRadar}.
 
 Nevertheless, radar data presents notable challenges: the resulting point clouds are sparse, noisy, and often subject to multipath reflections. 
 Thus complicating the task of reliable odometry.  
 These limitations hinder the direct application of a traditional scan-matching techniques, commonly used in LiDAR odometry. In which the assumption of a highly structured and dense point cloud is made.
+To overcome these challenges in unstructured environments, multimodal fusion strategies that include radar have been shown to significantly enhance robustness and accuracy \cite{Multimodal_Offroad}, \cite{HighSpeed_Estimation}.
 
 This work explores the use of using mmWave sensors mounted in a vehicle with the goal of obtaining the ego-motion of the vehicle.
 To solve the challange presented by the sparsity and noise that is inate to data obtained from mmWave sensors, a combination of techniques is proposed. 
@@ -29,6 +33,8 @@ The proposed workflow relies heavily in leveraging the Doppler effect and iterat
 Instead of applying ICP globally, the key insight of this work is to track multiple clusters frame by frame, performing ICP iteratively on the aggregated submap and tracked clusters. 
 By doing so, the sparsity of radar data is mitigated, and the robustness of the odometry estimation is improved.
 This approach enhances the stability and accuracy by focusing the motion on the "tragets" that are considered static in the environment and using them as a reference for the ego-motion estimation.
+This design choice aligns with recent findings showing that radar-driven odometry can achieve competitive performance when combined with Doppler velocity information \cite{Odometry_radar_only}.
+Particularly when augmented with Doppler velocity information \cite{HighSpeed_Estimation}.
 
 The full pipeline inclused a RANSAC-based Doppler filter to remove the dynamic point by making the assumption that the mayority of the detected points or reflections are static objects. 
 The assumption that any reflection from a dynamic object o target will have a Doppler velocity closer to zero and different from the fitted curve model that RANSAC will provide.
