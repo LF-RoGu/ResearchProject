@@ -24,6 +24,12 @@ This correction is essential when performing operations such as frame aggregatio
 By incorporating rotation from the IMU, we avoid accumulating drift in the pose estimation and ensure consistent alignment across frames. 
 The rotation is applied as a transformation matrix $R(\theta)$ during the aggregation step.
 
+\subsection*{Frame Aggregation}
+Radar point clouds are naturally sparse, especially at longer ranges. 
+To improve stability and robustness, consecutive frames are aggregated into a local submap. 
+This approach increases point density, reduces the effect of random noise, and provides a richer structure for downstream tasks such as clustering and alignment. 
+The aggregation is performed after IMU-based alignment, ensuring that the fused frames are geometrically consistent. 
+
 \subsection*{Filtering and Self-Speed Estimation}
 Once points are aggregated and aligned, the pipeline performs filtering in two stages:
 
@@ -34,19 +40,16 @@ Once points are aggregated and aligned, the pipeline performs filtering in two s
 
 Self-speed estimation is derived from the filtered points and refined using a Kalman filter to stabilize fluctuations. This self-speed value is used both for filtering and for downstream modules.
 
-\subsection*{Robust Clustering and Ego-Motion Estimation}
-The filtered data is processed using a two-stage clustering algorithm:
+\subsection*{Clustering and Outlier Rejection}
+The filtered detections are grouped into clusters to structure the radar scene. 
+A two-stage clustering approach is applied: an initial permissive grouping followed by stricter refinement to remove noise and assign stable cluster identifiers.  
+To prevent spurious points from corrupting the process, RANSAC-based outlier rejection is performed beforehand, ensuring that only consistent detections are retained for cluster formation.
 
-\begin{itemize}
-    \item The first stage is permissive, allowing loosely grouped points to form clusters.
-    \item The second stage is strict, refining the clusters to remove noise and assigning each a stable ID.
-\end{itemize}
-
-This approach enables robust tracking of objects over time, even in cluttered or partially occluded environments.
-To improve robustness against outliers, RANSAC is applied before clustering, ensuring that spurious points do not skew the detection.
-Finally, ICP (Iterative Closest Point) is used to align point clusters between consecutive frames. 
-Combined with known vehicle motion and IMU-based rotation, this allows for accurate ego-motion estimation and the construction of a consistent world model.
-
+\subsection*{ICP Alignment and Ego-Motion Estimation}
+The final stage of the pipeline performs frame-to-frame alignment using Iterative Closest Point (ICP).  
+Clusters from the current frame (or submap) are matched against those from the previous frame, and the transformation that minimizes the alignment error is computed.  
+This transformation directly corresponds to the vehicle ego-motion.  
+By combining the ICP-derived translation with the IMU-provided rotation, the pipeline yields a robust odometry estimate even in degraded or high-speed environments.
 
 \begin{figure}[!htbp]
     \centering
