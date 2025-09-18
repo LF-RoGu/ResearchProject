@@ -75,7 +75,7 @@ T_global = np.eye(3)  # initial pose at origin
 
 
 folderName = "14_outside"  # Folder where CSV files are stored
-testType = "outside4.csv"  # Type of test data
+testType = "outside6.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarLoaderA = RadarCSVReader("radarA_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 radarLoaderB = RadarCSVReader("radarB_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
@@ -510,8 +510,8 @@ class ClusterViewer(QWidget):
 
         # Build UI
         main_layout = QVBoxLayout(self)
-        pg.setConfigOption('background', 'w')   # White background
-        pg.setConfigOption('foreground', 'k')   # Black axis/labels for readability
+        #pg.setConfigOption('background', 'w')   # White background
+        #pg.setConfigOption('foreground', 'k')   # Black axis/labels for readability
         self.plot_widget = pg.GraphicsLayoutWidget()
         main_layout.addWidget(self.plot_widget)
         self.plots = {}
