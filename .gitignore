@@ -7,3 +7,15 @@
 03_Code/02_C\+\+/03_sensorFusion/.vscode/
 
 *.json
+
+*.aux
+
+*.fdb_latexmk
+
+*.fls
+
+*.log
+
+*.out
+
+*.gz
