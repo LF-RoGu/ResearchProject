@@ -2,20 +2,21 @@
 \section{Pipeline Implementation: Modules Implemented and Mathematical Explanation}
 \label{sec:Mathematical Models and Algorithms for Radar-Based Object Detection}
 
-To reliably interpret radar sensor data for dynamic object detection and ego-motion estimation, a modular processing pipeline was developed. 
-This pipeline supports both single-radar and dual-radar configurations, and includes integration with an Inertial Measurement Unit (IMU) to compensate for rotational motion of the platform. 
+To reliably interpret radar sensor data for static object detection and ego-motion estimation, a modular processing pipeline was developed. 
+This pipeline supports both single-radar and dual-radar configurations, in both cases the inclusion of an Inertial Measurement Unit (IMU) is needed to compensate for rotational motion of the platform. 
 The modular design allows adaptation to different vehicle setups and deployment conditions.
 
 \subsection*{Sensor Data Preprocessing}
-In the single-radar setup, radar data is received over UART in the form of raw frames containing point cloud information. 
-Each point includes its spatial coordinates $(x, y, z)$, radial velocity $v_r$, and signal-to-noise ratio (SNR). 
-The raw bytes are decoded and structured into frame objects, which are then passed through a Physical Transformation module. 
-This step converts the frame coordinates into the vehicle's local frame, accounting for radar mounting position and orientation. 
-The transformed frames are then passed to the Frame Aggregator.
-The aggregator buffers several frames, creating a temporal submap that increases point density and improves the stability of downstream operations. 
-This aggregation step is especially important for low frame-rate radars or environments with sparse returns.
+In the preprocessing of the radar data, there are two scenarios that were implemented for this project, the single-radar setup and the dual-radar setup with IMU integration.
+In both radar setups, radar data is received over UART in the form of raw frames containing point cloud information. 
+Each point includes its spatial coordinates $(x, y, z)$, radial velocity $v_r$, side-point info; this information comes with signal-to-noise ratio (SNR) and noise ration (dB) values that indicate the quality of each detection and range profile data.
 
-\subsection*{Dual-Radar and IMU Integration}
+The raw bytes are decoded \cite{understanding_uart} and structured into frame objects, which are then passed through a Physical Transformation module. 
+This step converts from the sensor frame coordinates into the vehicle local frame, accounting for radar mounting position and orientation. 
+This can be consider a rigid body transformation involving rotation and translation matrices.
+However is really important that this process of rigid transformation is done, as the data that we obtain from the sensor does not know where it is in the vehicle, creating a missalignment between the radar data and the vehicle frame of reference.
+
+\subsubsection*{Dual-Radar and IMU Integration}
 In the enhanced dual-radar configuration, two front-facing radar sensors—mounted on the left and right sides—provide overlapping fields of view. 
 Their data streams are synchronized and passed through an IMU module before aggregation.
 Before being fused in the IMU module, both radar streams undergo an initial Physical Transformation step to account for their respective mounting positions.
