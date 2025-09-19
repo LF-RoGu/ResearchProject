@@ -1,4 +1,4 @@
-\subsection{"$x,y,z,SNR$" Filter}
+\subsection{x,y,z,SNR Filter}
 The point cloud's points are passed through a first static filtering stage to remove points caused by noise, clutter or targets outside of the area of interest before being used for further processing.
 This static filtering stage consists of four different filters, filtering out points by different attributes:
 \begin{enumerate}
@@ -31,7 +31,7 @@ The filtered point cloud is then passed to the next stages, the self-speed estim
 
 
 
-\subsection{Static vs Non-static objects}
+\subsubsection{Static vs Non-static objects}
 In the detected data there will always be static or moving objects in the field of view, this is more prominent when the sensor is mounted in a moving frame.
 In this case every thing is moving from the perspective of the sensor, so how does the differentiation happens to identify statis vs non-static objects, this is simple, by leveraging on the doppler effect concept.
 Using the doppler effect and understanding it is crutial for this step, as it is what will allow the algorithm to focuse the processing only in the static targets that are detected.
@@ -40,4 +40,4 @@ In this case, making the assumption that the sensor is mounted in a vehicle that
 This speed cannot be the same as the angle of detection can affect, the accuracy that may be obtained through the chirp configuration, etc.
 Multiple variables can be added into this "equation", but the assumption that the static targets measured radial speed is close to the vehicle speed we can know which target to keep and which target to discard with only this paramter.
 
-However that leaves us with the problem of how to group such targets. At this point the RANSAC algorithm because really handy, as it will do the grouping for us, by ussing the radial speed.
+However that leaves us with the problem of how to group such targets. At this point the RANSAC algorithm becomes useful, as it will do the grouping for us, by ussing the radial speed.

@@ -16,14 +16,12 @@ This step converts from the sensor frame coordinates into the vehicle local fram
 This can be consider a rigid body transformation involving rotation and translation matrices.
 However is really important that this process of rigid transformation is done, as the data that we obtain from the sensor does not know where it is in the vehicle, creating a missalignment between the radar data and the vehicle frame of reference.
 
-\subsubsection*{Dual-Radar and IMU Integration}
-In the enhanced dual-radar configuration, two front-facing radar sensors—mounted on the left and right sides—provide overlapping fields of view. 
-Their data streams are synchronized and passed through an IMU module before aggregation.
-Before being fused in the IMU module, both radar streams undergo an initial Physical Transformation step to account for their respective mounting positions.
-The IMU plays a critical role in estimating the rotation of the system (typically yaw, $\theta$), which is then used to correctly transform radar point clouds into a common reference frame. 
-This correction is essential when performing operations such as frame aggregation and ego-motion estimation, especially during turning maneuvers or curved trajectories.
-By incorporating rotation from the IMU, we avoid accumulating drift in the pose estimation and ensure consistent alignment across frames. 
-The rotation is applied as a transformation matrix $R(\theta)$ during the aggregation step.
+\subsubsection*{Dual-Radar Configuration}
+In the dual-radar configuration, two front-facing sensors are mounted symmetrically on the left and right sides of the vehicle, providing overlapping fields of view. 
+This arrangement expands the effective coverage and reduces blind spots, offering a broader perception range compared to a single-radar setup.  
+
+The use of two radars requires careful calibration to avoid interference effects, such as ghost detections or false targets, and to ensure consistent alignment of their outputs.  
+When properly tuned, the dual-radar configuration produces a denser and more reliable point cloud, serving as a stronger foundation for subsequent stages of the odometry pipeline.
 
 \subsection*{Frame Aggregation}
 Radar point clouds are naturally sparse, especially at longer ranges. 
@@ -36,25 +34,47 @@ Once points are aggregated and aligned, the pipeline performs filtering in two s
 
 \begin{itemize}
     \item \textbf{Coordinate and SNR Filtering:} Removes points outside valid spatial boundaries or below a configurable SNR threshold.
-    \item \textbf{Velocity-based Filtering:} Compares each point's Doppler-derived velocity $v_r$ against the estimated self-velocity $v_e$ to remove static or inconsistent returns. This step also serves as a soft segmentation between dynamic and static points.
+    \item \textbf{Velocity-based Filtering:} Applies a Doppler threshold to remove points with radial velocities below or above predefined limits. This eliminates static clutter and extreme outliers, leaving only detections within the valid motion range.
 \end{itemize}
 
-Self-speed estimation is derived from the filtered points and refined using a Kalman filter to stabilize fluctuations. This self-speed value is used both for filtering and for downstream modules.
+From the remaining points, the vehicle self-speed is estimated using the Doppler measurements. 
+A Kalman filter is then applied to smooth fluctuations and provide a stable velocity estimate, which is reused in subsequent stages of the odometry pipeline.
 
 \subsection*{Clustering and Outlier Rejection}
-The filtered detections are grouped into clusters to structure the radar scene. 
-A two-stage clustering approach is applied: an initial permissive grouping followed by stricter refinement to remove noise and assign stable cluster identifiers.  
-To prevent spurious points from corrupting the process, RANSAC-based outlier rejection is performed beforehand, ensuring that only consistent detections are retained for cluster formation.
+The filtered detections are organized into clusters to provide structure to the radar scene. 
+A two-stage clustering strategy is employed to gradually refine the set of candidate targets:  
+
+\begin{itemize}
+    \item \textbf{Stage 1 – Permissive Clustering:} A loose grouping is applied using the DBSCAN algorithm, which is well-suited for radar point clouds since it does not require the number of clusters to be specified in advance and can naturally separate sparse detections. 
+    At this stage, the parameters are set permissively, allowing loosely associated points to be grouped into preliminary clusters so that potential targets are not discarded prematurely.  
+    \item \textbf{Stage 2 – Strict Clustering:} The preliminary clusters are reprocessed with stricter DBSCAN parameters, enforcing tighter geometric proximity between points. 
+    This refinement step eliminates loosely connected points and isolates only the detections that are spatially consistent, resulting in compact and reliable target clusters.  
+\end{itemize}
+
+This hierarchical approach ensures that targets are first captured broadly and then refined to retain only geometrically close detections, which are more suitable for downstream odometry estimation.  
+Additionally, RANSAC-based outlier rejection is performed prior to clustering, further reducing the influence of inconsistent or spurious points on the cluster formation.  
+
+DBSCAN's ability to handle varying cluster shapes, adapt to density variations, and explicitly label noise points makes it particularly advantageous in radar applications, where detections are inherently sparse, noisy, and often non-uniformly distributed.
 
 \subsection*{ICP Alignment and Ego-Motion Estimation}
-The final stage of the pipeline performs frame-to-frame alignment using Iterative Closest Point (ICP).  
-Clusters from the current frame (or submap) are matched against those from the previous frame, and the transformation that minimizes the alignment error is computed.  
-This transformation directly corresponds to the vehicle ego-motion.  
-By combining the ICP-derived translation with the IMU-provided rotation, the pipeline yields a robust odometry estimate even in degraded or high-speed environments.
+The final stage of the pipeline estimates vehicle motion by applying the Iterative Closest Point (ICP) algorithm for frame-to-frame alignment. 
+ICP iteratively minimizes the distance between corresponding points across consecutive frames, computing the rigid-body transformation that best aligns them.  
 
-\begin{figure}[!htbp]
+In this project, ICP was applied under two distinct configurations for analysis:  
+
+\begin{itemize}
+    \item \textbf{Global ICP:} The entire aggregated point cloud from consecutive frames is used for alignment. 
+    This approach provides a direct estimate of ego-motion but is sensitive to outliers and dynamic objects present in the scene.  
+
+    \item \textbf{Cluster-based ICP:} Instead of aligning full point clouds, ICP is applied selectively on clusters identified as static targets. 
+    By focusing on geometrically consistent regions, this method looks to improve robustness against moving objects and to enhance the stability of the motion estimate.  
+\end{itemize}
+
+The outcome of ICP is a rigid transformation that represents the vehicle's ego-motion between frames, serving as the foundation for radar-based odometry.
+
+\begin{figure*}[!htbp]
     \centering
-    \resizebox{0.48\textwidth}{!}{
+    \resizebox{\textwidth}{!}{%
         \begin{tikzpicture}
             % Block style
             \tikzstyle{block} = [rectangle, draw, text width=4.5em, text centered, minimum width=6em, minimum height=4em]
@@ -63,7 +83,7 @@ By combining the ICP-derived translation with the IMU-provided rotation, the pip
             \node[block] (uart) {UART\\Data};
             \node[block, right=of uart] (decoder) {Data decoder};
             \node[block, right=of decoder] (frames) {Frame};
-            \node[block, right=of frames] (transform) {Physical\\Transformations};
+            \node[block, right=of frames] (transform) {Rigid-Body\\Transform};
             \node[block, right=of transform] (frame_aggr) {Frame\\Aggregator};
             \node[block, right=of frame_aggr] (coord_filter) {Filter\\$x,y,z$\\$\phi$, SNR};
             \node[block, right=of coord_filter] (ransac) {RANSAC};
@@ -102,13 +122,11 @@ By combining the ICP-derived translation with the IMU-provided rotation, the pip
     }
     \caption{Single Radar Pipeline}
     \label{fig:single_radar_pipeline}
-\end{figure}
+\end{figure*}
 
-
-
-\begin{figure}[!htbp]
+\begin{figure*}[!htbp]
     \centering
-    \resizebox{0.48\textwidth}{!}{
+    \resizebox{\textwidth}{!}{%
         \begin{tikzpicture}
             % Block style
             \tikzstyle{block} = [rectangle, draw, text width=4.5em, text centered, minimum width=6em, minimum height=4em]
@@ -118,8 +136,8 @@ By combining the ICP-derived translation with the IMU-provided rotation, the pip
             \node[block, below=1.2cm of radar1] (radar2) {Radar\\Front Right};
 
             % Physical transformation
-            \node[block, right=1.8cm of radar1] (transform1) {Physical\\Transform};
-            \node[block, below=1.2cm of transform1] (transform2) {Physical\\Transform};
+            \node[block, right=1.8cm of radar1] (transform1) {Rigid-Body\\Transform};
+            \node[block, below=1.2cm of transform1] (transform2) {Rigid-Body\\Transform};
 
             % Merge and processing
             \node[block, right=1.8cm of transform1] (merge) {Radar Merge};
@@ -162,7 +180,8 @@ By combining the ICP-derived translation with the IMU-provided rotation, the pip
     }
     \caption{Dual Radar Pipeline}
     \label{fig:dual_radar_pipeline}
-\end{figure}
+\end{figure*}
+
 
 
 \FloatBarrier\noindent

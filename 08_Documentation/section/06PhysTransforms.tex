@@ -1,4 +1,4 @@
-\subsection{Sensor Coordinate Transformations}
+\subsection{Sensor Data Preprocessing}
 \label{subsec:transformations}
 
 Each radar sensor in the dual-radar configuration is physically mounted with a specific orientation and tilt relative to the vehicle's forward direction. 
@@ -22,7 +22,7 @@ T_{\text{veh}} = R_{\text{yaw}} \cdot R_{\text{pitch}} \cdot \vec{p}_{\text{rada
 Where:
 \begin{itemize}
     \item \( \vec{p}_{\text{radar}} \) is a radar point in sensor coordinates.
-    \item \( R_{\text{yaw}} \) is a 2D or 3D rotation around the vertical axis.
+    \item \( R_{\text{yaw}} \) is a 2D rotation around the vertical axis.
     \item \( R_{\text{pitch}} \) corrects for the upward sensor tilt.
     \item \( \vec{T} \) is the translation vector.
 \end{itemize}
@@ -44,16 +44,19 @@ The 2D rotation in the XY-plane is defined as:
 \[
 \begin{bmatrix}
 x' \\
-y'
+y' \\
+z'
 \end{bmatrix}
 =
 \begin{bmatrix}
-\cos(\theta) & -\sin(\theta) \\
-\sin(\theta) & \cos(\theta)
+\cos(\theta) & -\sin(\theta) & 0 \\
+\sin(\theta) & \cos(\theta) & 0 \\
+0 & 0 & 1
 \end{bmatrix}
 \begin{bmatrix}
 x \\
-y
+y \\
+z
 \end{bmatrix}
 \]
 
@@ -73,7 +76,7 @@ Since the radar sensors are tilted upward by $15^\circ$, a corrective rotation a
 
 \[
 \begin{bmatrix}
-x'' \\ y'' \\ z''
+x' \\ y' \\ z'
 \end{bmatrix}
 =
 \begin{bmatrix}
@@ -82,7 +85,7 @@ x'' \\ y'' \\ z''
 0 & \sin(\phi) & \cos(\phi)
 \end{bmatrix}
 \begin{bmatrix}
-x' \\ y' \\ z
+x \\ y \\ z
 \end{bmatrix}
 \]
 
@@ -115,10 +118,14 @@ This translation ensured both sensors were aligned in a common vehicle-centric f
 
 \vspace{2em}
 
-\paragraph{Impact of Transformations on Point Clouds}
-The importance of these corrections becomes evident when comparing raw and transformed data. Without transformations, detections from the left and right radars appear misaligned, producing duplicated or inconsistent clusters. After applying yaw, pitch, and translation compensation, the fused point cloud exhibits coherent structures, with static landmarks consistently overlapping across sensors.
+\paragraph{Impact of Transformations}
+The importance of these corrections becomes evident when comparing raw and transformed data when the system data is unified in a single data set. 
+Without transformations, detections from the left and right radars appear misaligned, producing duplicated or inconsistent clusters. 
+After applying yaw, pitch, and translation compensation, the fused point cloud exhibits coherent structures, with static landmarks consistently overlapping across sensors.
 
-Figures~\ref{fig:dualSensorCalib_2mts}--\ref{fig:AFTERdualSensorCalibRANSAC_2mts} illustrate this process, showing raw point clouds, clustered representations, and RANSAC fits before and after calibration. The transformed data serves as a stable basis for subsequent steps in the odometry pipeline, such as ICP-based submap alignment.
+Figures~\ref{fig:dualSensorCalib_2mts}--\ref{fig:AFTERdualSensorCalibRANSAC_2mts} illustrate this process, showing raw point clouds, clustered representations, and RANSAC fits before and after calibration. 
+This information is of a person standing at 2 meters away form the vehicle, the process was decided as it was easy to visualize and to validate what was detected.
+The transformed data serves as a stable basis for subsequent steps in the odometry pipeline, such as ICP-based submap alignment.
 
 \begin{figure}[!htbp]
     \centering

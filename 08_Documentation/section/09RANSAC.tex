@@ -1,55 +1,46 @@
-\section{RANSAC-Based Motion Filtering}
+\subsection{RANSAC-Based Motion Filtering}
 
-To differentiate static and dynamic objects in the radar point cloud, we use a RANSAC-based approach on the relationship between azimuth angle $\theta$ and radial Doppler velocity $v_d$.
+A critical step in radar-based odometry is the separation of static landmarks from dynamic objects. 
+This distinction ensures that ego-motion is estimated using only consistent reference points. 
+To achieve this, a RANSAC-based filtering method is applied to the relationship between azimuth angle $\theta$ and Doppler velocity $v_d$.
 
-\subsection*{Principle}
-Under ideal conditions, static objects exhibit Doppler values consistent with the vehicle's own motion and orientation. 
-These values follow a smooth curve when plotted against azimuth. 
-Moving objects, however, deviate from this pattern.
-RANSAC (Random Sample Consensus) is used to robustly fit a model to the expected Doppler pattern of static objects. 
-Points that do not conform to the model are classified as dynamic.
+\subsubsection*{Principle}
+When the radar is mounted on a moving platform, static objects do not appear motionless. 
+Instead, they exhibit Doppler velocities that depend on the vehicle’s own speed and the azimuth angle of detection. 
+This results in a predictable curve when Doppler velocity is plotted against azimuth. 
+Dynamic objects (e.g., moving vehicles or pedestrians) deviate from this pattern.  
 
-\subsection*{Mathematical Model}
+RANSAC (Random Sample Consensus) is used to robustly fit a polynomial model to the Doppler–azimuth distribution of static points. 
+Inliers to the model are considered static reflections, while outliers are classified as dynamic.
 
-We assume a second-degree polynomial relationship:
+\subsubsection*{Mathematical Model}
+The relationship between azimuth angle and Doppler velocity is modeled as a quadratic function:
 \[
-v_d = a\theta^2 + b\theta + c
+v_d = a\theta^2 + b\theta + c.
 \]
 
-RANSAC fits this model by iteratively:
-\begin{itemize}
-    \item Sampling minimal subsets of the data,
-    \item Fitting the polynomial,
-    \item Identifying inliers whose residual error is below a threshold,
-    \item Selecting the model with the highest consensus.
-\end{itemize}
-
-Let $\mathbf{X}$ be the input azimuth values and $\mathbf{y}$ the Doppler speeds:
-
+Let $\mathbf{X}$ be the azimuth vector and $\mathbf{y}$ the Doppler velocities:
 \[
 \mathbf{X} = \begin{bmatrix} \theta_1 \\ \theta_2 \\ \vdots \\ \theta_n \end{bmatrix}, \quad 
-\mathbf{y} = \begin{bmatrix} v_{d1} \\ v_{d2} \\ \vdots \\ v_{dn} \end{bmatrix}
+\mathbf{y} = \begin{bmatrix} v_{d1} \\ v_{d2} \\ \vdots \\ v_{dn} \end{bmatrix}.
 \]
 
-RANSAC estimates polynomial coefficients $\mathbf{w} = [a, b, c]^T$ such that:
-
-\[
-\mathbf{y} \approx \Phi(\mathbf{X}) \cdot \mathbf{w}, \quad
-\Phi(\mathbf{X}) = 
-\begin{bmatrix}
-\theta_1^2 & \theta_1 & 1 \\
-\theta_2^2 & \theta_2 & 1 \\
-\vdots & \vdots & \vdots \\
-\theta_n^2 & \theta_n & 1 \\
-\end{bmatrix}
-\]
-
-\subsection*{Use in Pipeline}
-
-This filtering step occurs after point-wise filtering (e.g., Doppler and range cuts). It outputs:
+RANSAC estimates the coefficients $\mathbf{w} = [a, b, c]^T$ by iteratively:
 \begin{itemize}
-    \item \textbf{Inliers} – points likely to be static (used in clustering/ICP)
-    \item \textbf{Outliers} – likely dynamic, excluded from ego-motion estimation
+    \item Sampling minimal subsets of $(\theta, v_d)$ pairs,
+    \item Fitting the polynomial model,
+    \item Counting inliers with residual error below a threshold,
+    \item Selecting the model with the largest consensus set.
+\end{itemize}
+
+This approach is robust to noisy points and moving targets that would otherwise distort the fit.
+
+\subsubsection*{Integration into the Pipeline}
+The RANSAC-based motion filter is applied after coordinate and Doppler thresholding. 
+It outputs:
+\begin{itemize}
+    \item \textbf{Inliers} - points likely to be static, used for clustering and ICP alignment,
+    \item \textbf{Outliers} - points likely dynamic, excluded from ego-motion estimation.
 \end{itemize}
 
 %TODO: Fix image, use one from project.
@@ -60,23 +51,29 @@ This filtering step occurs after point-wise filtering (e.g., Doppler and range c
     \label{fig:ransac_static_dynamic}
 \end{figure}
 
-\subsection{Static vs Dynamic Objects: Role of Doppler}
+\subsubsection*{Role of Doppler in Static vs. Dynamic Separation}
+For a vehicle moving at velocity $v_e$, static reflections follow a Doppler distribution determined by the projection of $v_e$ along the radar line of sight. 
+For example:
+\begin{itemize}
+    \item A static object directly in front exhibits $v_d \approx v_e$,
+    \item A static object at $90^\circ$ azimuth exhibits $v_d \approx 0$,
+    \item Intermediate azimuths follow a smooth transition between these extremes.
+\end{itemize}
 
-In radar-based perception, identifying dynamic objects (e.g., vehicles, pedestrians) amidst a cluttered scene of static structures (e.g., walls, poles) is critical.
-This task becomes more complex when the radar is mounted on a moving platform, such as a vehicle.
-From the sensor's perspective, **all objects appear to move** due to its own motion. The key to resolving this ambiguity lies in leveraging the **Doppler effect**.
-The Doppler effect describes how the observed frequency of a wave changes based on the relative motion between the source and the observer. For radar systems, this translates into measurable **radial velocity** values: the component of an object's velocity along the line of sight of the radar.
-Assuming the vehicle is moving at a constant speed (e.g., 2 m/s), static targets—such as buildings or parked cars—should exhibit Doppler values that align with this ego-motion, adjusted by their detection angle (azimuth).
-That is, a static object located directly ahead will have a Doppler value close to $+2$ m/s (if approaching), while an object at the side (90 azimuth) will have nearly 0 m/s radial velocity.
-This expected Doppler pattern for static objects traces a smooth curve when plotted against azimuth. Deviations from this curve indicate potential dynamic objects with their own independent motion.
-To robustly extract this pattern from noisy measurements, **RANSAC** is applied to fit a second-order polynomial to the Doppler vs. azimuth data. This model captures the expected distribution of static points.
-Points that significantly deviate from this model are considered **dynamic** and excluded from ego-motion estimation steps.
+Dynamic objects violate this pattern, appearing as outliers in the Doppler-azimuth plane. 
+By isolating the inlier set with RANSAC, ego-motion estimation is anchored on reliable static references, rather than being skewed by dynamic actors.
 
 \paragraph{Benefits of RANSAC-Based Filtering:}
 \begin{itemize}
-    \item Ignores noisy or misdetected points by considering consensus.
-    \item Segregates the scene into static (inliers) and dynamic (outliers) segments.
-    \item Improves the accuracy of clustering and motion estimation by focusing only on consistent, stationary targets.
+    \item Robust against noise and measurement errors,
+    \item Separates dynamic actors from static landmarks without prior labeling,
+    \item Provides stable input for clustering and prevents moving objects from corrupting ego-motion estimation.
 \end{itemize}
 
-The filtered result not only enables accurate **object tracking**, but also prevents false ego-motion estimates that could arise from moving targets dominating the point cloud.
+The output of this module is a refined point cloud in which only consistent static reflections contribute to downstream clustering and ICP alignment. 
+In this system, RANSAC therefore plays a dual role: it filters out dynamic objects while simultaneously delivering a coherent static inlier set that underpins clustering stability and ICP-based odometry. 
+As errors in static-dynamic separation would otherwise propagate downstream, this step is foundational for trajectory accuracy.
+
+The integration of RANSAC-based motion filtering further ensures that odometry remains resilient in challenging scenarios, such as cluttered urban environments or mixed traffic conditions, where dynamic objects may dominate the scene. 
+By anchoring estimation on reliable static structures, the system achieves greater robustness and consistency—critical factors for autonomous navigation. 
+Additionally, maintaining a coherent model of the static Doppler pattern allows for a more accurate estimation of the vehicle's own self-speed, reinforcing the central role of RANSAC in radar-only odometry.
