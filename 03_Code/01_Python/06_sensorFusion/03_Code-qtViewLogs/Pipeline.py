@@ -210,7 +210,7 @@ def plot2(plot_widget, clusters):
             f"Hits: {clusterHits}\n"
             f"Cx,Cy: ({cx:.2f}, {cy:.2f})",
             anchor=(0.5, -0.2),
-            color='w'
+            color='k'
         )
         label.setPos(cx, cy)
         plot_widget.addItem(label)
@@ -510,8 +510,8 @@ class ClusterViewer(QWidget):
 
         # Build UI
         main_layout = QVBoxLayout(self)
-        #pg.setConfigOption('background', 'w')   # White background
-        #pg.setConfigOption('foreground', 'k')   # Black axis/labels for readability
+        pg.setConfigOption('background', 'w')   # White background
+        pg.setConfigOption('foreground', 'k')   # Black axis/labels for readability
         self.plot_widget = pg.GraphicsLayoutWidget()
         main_layout.addWidget(self.plot_widget)
         self.plots = {}

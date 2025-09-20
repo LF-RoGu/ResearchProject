@@ -1,6 +1,6 @@
 \subsection{Self-speed Estimator}
 \label{sec:self-speed_estimator}
-The vehicle's self-speed is used for distinguishing between points of stationary and moving objects and filtering out the points of moving objects in a later block of the pipeline.
+The vehicle's self-speed plays a crucial role in distinguishing between stationary and moving objects, as it enables the removal of dynamic points in later stages of the pipeline. 
 It therefore needs to be determined in a reliable way.
 Traditional approaches usually utilize external sensors such as wheel encoders, Global Positioning System (GPS), or Inertia Measurement Units (IMUs).
 In this project, a technique was developed that determines the vehicle's self-speed only by processing the point cloud's data.
@@ -30,86 +30,126 @@ An angle $\phi_{p}$ was defined between each individual point of the point cloud
     \label{fig:def_angle_phi}
 \end{figure}
 \FloatBarrier\noindent
-These angles $\phi_{p}$ can be calculated using the points' cartesian position information:
-\begin{equation*}
-    \phi_{p} = arctan\left(\frac{x_{p}}{y_{p}}\right)
-    \label{eq:calc_angle_phi}
-\end{equation*}
-A curve $v(\phi)$ is fitted through the points with their angles $\phi_{p}$ serving as the independent variable and their radial speeds $v_{r,p}$ as the dependent variable.
-The curve's value $v(\phi = \SI{0}{\degree})$ then gives an estimation for the vehicle's self speed.
-\par
-This is possible because the perceived radial speed $v_{r,p}$ of a point related to a stationary target is dependent on the angle $\phi_{p}$ and follows a cosine when being passed at a certain speed $v_{0}$:
-\begin{equation*}
-    v_{r,p}(v_{0},\phi_{p}) = -v_{0} \cdot cos(\phi_{p})
-\end{equation*}
-At $\phi = \SI{0}{\degree}$, the radial speed is therefore equal to the vehicle's self speed.
-Because there is rarely a point exactly at \SI{0}{\degree} and the radial speeds of the points also include noise, the approach uses all available points after the first filtering stage to fit a curve and effectively give the best possible estimation.
-The implementation uses a least squares polynomial regression approach to fit a 2nd order polynomial (see \cite{numpy_polyfit}), which is sufficient in this case as the angle $\phi$ is defined in a way that $\phi_{p} = \left[-\frac{\pi}{2},\frac{\pi}{2}\right]$, so the cosine can be approximated by a 2nd order polynomial:
-\begin{equation*}
-    cos(\phi_{p}) \approx a \cdot \phi_{p}^2 + b \quad with\enspace \phi_{p} = \left[-\frac{\pi}{2},\frac{\pi}{2}\right]
-\end{equation*}
-Multiple runs of this algorithm with recorded test data proved the technique's principle.
+
+\subsubsection*{Scalar Ego-Speed Estimation}
+The first stage estimates the forward speed of the vehicle under the assumption of motion along the $+y$ axis. 
+For each radar detection, the angle $\phi_p$ relative to the sensor's forward axis is defined (see Figure~\ref{fig:def_angle_phi}):  
+
+\[
+\phi_{p} = \arctan\left(\frac{x_p}{y_p}\right).
+\]
+
+The observed radial velocity of a static point $p$ depends on the vehicle speed $v_0$ and follows a cosine law:  
+
+\[
+v_{r,p}(v_0,\phi_p) = -v_0 \cdot \cos(\phi_p).
+\]
+
+Since no point lies exactly on $\phi=0^\circ$ and noise is present, all available inlier points (after RANSAC filtering) are used to fit a regression curve $v(\phi)$ to the measured pairs $(\phi_p, v_{r,p})$. 
+The fitted value at $\phi = 0^\circ$ provides the best estimate of the scalar vehicle speed. 
+A least-squares polynomial regression of order 2 is sufficient, since $\cos(\phi)$ can be locally approximated in the domain $\phi_p \in \left[-\frac{\pi}{2}, \frac{\pi}{2}\right]$ by:  
+
+\[
+\cos(\phi_p) \approx a \phi_p^2 + b.
+\]
+
+\subsubsection*{Generalized 2D Ego-Velocity Estimation}
+The scalar approach assumes purely forward motion. 
+To extend the model, the Doppler equation for a static point observed at angle $\theta$ is introduced:  
+
+\[
+v_{r}(\theta) = v_x \cos(\theta) + v_y \sin(\theta),
+\]
+
+where $v_x$ and $v_y$ are the ego-velocity components along the $x$ and $y$ axes of the vehicle frame.  
+This equation is linear in $v_x$ and $v_y$, which allows solving for both components simultaneously using a least-squares approach across multiple points:  
+
+\[
+\begin{bmatrix}
+v_{r,1} \\
+v_{r,2} \\
+\vdots \\
+v_{r,n}
+\end{bmatrix}
+=
+\begin{bmatrix}
+\cos(\theta_1) & \sin(\theta_1) \\
+\cos(\theta_2) & \sin(\theta_2) \\
+\vdots & \vdots \\
+\cos(\theta_n) & \sin(\theta_n)
+\end{bmatrix}
+\begin{bmatrix}
+v_x \\ v_y
+\end{bmatrix}.
+\]
+
+This formulation naturally integrates into the existing pipeline: RANSAC provides inlier points representing static structures, and the least-squares solution yields robust estimates of both forward and lateral velocity components.  
+
+\subsubsection*{Practical Considerations}
+Test runs demonstrated that the radar-only ego-velocity estimate closely followed the reference vehicle speed with a small static offset. 
+However, fluctuations occurred in cases with sparse point clouds. 
+This effect was mitigated by tuning the frame aggregation window and applying a Kalman filter after the regression stage, providing a stable and continuous self-speed estimate for downstream filtering and odometry estimation.  
+
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=1.0\linewidth]{images/self_speed_reality.png}
-    \caption{Test run with recorded data and visualization.}
+    \caption{Example of radar-based self-speed estimation compared against the ground truth indicator.}
     \label{fig:self_speed_test_data}
 \end{figure}
+
 \FloatBarrier\noindent
-During tests, the self-speed estimated by this technique matched the go-kart's built-in speed indicator with some small static offset but also showed heavy fluctuations from time to time when the radar sensor's output only contained a small amount of points.
-Although this influence could be reduced by tuning the amount of frames stored in the frame aggregator, a stage containing a Kalman Filter was added after the self-speed estimation before the self-speed value is passed to the following pipeline blocks.
+The full process of ego-velocity estimation is summarized in Figure~\ref{fig:self_speed_block}. 
+The radar point cloud is first filtered using RANSAC to retain only inliers corresponding to static structures. 
+From these points, both the azimuth angle and Doppler velocity are extracted. 
+At this stage, the pipeline branches into two estimation strategies:  
 
+\begin{itemize}
+    \item \textbf{Scalar ego-speed estimation:} a polynomial regression approximates the cosine law of Doppler velocities, yielding the forward velocity component only.
+    \item \textbf{2D ego-velocity estimation:} a linear least-squares solution of the Doppler equation
+    \[
+    v_{r}(\theta) = v_x \cos(\theta) + v_y \sin(\theta)
+    \]
+    provides both longitudinal ($v_y$) and lateral ($v_x$) velocity components simultaneously.
+\end{itemize}
 
-
-%% [20/03/2025] Leander: Rework done, commentend out bc. probably not needed anymore
-%% ---------------------------------------
-\begin{comment}
-
-\todo {This whole chapter needs to be done again}
-The estimation of a vehicle’s self-speed is a fundamental requirement for autonomous navigation and advanced driver-assistance systems (ADAS). Traditional methods often rely on external sensors such as wheel encoders, GPS, or IMUs to determine vehicle velocity. However, in this project, no external sensor was used for speed estimation. Instead, velocity was estimated exclusively using data from an mmWave radar sensor, leveraging its Doppler measurements to infer motion.
-
-The proposed approach estimates ego-motion (velocity) of the vehicle by analyzing the radial velocity obtained from the radar point cloud. The mmWave radar measures the Doppler shift of each detected point, which corresponds to the relative velocity of objects with respect to the sensor. Assuming that all detected objects are static, the observed Doppler velocities can be directly attributed to the vehicle’s own motion.
+Both outputs are subsequently passed through a Kalman filter for temporal smoothing before being used in the downstream pipeline.
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=1.0\linewidth]{images/Self_Speed_Doppler.png}
-    \caption{Self-Speed Estimation Using MmWave Doppler Effect}
-    \label{fig: Self-Speed Estimation Using MmWave Doppler Effect}
+    \begin{tikzpicture}[node distance=2cm,>=latex,thick]
+        \tikzstyle{block} = [rectangle, draw, fill=blue!10, text centered, rounded corners, minimum height=1cm, minimum width=3.5cm, align=center]
+        \tikzstyle{arrow} = [->, thick]
+
+        % Nodes
+        \node[block] (input) {Radar Point Cloud};
+        \node[block, below of=input] (ransac) {RANSAC Inlier Selection};
+        \node[block, below of=ransac] (angles) {Angle and Doppler Extraction};
+
+        % Branch nodes
+        \node[block, below of=angles, xshift=-4cm, yshift=-3.5cm] (scalar) {\shortstack{Polynomial Regression \\ (Scalar Ego-Speed)}};
+        \node[block, below of=angles, xshift=4cm, yshift=-3.5cm] (vector) {\shortstack{Least-Squares Doppler Model \\ (2D Ego-Velocity)}};
+
+        % Output and filter
+        \node[block, below of=angles, yshift=-8cm] (kalman) {Kalman Filter};
+        \node[block, below of=kalman] (output) {Filtered Ego-Speed / Ego-Velocity};
+
+        % Straight arrows
+        \draw[arrow] (input) -- (ransac);
+        \draw[arrow] (ransac) -- (angles);
+
+        % Branching arrows (down, then sideways)
+        \draw[arrow] (angles.south) -- ++(0,-1.5) coordinate(branch);
+        \draw[arrow] (branch) -| (scalar.north);
+        \draw[arrow] (branch) -| (vector.north);
+
+        % Merge arrows (sideways, then down)
+        \draw[arrow] (scalar.south) |- (kalman.west);
+        \draw[arrow] (vector.south) |- (kalman.east);
+
+        % Final output
+        \draw[arrow] (kalman) -- (output);
+    \end{tikzpicture}
+    \caption{Block diagram of the self-speed estimation process, showing the two complementary approaches: scalar polynomial fitting and 2D Doppler-based least-squares estimation.}
+    \label{fig:self_speed_block}
 \end{figure}
-\FloatBarrier\noindent
-To estimate speed accurately, radial velocities are fitted to a cosine function that simulates the Doppler shift as a function of detecting angle.  The estimation must be improved, nevertheless, by using an adaptive filtering technique because of measurement noise and differences in detected sites.  The speed estimate is iteratively adjusted in this study by minimizing the error between the measured velocities and the expected cosine profile using the Least Mean Squares (LMS) technique.  This makes it possible to estimate self-speed accurately and reliably without the need for further external sensors.
 
-\subsubsection{Doppler Effect and Speed estimation}
-
-The Doppler effect is a fundamental principle in radar-based velocity estimation. When a vehicle moves, the mmWave sensor measures the radial velocity of detected objects based on the frequency shift of the reflected radar waves. This Doppler shift can be expressed as:
-
--------------------------------
-
-Estimating the ego-motion (velocity) of a vehicle using radar point clouds can be achieved by analyzing the measured radial velocities (Doppler Shift) from radar returns and solving a least-squares optimization problem. The radar sensor provides radial velocities, which are essentially the component of the actual velocity vector along the radar's line of sight.
-However this velocity will shift depending on the angle that it was obtained. For example the most precise velocity is the one that comes from the objects in front of the vehicle, but the ones in the side will have a certain 'error'.
-
-For obtaining this estimations we need:
-\begin{itemize}
-    \item Input preparation: Each radar detection provides two primary measurements:
-    \begin{itemize}
-        \item Angle to the target.
-        \item Radial speed (Doppler velocity).
-    \end{itemize}
-    \item Forming the Data Structure: Each radar point is processed individually, computing the angle  (in radians or degrees) and associating it with the measured radial speed. 
-    \item Polynomial Regression (Least Squares Fit): To estimate the ego-velocity, the method fits a polynomial (typically first-order for simplicity) to the radial velocities as a function of the angles. 
-
-    \[
-    \min_{a,b} \sum_{i} \left( v_{\text{radial}, i} - (a \phi_i + b) \right)^2
-    \]
-
-
-    \item Velocity Estimation: After obtaining coefficients from the polynomial fit, the ego-velocity estimate is derived from evaluating the polynomial at the central angle:
-    \FloatBarrier\noindent
-    \begin{equation}
-        V_{\text{ego}} = b
-        \label{eq:velocity_ego_vehicle}
-    \end{equation}
-    
-\end{itemize}
-
-\end{comment}

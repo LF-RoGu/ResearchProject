@@ -1,3 +1,58 @@
+\subsection{Iterative Closest Point (ICP)}
+\label{subsec:icp}
 
-\subsection{ICP}
-Insert ICP here
+The Iterative Closest Point (ICP) algorithm is a classical method for estimating rigid-body transformations between two point sets. 
+In the context of radar odometry, ICP provides a way to align consecutive frames of radar point clouds in order to estimate ego-motion. 
+The main goal is to determine the relative rotation $R \in SO(2)$ and translation $t \in \mathbb{R}^2$ that minimize the alignment error between a source point cloud $P = \{p_i\}_{i=1}^N$ and a target point cloud $Q = \{q_j\}_{j=1}^M$.
+
+\subsubsection*{Mathematical Formulation}
+The ICP algorithm can be separated into two main steps: correspondence search and transformation estimation.
+
+\paragraph{Correspondence Search.}
+For each point $p_i \in P$, the closest point in $Q$ is selected according to the Euclidean distance:
+\begin{equation}
+    q^*_i = \arg \min_{q_j \in Q} \lVert p_i - q_j \rVert_2.
+\end{equation}
+This step establishes a set of tentative correspondences $\{(p_i, q^*_i)\}$ between the two frames. 
+Efficient implementations use spatial data structures such as KD-trees to accelerate nearest-neighbor searches.
+
+\paragraph{Transformation Estimation.}
+Once correspondences are found, the rigid-body transformation $(R,t)$ is estimated by minimizing the least-squares error:
+\begin{equation}
+    E(R,t) = \sum_{i=1}^{N} \lVert p_i - (R q^*_i + t) \rVert^2.
+\end{equation}
+The optimal solution can be obtained using singular value decomposition (SVD) of the cross-covariance matrix between the two point sets. 
+In 2D, the rotation can be parameterized by an angle $\theta$, such that:
+\begin{equation}
+    R(\theta) = 
+    \begin{bmatrix}
+        \cos\theta & -\sin\theta \\
+        \sin\theta & \cos\theta
+    \end{bmatrix}.
+\end{equation}
+
+The transformation is then applied to $Q$, and the process is repeated iteratively until convergence, typically when changes fall below a threshold or a maximum number of iterations is reached.
+
+\subsubsection*{Global ICP}
+In the global variant, all available points of the radar point cloud are used to compute correspondences and estimate the motion. 
+This maximizes the use of sensor information but can be sensitive to noise and dynamic objects, since outliers directly affect the transformation estimate.
+
+\subsubsection*{Cluster-wise ICP}
+To increase robustness, a cluster-wise approach was also investigated. 
+Instead of using the entire point cloud, correspondences are restricted to clusters identified in the previous stage (see Section~\ref{subsec:cluster_tracking}). 
+Among these clusters, priority is given to those with the highest \emph{hit count} and lowest \emph{miss count}, since they are more likely to represent stable, stationary objects. 
+For each cluster $C_k$, an independent ICP alignment is performed:
+\begin{equation}
+    E_k(R,t) = \sum_{p_i \in P_k} \lVert p_i - (R q^*_i + t) \rVert^2,
+\end{equation}
+where $P_k$ and $Q_k$ denote corresponding cluster subsets across two consecutive frames.
+The resulting transformations are then aggregated, typically via weighted averaging based on cluster stability, to obtain the final ego-motion estimate.
+
+\subsubsection*{Practical Considerations}
+Several practical aspects influence ICP performance:
+\begin{itemize}
+    \item \textbf{Initialization:} ICP assumes small inter-frame motion. Poor initialization may cause convergence to local minima.
+    \item \textbf{Nearest-neighbor search:} KD-trees enable efficient correspondence search in $\mathcal{O}(N \log N)$ time.
+    \item \textbf{Outlier rejection:} Correspondences with distances exceeding a threshold $d_{\max}$ are discarded to reduce the influence of spurious points.
+    \item \textbf{Cluster selection:} Restricting ICP to stable clusters improves robustness against moving objects and noise.
+\end{itemize}
