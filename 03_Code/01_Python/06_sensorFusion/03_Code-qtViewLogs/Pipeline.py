@@ -74,8 +74,8 @@ imu_heading_rad = None
 T_global = np.eye(3)  # initial pose at origin
 
 
-folderName = "14_outside"  # Folder where CSV files are stored
-testType = "outside6.csv"  # Type of test data
+folderName = "13_dualSensorTest/02_RPi5"  # Folder where CSV files are stored
+testType = "hallway1.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarLoaderA = RadarCSVReader("radarA_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 radarLoaderB = RadarCSVReader("radarB_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
@@ -180,7 +180,7 @@ def plot1(plot_widget, pointCloud):
     for p in pointCloud:
         if isinstance(p, dict) and 'x' in p and 'y' in p and 'doppler' in p:
             dop = p['doppler']
-            txt = pg.TextItem(f"{dop:.2f}", color='y', anchor=(0, 1))
+            txt = pg.TextItem(f"{dop:.2f}", color='k', anchor=(0, 1))
             txt.setPos(p['x'] + 0.1, p['y'] + 0.1)
             plot_widget.addItem(txt)
 
@@ -510,8 +510,8 @@ class ClusterViewer(QWidget):
 
         # Build UI
         main_layout = QVBoxLayout(self)
-        pg.setConfigOption('background', 'w')   # White background
-        pg.setConfigOption('foreground', 'k')   # Black axis/labels for readability
+        #pg.setConfigOption('background', 'w')   # White background
+        #pg.setConfigOption('foreground', 'k')   # Black axis/labels for readability
         self.plot_widget = pg.GraphicsLayoutWidget()
         main_layout.addWidget(self.plot_widget)
         self.plots = {}

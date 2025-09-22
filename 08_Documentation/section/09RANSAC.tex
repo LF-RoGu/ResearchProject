@@ -43,12 +43,36 @@ It outputs:
     \item \textbf{Outliers} - points likely dynamic, excluded from ego-motion estimation.
 \end{itemize}
 
-%TODO: Fix image, use one from project.
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=1.0\linewidth]{images/RANSAC.png}
-    \caption{RANSAC fit of Doppler vs. azimuth. Inliers = static (blue), Outliers = moving (red). This is simulated data to illustrate the concept.}
-    \label{fig:ransac_static_dynamic}
+    \caption{RANSAC fit of Doppler vs. azimuth. Inliers = static (blue), Outliers = moving (red).\\
+    \textit{Note: This figure uses simulated data to illustrate the concept.}}
+    \label{fig:ransac_simulated_static_dynamic}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=1.0\linewidth]{images/RANSAC_movingTarget_wPtCloud.png}
+    \caption{RANSAC fit of Doppler vs. azimuth. Inliers = static (green), Outliers = moving (red).\\
+    \textit{Note: This figure shows real data when the vehicle is moving and a dynamic target is present.}}
+    \label{fig:ransac_real_static_dynamic}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=1.0\linewidth]{images/RANSAC_movingTarget_ptCloud.png}
+    \caption{Clustered point cloud corresponding to the RANSAC analysis in Fig.~\ref{fig:ransac_real_static_dynamic}. 
+    Each cluster is annotated with ID, Doppler average, and centroid coordinates.}
+    \label{fig:ransac_clustered_ptcloud}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=1.0\linewidth]{images/frame_15s.png}
+    \caption{Video frame at $t=15$ seconds, showing the target in the scene. 
+    This frame corresponds to the radar data used in Figs.~\ref{fig:ransac_real_static_dynamic} and \ref{fig:ransac_clustered_ptcloud}.}
+    \label{fig:frame_15s_target}
 \end{figure}
 
 \subsubsection*{Role of Doppler in Static vs. Dynamic Separation}
@@ -61,9 +85,11 @@ For example:
 \end{itemize}
 
 Dynamic objects violate this pattern, appearing as outliers in the Doppler-azimuth plane. 
-By isolating the inlier set with RANSAC, ego-motion estimation is anchored on reliable static references, rather than being skewed by dynamic actors.
+This behavior is illustrated first on simulated data in Fig.~\ref{fig:ransac_simulated_static_dynamic}, and then validated on real measurements in Fig.~\ref{fig:ransac_real_static_dynamic}, where the presence of a moving target is evident.  
+The corresponding clustered point cloud is shown in Fig.~\ref{fig:ransac_clustered_ptcloud}, where each object is assigned a unique identifier and centroid. Finally, the physical scene is provided in Fig.~\ref{fig:frame_15s_target}, which contextualizes the detected target in the real environment.
 
-\paragraph{Benefits of RANSAC-Based Filtering:}
+\vspace{1cm}
+\paragraph*{Benefits of RANSAC-Based Filtering}
 \begin{itemize}
     \item Robust against noise and measurement errors,
     \item Separates dynamic actors from static landmarks without prior labeling,
@@ -73,6 +99,7 @@ By isolating the inlier set with RANSAC, ego-motion estimation is anchored on re
 The output of this module is a refined point cloud in which only consistent static reflections contribute to downstream clustering and ICP alignment. 
 In this system, RANSAC therefore plays a dual role: it filters out dynamic objects while simultaneously delivering a coherent static inlier set that underpins clustering stability and ICP-based odometry. 
 As errors in static-dynamic separation would otherwise propagate downstream, this step is foundational for trajectory accuracy.
+
 
 The integration of RANSAC-based motion filtering further ensures that odometry remains resilient in challenging scenarios, such as cluttered urban environments or mixed traffic conditions, where dynamic objects may dominate the scene. 
 By anchoring estimation on reliable static structures, the system achieves greater robustness and consistency—critical factors for autonomous navigation. 

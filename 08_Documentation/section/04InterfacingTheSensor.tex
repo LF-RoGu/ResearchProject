@@ -12,12 +12,15 @@ Its small physical size, due to its AOP design, makes it an optimal choice for t
 \par
 The IWR6843AOP radar sensor operates within the frequency range of \SIrange{60}{64}{\giga\hertz} and integrates 4 receive (RX) and 3 transmit (TX) antennas, radio frequency (RF) front-end stages, analog signal processing, and digital signal processing (DSP).
 It offers a wide range of communication interfaces including SPI, I2C, CAN-FD, UART and LVDS for raw data access and an Arm Cortex-R4F microcontroller for user-applications \cite{dev_board_page}.
+
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=1.0\linewidth]{images/blockdiagram.png}
-    \caption{IWR6843AOP internal Block Diagram}
+    \caption{IWR6843AOP internal block diagram.\\
+    \textit{Source: Texas Instruments, available at \url{https://www.ti.com/ds_dgm/images/fbd_swrs219f.gif}}}
     \label{fig:IWR6843AOP_internal}
 \end{figure}
+
 \FloatBarrier\noindent
 Texas Instruments offers various demo applications for the development board that utilize the internal microcontroller for showcasing the radar sensor's capabilities in different specialized scenarios.
 It was found out that most of them only use the radar sensor itself only for obtaining a point cloud, which points include spatial information in form of $x,y,z$ coordinates and a radial speed information (the prior mentioned four dimensions of the sensor).

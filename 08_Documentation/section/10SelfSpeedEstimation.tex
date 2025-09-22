@@ -116,40 +116,41 @@ Both outputs are subsequently passed through a Kalman filter for temporal smooth
 
 \begin{figure}[!htbp]
     \centering
-    \begin{tikzpicture}[node distance=2cm,>=latex,thick]
-        \tikzstyle{block} = [rectangle, draw, fill=blue!10, text centered, rounded corners, minimum height=1cm, minimum width=3.5cm, align=center]
-        \tikzstyle{arrow} = [->, thick]
+    \resizebox{0.9\linewidth}{!}{%
+        \begin{tikzpicture}[node distance=2cm,>=latex,thick]
+            \tikzstyle{block} = [rectangle, draw, fill=blue!10, text centered, rounded corners, minimum height=1cm, minimum width=3.5cm, align=center]
+            \tikzstyle{arrow} = [->, thick]
 
-        % Nodes
-        \node[block] (input) {Radar Point Cloud};
-        \node[block, below of=input] (ransac) {RANSAC Inlier Selection};
-        \node[block, below of=ransac] (angles) {Angle and Doppler Extraction};
+            % Nodes
+            \node[block] (input) {Radar Point Cloud};
+            \node[block, below of=input] (ransac) {RANSAC Inlier Selection};
+            \node[block, below of=ransac] (angles) {Angle and Doppler Extraction};
 
-        % Branch nodes
-        \node[block, below of=angles, xshift=-4cm, yshift=-3.5cm] (scalar) {\shortstack{Polynomial Regression \\ (Scalar Ego-Speed)}};
-        \node[block, below of=angles, xshift=4cm, yshift=-3.5cm] (vector) {\shortstack{Least-Squares Doppler Model \\ (2D Ego-Velocity)}};
+            % Branch nodes
+            \node[block, below of=angles, xshift=-4cm, yshift=-3.5cm] (scalar) {\shortstack{Polynomial Regression \\ (Scalar Ego-Speed)}};
+            \node[block, below of=angles, xshift=4cm, yshift=-3.5cm] (vector) {\shortstack{Least-Squares Doppler Model \\ (2D Ego-Velocity)}};
 
-        % Output and filter
-        \node[block, below of=angles, yshift=-8cm] (kalman) {Kalman Filter};
-        \node[block, below of=kalman] (output) {Filtered Ego-Speed / Ego-Velocity};
+            % Output and filter
+            \node[block, below of=angles, yshift=-8cm] (kalman) {Kalman Filter};
+            \node[block, below of=kalman] (output) {Filtered Ego-Speed / Ego-Velocity};
 
-        % Straight arrows
-        \draw[arrow] (input) -- (ransac);
-        \draw[arrow] (ransac) -- (angles);
+            % Straight arrows
+            \draw[arrow] (input) -- (ransac);
+            \draw[arrow] (ransac) -- (angles);
 
-        % Branching arrows (down, then sideways)
-        \draw[arrow] (angles.south) -- ++(0,-1.5) coordinate(branch);
-        \draw[arrow] (branch) -| (scalar.north);
-        \draw[arrow] (branch) -| (vector.north);
+            % Branching arrows (down, then sideways)
+            \draw[arrow] (angles.south) -- ++(0,-1.5) coordinate(branch);
+            \draw[arrow] (branch) -| (scalar.north);
+            \draw[arrow] (branch) -| (vector.north);
 
-        % Merge arrows (sideways, then down)
-        \draw[arrow] (scalar.south) |- (kalman.west);
-        \draw[arrow] (vector.south) |- (kalman.east);
+            % Merge arrows (sideways, then down)
+            \draw[arrow] (scalar.south) |- (kalman.west);
+            \draw[arrow] (vector.south) |- (kalman.east);
 
-        % Final output
-        \draw[arrow] (kalman) -- (output);
-    \end{tikzpicture}
+            % Final output
+            \draw[arrow] (kalman) -- (output);
+        \end{tikzpicture}
+    }
     \caption{Block diagram of the self-speed estimation process, showing the two complementary approaches: scalar polynomial fitting and 2D Doppler-based least-squares estimation.}
     \label{fig:self_speed_block}
 \end{figure}
-
