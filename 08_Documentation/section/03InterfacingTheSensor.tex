@@ -1,12 +1,13 @@
 \section{IWR6843 Radar Interface and Configuration}
 \label{sec:IWR6843 Radar Interface and Configuration}
-The IWR6843AOPEVM development board from Texas Instruments features the IWR6843AOP, a high performance 4D mmWave FMCW radar sensor with Antenna On Package (AOP) design.
+The IWR6843AOPEVM development board from Texas Instruments features the IWR6843AOP, a high performance 4D mmWave FMCW sensor with Antenna On Package (AOP) design.
 Although IWR6843AOP is intended for industrial applications and its complementary chip, AWR6843AOP, for automotive applications, IWR6843AOP was used in this project because it is available in the form of this development board and the two chips are identical in terms of their functionalities, only differing in compliance with automotive  industry \cite{iwr_awr_diff}.
 Its small physical size, due to its AOP design, makes it an optimal choice for the desired mounting position, the go-kart's steering column.
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.7\linewidth]{images/iwr6843aopevm-angled.png}
-    \caption{IWR6843AOP sensor}
+    \caption{IWR6843AOP sensor\\
+    \textit{Source: Texas Instruments, available at \url{https://www.ti.com/ds_dgm/images/fbd_swrs219f.gif}}}
     \label{fig:IWR6843AOP sensor}
 \end{figure}
 \par
@@ -48,7 +49,8 @@ Each frame starts with a frame header and contains a number of TLVs (Type, Lengt
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.4\linewidth]{images/UARTFrame.png}
-    \caption{Frame structure. From \cite{mmwave_demo_output}.}
+    \caption{Frame structure. From \cite{mmwave_demo_output}.\\
+    \textit{Source: Texas Instruments, available at \url{https://dev.ti.com/tirex/content/radar_toolbox_2_20_00_05/docs/software_guides/Understanding_UART_Data_Output_Format.html}}}
     \label{fig:UART data output format}
 \end{figure}
 \FloatBarrier\noindent
@@ -63,7 +65,8 @@ It also provides several other information in addition to the total packet lengt
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=1.0\linewidth]{images/FrameFormatHeader.png}
-    \caption{Frame header format. From \cite{mmwave_demo_output}.}
+    \caption{Frame header format. From \cite{mmwave_demo_output}.\\
+    \textit{Source: Texas Instruments, available at \url{https://dev.ti.com/tirex/content/radar_toolbox_2_20_00_05/docs/software_guides/Understanding_UART_Data_Output_Format.html}}}
     \label{fig:Frame header format}
 \end{figure}
 \FloatBarrier\noindent
@@ -73,7 +76,8 @@ Each TLV type needs to be decoded differently, as it represents a different type
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.95\linewidth]{images/TLVHeader.png}
-    \caption{TLV header format. From \cite{mmwave_demo_output}.}
+    \caption{TLV header format. From \cite{mmwave_demo_output}.\\
+    \textit{Source: Texas Instruments, available at \url{https://dev.ti.com/tirex/content/radar_toolbox_2_20_00_05/docs/software_guides/Understanding_UART_Data_Output_Format.html}}}
     \label{fig:TLV header format}
 \end{figure}
 \FloatBarrier

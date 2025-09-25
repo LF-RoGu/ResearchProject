@@ -22,13 +22,14 @@ As seen in Figure~\ref{fig:radarWavePropagation}, the reflected wave varies in p
 
 Each chirp is defined by the following core parameters:
 \begin{itemize}
-    \item Start frequency $f_0$
-    \item Frequency slope $S$
-    \item Chirp duration $T_c$
-    \item Idle time between chirps $T_{idle}$
-    \item Sampling rate $f_s$
-    \item Bandwidth $B = S \cdot T_c$
+    \item Start frequency $f_0$ [GHz]
+    \item Frequency slope $S$ [MHz/$\mu$s]
+    \item Chirp duration $T_c$ [$\mu$s]
+    \item Idle time between chirps $T_{\text{idle}}$ [$\mu$s]
+    \item Sampling rate $f_s$ [Msps]
+    \item Bandwidth $B = S \cdot T_c$ [MHz]
 \end{itemize}
+
 
 \hfill
 
@@ -37,27 +38,27 @@ From these parameters, the radar sensing capabilities are derived as follows:
 \begin{itemize}
     \item \textbf{Range resolution:} 
     \[
-        \Delta R = \frac{c}{2B}
+        \Delta R = \frac{c}{2B} \quad \text{[m]}
     \]
-    where $c$ is the speed of light and $B$ is the chirp bandwidth.
+    where $c$ is the speed of light [$\text{m/s}$] and $B$ is the chirp bandwidth [Hz].
 
     \item \textbf{Maximum unambiguous range:} 
     \[
-        R_{max} = \frac{c f_s}{2S}
+        R_{\text{max}} = \frac{c f_s}{2S} \quad \text{[m]}
     \]
-    where $f_s$ is the ADC sampling rate and $S$ is the frequency slope.
+    where $f_s$ is the ADC sampling rate [Hz] and $S$ is the frequency slope [Hz/s].
 
     \item \textbf{Velocity resolution:} 
     \[
-        \Delta v = \frac{\lambda}{2 N_c T_c}
+        \Delta v = \frac{\lambda}{2 N_c T_c} \quad \text{[m/s]}
     \]
-    where $\lambda$ is the wavelength, $N_c$ is the number of chirps per frame, and $T_c$ is the chirp duration.
+    where $\lambda$ is the wavelength [m], $N_c$ is the number of chirps per frame [unitless], and $T_c$ is the chirp duration [s].
 
     \item \textbf{Maximum unambiguous velocity:} 
     \[
-        v_{max} = \frac{\lambda}{4 T_c}
+        v_{\text{max}} = \frac{\lambda}{4 T_c} \quad \text{[m/s]}
     \]
-    assuming uniform chirp spacing.
+    assuming uniform chirp spacing, where $\lambda$ is the wavelength [m] and $T_c$ is the chirp duration [s].
 \end{itemize}
 
 These equations clearly show that both range and velocity resolution depend directly on the chirp design.

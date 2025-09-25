@@ -4,8 +4,8 @@ The main objective of this work is the development of a radar-based odometry sys
 That motivation behind this approach is to explore radar as a cost-effective and robust alternative to the existing solutions based in vision or LiDAR-based odometry, particularly in conditions where those have the tendency to fail.
 This builds on prior evidence that radar can support instantaneous ego-motion estimation through Doppler velocity cues \cite{EgoMotion_DopplerRadar}.
 
-The system processes radar point cloud data enriched with range, angle and the most important of all, Doppler velocity, aiming to extract accurate motion for ego-velocity or speed estimation.
-This to be able to recreate the trajectory of the vehicle and be able to use this information for SLAM applications.
+The system processes radar point cloud data enriched with range, angle, and most importantly Doppler velocity, to extract accurate motion estimates for ego-velocity or speed.
+This enables the reconstruction of the vehicle’s trajectory and provides valuable input for SLAM applications.
 
 \begin{figure}[!htbp]
     \centering
@@ -38,7 +38,7 @@ The dual-sensor configuration improves spatial coverage, reduces blind spots, an
 By combining data from both sensors, including radial speed measurements derived from the Doppler effect, with the inertial measurement unit (IMU) for rotation compensation, the proposed system aims to ensure resilient odometry performance even under high-speed or degraded environmental conditions, where LiDAR-based odometry may fail \cite{HighSpeed_Estimation}.
 
 Each radar perspective is processed independently and then merged into a single point cloud for further analysis.
-This integration creates a more robust and reliable input for the odometry estimation pipeline, enabling the evaluation of radar-based odometry performance in realistic driving scenarios.
+This integration provides a more robust and reliable input to the odometry estimation pipeline, enabling the evaluation of radar-based odometry performance in realistic driving scenarios.
 
 \subsection{Sub-Tasks}
 
@@ -46,6 +46,7 @@ The research objective, together with the constraints of using a dual-radar sens
 \begin{itemize}
     \item Designing a modular pipeline to acquire and decode synchronized radar data from both sensors.
     \item Investigating suitable sensor configurations to balance field of view, chirp bandwidth, update rate, and detection density.  
+    \item Developing suitable mechanical mounts and selecting optimal sensor placement to ensure stability and maximize coverage.
     \item Applying RANSAC filtering on Doppler velocities to reject dynamic points and outliers.
     \item Implementing clustering methods to structure radar detections and isolate relevant features.  
     \item Optimizing the raw radar point cloud using additional information provided by the sensor itself (e.g., SNR, RCS, or range validity) to improve reliability before odometry processing.  
