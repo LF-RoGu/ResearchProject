@@ -94,31 +94,54 @@ luis.rodriguez001@stud.fh-dortmund.de}
 \end{document}
 
 \begin{comment}
-    [25/09/2025]
-    The new structure shall be
-    - Abstract.
-    - Introduction.
-    - Objective.
-        - Why are we doing this.
-        - What are the benefits.
-    - System Hardware.
-        - Talk about the sensors, briefly.
-        - 3D printed parts.
-            - Showcase of models.
-            - Showcase of implementation.
-        - mmWave.
-            - Calibration.
-            - Chirp configuration.
-        - IMU.
-            - Calibration.
-        - Webcam.
-    - Pipeline.
-        - Transformations.
-        - Frame Aggregator.
-        - Filtering.
-        - RANSAC.
-        ...
-        - ICP.
-    - Solution discussion.
-    - Bibliography.
+    [26/09/2025]
+    [Guide Outline — Pre-thesis Structure]
+
+    Abstract  
+    - High-level summary: problem → method → key results → significance.  
+
+    Introduction  
+    - Background (odometry, current methods).  
+    - Motivation (why radar, why this project).  
+    - Research gap (what existing methods lack).  
+    - Contribution statement (what you did).  
+
+    Objectives  
+    - General objective: main project goal.  
+    - Specific objectives: concrete steps  
+        • Design mounts  
+        • Configure chirps  
+        • Implement filtering pipeline  
+        • Compare results  
+
+    System Hardware  
+    - Sensors (radar, IMU, webcam).  
+    - Mechanical integration (3D printed mounts, placement, calibration).  
+    - Chirp configuration & radar setup.  
+
+    Methodology (Pipeline)  
+    - Present the pipeline as the method.  
+    - Each subsection = one module (Transformations, Frame Aggregation, RANSAC, Clustering, ICP).  
+    - Show diagrams (block flowcharts, data transformations).  
+    - End with summary of expected advantages of this design.  
+
+    Implementation & Experimental Setup (Showcasing your work)  
+    - Describe implementation process (code, synchronization, data collection).  
+    - Explain experimental platform (Ninebot test vehicle, dual radars, IMU, lab environment).  
+    - Show photos/screenshots (sensor mounts, test tracks, visualizations).  
+
+    Results  
+    - Initial results (trajectory plots, ego-speed estimation, cluster visualization).  
+    - Comparison with baseline (paper approach, wheel encoder, or naive ICP).  
+    - Discuss successes and limitations.  
+
+    Discussion  
+    - Interpret results: where radar odometry shines, where it struggles.  
+    - How your design choices (dual radars, chirp config, RANSAC filtering) affected performance.  
+
+    Conclusion and Future Work  
+    - Wrap up contributions.  
+    - Highlight possible extensions (sensor fusion, better clustering, real-world driving).  
+
+    Bibliography  
 \end{comment}

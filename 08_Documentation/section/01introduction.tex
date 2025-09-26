@@ -27,14 +27,39 @@ To overcome these challenges in unstructured environments, multimodal fusion str
     [25/09/2025]
     Here introduce the Go-Kart, dont leave it as "vehicle"
 \end{comment}
-This work explores the use of mmWave sensors mounted on a test-vehicle as shown in Fig, with the goal of estimating the vehicle's ego-motion.
+This work explores the use of mmWave sensors mounted on a test-vehicle as shown in Figure \ref{fig:Ninebot_system}, with the goal of estimating the vehicle's ego-motion.
 The items used for this work are:
 \begin{itemize}
-    \item Go-Kart.
+    \item Ninebot Car, Go-Kart.
+    \item Raspberry Pi 5, embedded computer.
     \item MTi-G710, inertial measuremment unit.
     \item IWR6843AOP, mmWave sensor.
     \item Logitech C270 HD, webcamera.
 \end{itemize}
+
+This subsistems are highlighted in Figure \ref{fig:Ninebot_system_highlight}.
+
+\begin{figure}[!htbp]
+    \centering
+    \begin{subfigure}{0.9\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/vehicleSystem.png}
+        \caption{Ninebot test-vehicle system.}
+        \label{fig:Ninebot_system}
+    \end{subfigure}
+
+    \vspace{1em} % vertical spacing between images
+
+    \begin{subfigure}{0.9\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/vehicleSystemHighlight.png}
+        \caption{Highlighted components of the Ninebot test-vehicle system.}
+        \label{fig:Ninebot_system_highlight}
+    \end{subfigure}
+
+    \caption{Overview of the Ninebot test-vehicle system and highlighted components.}
+    \label{fig:Ninebot_test-vehicle_System}
+\end{figure}
 
 Each item provide each own approach, contributions and implementation.
 However not all of them are used for the actual solution, such is the case of the webcamera.
