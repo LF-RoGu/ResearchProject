@@ -1,0 +1,18 @@
+\subsubsection{Mechanical Integration}
+All sensors were mounted on a Ninebot Go-Kart test vehicle.  
+Custom 3D-printed mounts were designed to ensure rigid placement and repeatability of radar orientation.  
+The radars were positioned at the front of the vehicle with partially overlapping fields of view to improve coverage and reduce blind spots.  
+The IMU was installed near the center of the kart to minimize rotational offsets.  
+The webcam was mounted facing forward to log experiments for later analysis.  
+
+\subsubsection{Radar Chirp Configuration}
+Radar performance is strongly determined by chirp parameters.  
+For odometry, the configuration aimed to balance:  
+\begin{itemize}
+    \item \textbf{Range resolution} - to separate nearby objects.  
+    \item \textbf{Update rate} - to maintain real-time odometry.  
+    \item \textbf{Field of view} - to capture sufficient static structures.  
+\end{itemize}
+
+This setup ensured compatibility with the subsequent pipeline stages, particularly Doppler filtering, clustering, and ICP alignment.  
+While the exact numerical values are described later in the experimental section, the conceptual rationale here highlights how chirp design affects odometry robustness.  

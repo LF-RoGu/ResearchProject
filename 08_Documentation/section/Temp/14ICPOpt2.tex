@@ -1,0 +1,82 @@
+\subsection{Iterative Closest Point (ICP) for Ego-Motion Estimation}
+\label{subsec:icp}
+
+The Iterative Closest Point (ICP) algorithm estimates the rigid-body transformation 
+between two consecutive radar frames. Given two point sets
+\[
+P = \{p_i \in \mathbb{R}^2 \}_{i=1}^{N}, \quad
+Q = \{q_j \in \mathbb{R}^2 \}_{j=1}^{M},
+\]
+the goal is to find a rotation $R \in SO(2)$ and translation $t \in \mathbb{R}^2$ that minimize the alignment error
+\[
+\min_{R,t} \sum_{i=1}^N \lVert R p_i + t - q_{\pi(i)} \rVert^2,
+\]
+where $\pi(i)$ denotes the index of the nearest neighbor of $p_i$ in $Q$.
+
+\subsubsection*{Nearest Neighbor Matching}
+To associate points between frames, a KD-tree was constructed over the set $Q$.  
+For each point $p_i \in P$, its closest match $q_{\pi(i)}$ is obtained as:
+\[
+\pi(i) = \arg\min_j \lVert p_i - q_j \rVert_2.
+\]
+
+\subsubsection*{Per-Point Motion Estimates}
+For each matched pair $(p_i, q_{\pi(i)})$, the incremental translation and orientation change are computed as
+\[
+t_i = p_i - q_{\pi(i)}, \qquad
+\theta_i = \arctan2\!\left( (p_i - q_{\pi(i)})_y, (p_i - q_{\pi(i)})_x \right).
+\]
+
+\subsubsection*{Global Averaging}
+The global motion is obtained by averaging over all matched pairs:
+\[
+\bar{t} = \frac{1}{N} \sum_{i=1}^N t_i, \qquad
+\bar{\theta} = \frac{1}{N} \sum_{i=1}^N \theta_i.
+\]
+
+\subsubsection*{Homogeneous Transformation Matrices}
+The estimated transformation from ICP is expressed in homogeneous coordinates as:
+\[
+T_{\text{ICP}} =
+\begin{bmatrix}
+\cos\bar{\theta} & -\sin\bar{\theta} & \bar{t}_x \\
+\sin\bar{\theta} &  \cos\bar{\theta} & \bar{t}_y \\
+0 & 0 & 1
+\end{bmatrix}.
+\]
+
+For ego-motion estimation (inverse motion), the corresponding matrix is:
+\[
+T_{\text{ego}} =
+\begin{bmatrix}
+\cos\bar{\theta} & \sin\bar{\theta} & -(\bar{t}_x \cos\bar{\theta} + \bar{t}_y \sin\bar{\theta}) \\
+-\sin\bar{\theta} & \cos\bar{\theta} & \;\;\bar{t}_x \sin\bar{\theta} - \bar{t}_y \cos\bar{\theta} \\
+0 & 0 & 1
+\end{bmatrix}.
+\]
+
+\subsubsection*{Cluster-wise ICP}
+In addition to the global ICP (using all points), a cluster-wise ICP is applied.  
+Each cluster $C_k$ maintains counters for \emph{hits} and \emph{misses}, ensuring stable targets are prioritized.  
+For each cluster, the transformation $(t_k, \theta_k)$ is estimated using the above procedure.  
+The global motion estimate is then computed as a weighted average:
+\[
+\bar{t} = \frac{\sum_k w_k t_k}{\sum_k w_k}, \qquad
+\bar{\theta} = \frac{\sum_k w_k \theta_k}{\sum_k w_k},
+\]
+with weights
+\[
+w_k = \max\!\left(\min\!\left(\text{hits}_k^{\alpha}, \; \text{max\_hits}\right), 1\right),
+\]
+where $\alpha \in [1,2]$ controls the influence of stable clusters.
+
+\subsubsection*{Python-style Conceptual Flow}
+\begin{enumerate}
+    \item Input two frames $P$ and $Q$.
+    \item Use a KD-tree to find nearest neighbors between $P$ and $Q$.
+    \item For each matched pair $(p_i,q_{\pi(i)})$, compute translation $(t_x,t_y)$ and rotation $\theta$.
+    \item Average all translations and rotations to obtain $(\bar{t},\bar{\theta})$.
+    \item Build the homogeneous transformation $T_{\text{ICP}}$.
+    \item Derive the inverse ego-motion matrix $T_{\text{ego}}$.
+    \item (\textbf{Cluster ICP}) Repeat steps 2–6 on each cluster and fuse results using hit-based weighting.
+\end{enumerate}

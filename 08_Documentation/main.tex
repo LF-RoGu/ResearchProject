@@ -18,7 +18,7 @@
 \usepackage{placeins}
 \usepackage{comment}
 \usetikzlibrary{positioning}
-
+\usepackage{float}
 \usepackage{tikz}
 \usetikzlibrary{calc, patterns, patterns.meta, shapes.geometric, arrows.meta, positioning, fit, decorations.pathreplacing, trees, arrows, shapes.misc, angles, quotes}
 %Go-kart command \gokart{"x"}{"y"}{"rot_in_deg"}
@@ -40,6 +40,8 @@
     \end{scope}
 }
 
+% Allow pseudo subsubsubsections
+\newcommand{\subsubsubsection}[1]{\paragraph{#1}}
 
 \usepackage{siunitx} 
 \sisetup{locale = US}
@@ -72,20 +74,10 @@ luis.rodriguez001@stud.fh-dortmund.de}
 
 \input{section/00abstract}
 \input{section/01introduction}
-\input{section/02Objective}
-\input{section/03InterfacingTheSensor}
-\input{section/04ChirpConfiguration}
-\input{section/05Pipeline}
-\input{section/06PhysTransforms}
-\input{section/07FrameAggregator}
-\input{section/08StaticFilter}
-\input{section/09RANSAC}
-\input{section/10SelfSpeedEstimation}
-\input{section/11Kalman}
-\input{section/12Clustering}
-\input{section/13ClusterTracking}
-\input{section/14ICP.tex}
-\input{section/14ICPOpt2.tex}
+\input{section/02SystemDesign}
+\input{section/03SystemHardware}
+\input{section/04MechanicalIntegration}
+
 \input{section/Conclusion}
 %\input{section/XX_WIP}
 \input{Bibliography}
@@ -102,44 +94,52 @@ luis.rodriguez001@stud.fh-dortmund.de}
 
     Introduction  
     - Background (odometry, current methods).  
-    - Motivation (why radar, why this project).  
+    - Motivation (why radar odometry, why this project).  
+        - General objective: main project goal.
     - Research gap (what existing methods lack).  
-    - Contribution statement (what you did).  
+    - Contribution statement (what you did).
+        - Without going into technical details.
+        - Without doing into depth.
 
-    Objectives  
-    - General objective: main project goal.  
-    - Specific objectives: concrete steps  
-        • Design mounts  
-        • Configure chirps  
-        • Implement filtering pipeline  
-        • Compare results  
+    Research Methodology
+        Research design
+            - Explain the conceptual and mathematical framework.
+            - Specific objectives: concrete steps
+                - Design mounts (conceptual justification, not CAD details).
+                - Configure chirps (parameters, mathematical rationale).
+                - Implement filtering pipeline (mathematical description).
+                    - Show pipeline diagram here (block diagram).
 
-    System Hardware  
-    - Sensors (radar, IMU, webcam).  
-    - Mechanical integration (3D printed mounts, placement, calibration).  
-    - Chirp configuration & radar setup.  
+        System Hardware
+            - Sensors (radar, IMU, webcam).
+            - Mechanical integration (3D printed mounts, placement, calibration).
+            - Chirp configuration & radar setup.
+            * Keep at a descriptive/theoretical level (role of each hardware element in methodology). 
 
-    Methodology (Pipeline)  
-    - Present the pipeline as the method.  
-    - Each subsection = one module (Transformations, Frame Aggregation, RANSAC, Clustering, ICP).  
-    - Show diagrams (block flowcharts, data transformations).  
-    - End with summary of expected advantages of this design.  
+        Methodology (Pipeline)
+            - Present the pipeline as the method.
+            - Each subsection = one module (Transformations, Frame Aggregation, RANSAC, Clustering, ICP).
+            - For each: explain mathematical approach, algorithm logic, expected effect.
+            - Show diagrams (block flowcharts, data transformations).
+            - End with summary of expected advantages of this design.
 
-    Implementation & Experimental Setup (Showcasing your work)  
-    - Describe implementation process (code, synchronization, data collection).  
-    - Explain experimental platform (Ninebot test vehicle, dual radars, IMU, lab environment).  
-    - Show photos/screenshots (sensor mounts, test tracks, visualizations).  
+    Implementation & Experimental Setup (Showcasing your work)
+        - Describe actual implementation process (code, synchronization, data collection).
+        - Explain experimental platform (Ninebot test vehicle, dual radars, IMU, lab environment).
+        - Show photos/screenshots (sensor mounts, test tracks, visualizations).
+        - Here we describe *how it was realized in practice*, not the math.  
 
-    Results  
+    Results & Discussion
     - Initial results (trajectory plots, ego-speed estimation, cluster visualization).  
-    - Comparison with baseline (paper approach, wheel encoder, or naive ICP).  
+    - Comparison with previous work (paper approach, wheel encoder, or naive ICP).  
+        - Compare with full ICP vs cluster ICP.
     - Discuss successes and limitations.  
 
-    Discussion  
+    Future Work  
     - Interpret results: where radar odometry shines, where it struggles.  
     - How your design choices (dual radars, chirp config, RANSAC filtering) affected performance.  
 
-    Conclusion and Future Work  
+    Conclusion 
     - Wrap up contributions.  
     - Highlight possible extensions (sensor fusion, better clustering, real-world driving).  
 
