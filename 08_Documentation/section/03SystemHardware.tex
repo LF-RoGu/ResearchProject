@@ -7,6 +7,8 @@ In this section, we describe the role of each element, how they were mechanicall
 The sensing suite consists of:  
 
 \subsubsubsection{mmWave Radar (IWR6843AOP)}
+\hfill
+\\
 The IWR6843AOPEVM development board from Texas Instruments features the IWR6843AOP, a high performance 4D mmWave FMCW sensor with Antenna On Package (AOP) design.
 Although IWR6843AOP is intended for industrial applications and its complementary chip, AWR6843AOP, for automotive applications, IWR6843AOP was used in this project because it is available in the form of this development board and the two chips are identical in terms of their functionalities, only differing in compliance with automotive  industry \cite{iwr_awr_diff}.
 Its small physical size, due to its AOP design, makes it an optimal choice for the desired mounting position, the go-kart's steering column.
@@ -96,18 +98,18 @@ Tuning and choosing the sensor's parameters carefully is extremely important as 
 Fine-tuning these settings ensures that the sensor operates optimally.
 
 \subsubsubsection{Inertial Measurement Unit (IMU)}  
-The inertial subsystem is provided by the Xsens MTi-G-710, a high-performance GNSS/INS module that integrates a 3D accelerometer, 3D gyroscope, 3D magnetometer, and barometer with an onboard GNSS receiver.  
-Through embedded sensor fusion algorithms running on its internal processor, the device outputs orientation estimates in real time as quaternions, Euler angles, or rotation matrices \cite{mti710_manual}.  
+\hfill
+\\
+The MTi-G-710 from Xsens is a high-performance GNSS/INS module that integrates a 3D accelerometer, 3D gyroscope, 3D magnetometer, and barometer with an onboard GNSS receiver.  
+Although designed as a complete navigation unit capable of delivering position and velocity estimates, in this project it was used specifically for its orientation outputs, provided in the form of quaternions, Euler angles, or rotation matrices \cite{mti710_manual}.  
+Its compact form factor and proven sensor-fusion engine made it a suitable choice for integration into the test platform, complementing the radar subsystem by supplying real-time orientation references.  
 
-For this work, the IMU was configured to provide quaternion data, which offers a numerically stable representation of orientation and avoids singularities inherent in Euler angles.  
-The quaternions were primarily used to track the vehicle attitude and provide orientation references for the radar point clouds, ensuring that sensor data could be expressed consistently in a vehicle-centric coordinate frame.  
-By using the MTi-G-710 internal fusion engine rather than implementing custom filters, the system benefited from a proven calibration and error-correction pipeline, allowing reliable orientation estimation without introducing additional processing overhead on the host platform.  
+For the present setup, the device was configured to output quaternions, as this representation avoids singularities inherent in Euler angles and provides numerical stability for continuous tracking.  
+These quaternions were used to track the vehicle attitude and to align radar point clouds within a consistent vehicle-centric coordinate frame.  
+By relying on the MTi-G-710 internal fusion engine rather than implementing custom filtering, the system leveraged factory-calibrated algorithms for bias correction and drift reduction, minimizing processing overhead on the host platform.  
 
-Although the device is capable of delivering position and velocity estimates by integrating GNSS and inertial measurements, only its quaternion orientation output was exploited in the present system design.  
-This focused use reduced complexity while still providing the critical reference information required for aligning radar detections with the vehicle heading.  
-
-To interface with the device and parse the MTData2 protocol, an open-source implementation from Scottapotamas was used \cite{xsens_repo}.  
-This repository provided reliable packet parsing and quaternion extraction in Python, ensuring seamless integration of the IMU data stream into the radar processing pipeline.  
+To interface with the device and parse its MTData2 protocol, an open-source implementation from Scottapotamas was adopted \cite{xsens_repo}.  
+This repository enabled robust packet parsing and quaternion extraction in Python, ensuring seamless integration of the IMU data stream into the radar processing pipeline.  
 
 \begin{figure}[!htbp]
     \centering
@@ -117,7 +119,9 @@ This repository provided reliable packet parsing and quaternion extraction in Py
     \label{fig:MTi-G710 sensor}
 \end{figure}
 
-\subsubsubsection{Webcam}  
+\subsubsubsection{Webcam}
+\hfill
+\\
 A Logitech C270 HD webcam was included in the experimental platform for the sole purpose of video recording.  
 Unlike the radar and IMU, the camera was not integrated into the sensing or processing pipeline and did not contribute any data to the odometry estimation system.  
 Its role was limited to providing visual documentation of the test environment, allowing experiments to be reviewed and contextualized with synchronized video footage.  
