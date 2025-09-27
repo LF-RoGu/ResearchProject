@@ -4,8 +4,9 @@ The hardware setup combines mmWave radars, an inertial sensor, and auxiliary com
 In this section, we describe the role of each element, how they were mechanically integrated, and how the radar configuration was selected for odometry tasks.  
 
 \subsubsection{Sensors}
-The sensing suite consists of:  
-
+\hfill
+\\
+The sensors that are implemented and used in this project are the following:
 \subsubsubsection{mmWave Radar (IWR6843AOP)}
 \hfill
 \\
@@ -81,21 +82,6 @@ The resulting overall accuracy of the velocity and distance measurements is agai
 \item \textbf{Distance accuracy:} Optimizing range resolution and maximum range ensures that detected objects are positioned accurately within the environment. Increasing range often sacrifices resolution, leading to potential inaccuracies in close-range detections.
 \item \textbf{Signal processing considerations:} The FFT calculation parameters directly affect both range and Doppler calculations, influencing the ability to distinguish between objects and detect small velocity variations.
 \end{itemize}
-
-This shows that finding exact values for the operation parameters by adjusting them while carefully watching their influences is crucial and heavily dependent on the particular application.
-The test scenario required a frame rate of approximately 30Hz to balance responsiveness and computational load, together with sufficient range and velocity coverage to capture typical vehicle dynamics.
-
-The resulting configuration yielded the following operating parameters:
-\begin{itemize}
-\item Frame rate: \SI{30}{\frame\per\second}
-\item Range resolution: \SI{0.047}{\meter}
-\item Maximum unambiguous range: \SI{9.78}{\meter}
-\item Maximum radial velocity: \SI{8.01}{\meter\per\second}
-\item Radial velocity resolution: \SI{0.51}{\meter\per\second}
-\end{itemize}
-
-Tuning and choosing the sensor's parameters carefully is extremely important as it defines the accuracy of therefore influences the reliability of the entire radar system.
-Fine-tuning these settings ensures that the sensor operates optimally.
 
 \subsubsubsection{Inertial Measurement Unit (IMU)}  
 \hfill

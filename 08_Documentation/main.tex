@@ -20,6 +20,7 @@
 \usetikzlibrary{positioning}
 \usepackage{float}
 \usepackage{tikz}
+\usepackage{hyperref}
 \usetikzlibrary{calc, patterns, patterns.meta, shapes.geometric, arrows.meta, positioning, fit, decorations.pathreplacing, trees, arrows, shapes.misc, angles, quotes}
 %Go-kart command \gokart{"x"}{"y"}{"rot_in_deg"}
 \def\gokart#1#2#3{
@@ -77,6 +78,7 @@ luis.rodriguez001@stud.fh-dortmund.de}
 \input{section/02SystemDesign}
 \input{section/03SystemHardware}
 \input{section/04MechanicalIntegration}
+\input{section/05SensorSetupCalibration}
 
 \input{section/Conclusion}
 %\input{section/XX_WIP}
@@ -112,8 +114,13 @@ luis.rodriguez001@stud.fh-dortmund.de}
 
         System Hardware
             - Sensors (radar, IMU, webcam).
-            - Mechanical integration (3D printed mounts, placement, calibration).
-            - Chirp configuration & radar setup.
+            - Mechanical integration (3D printed mounts, placement).
+            - Sensor configuration
+                - Radar setup.
+                    - Sensor configuration.
+                    - Sensor transformations.
+                    - Chirp configuration.
+                - IMU setup.
             * Keep at a descriptive/theoretical level (role of each hardware element in methodology). 
 
         Methodology (Pipeline)
