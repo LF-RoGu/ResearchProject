@@ -2,18 +2,19 @@
 \subsubsection{Sensor Setup and Calibration}
 \hfill
 \\
-An understanding of how the sensors operate is required before they can be correctly integrated into the system.  
+\indent An understanding of how the sensors operate is required before they can be correctly integrated into the system.  
 This involves studying their configuration tools, calibration procedures, and data output formats.  
 Only by understanding their internal operation and limitations can they be properly adapted for the precise requirements of this application.
 
 \vspace{0.5em}
 \noindent\textbf{Radar Setup and Calibration}
 \label{sec:radar_setup_calibration}
+\vspace{0.5em}
 
 \paragraph{Configuration Tools}
 \hfill
 \\
-To configure and validate the radar sensors, two official Texas Instruments tools were employed: the \textit{mmWave Demo Visualizer} and the \textit{mmWave Sensing Estimator}.  
+\indent To configure and validate the radar sensors, two official Texas Instruments tools were employed: the \textit{mmWave Demo Visualizer} and the \textit{mmWave Sensing Estimator}.  
 These tools allowed the rapid prototyping of chirp profiles and provided immediate feedback on their impact on range and velocity performance.  
 
 The \textbf{mmWave Demo Visualizer} \cite{mmwave_demo_web, mmwave_demo_doc} is a browser-based application that enables basic sensor configuration and visualization.  
@@ -31,7 +32,7 @@ Figure~\ref{fig:mmwave_demo_visualizer} shows an example of the configuration in
 
 Complementing this, the \textbf{mmWave Sensing Estimator} \cite{mmwave_demo_output} provides a theoretical framework to design chirp profiles.  
 By specifying parameters such as slope, bandwidth, ADC sampling rate, and frame timing, the tool outputs derived radar capabilities including range resolution, maximum detectable velocity, and unambiguous range.  
-However, it must be emphasized that the estimator only generates feasible profiles—it does not guarantee hardware compatibility.  
+However, it must be emphasized that the estimator only generates feasible profiles. However, it does not guarantee hardware compatibility.  
 Each configuration must be tested on the actual radar device to confirm correct execution.  
 Figure~\ref{fig:mmwave_sensing_estimator} illustrates the chirp design interface of the estimator.  
 
@@ -64,34 +65,61 @@ The transformation from radar to vehicle coordinates is expressed as:
 These corrections ensured that detections from both radars overlapped coherently, avoiding duplicated or misaligned clusters.  
 Without them, raw dual-sensor data appeared inconsistent, particularly when fusing Doppler-based velocity estimates.  
 After applying yaw, pitch, and translation adjustments, the fused point cloud served as a stable input for clustering, odometry, and tracking.
+
 \vspace{0.5em}
 \paragraph{Chirp Configuration}
 \hfill
 \\
-The IWR6843AOP operates as a Frequency-Modulated Continuous Wave (FMCW) radar, transmitting chirps whose frequency increases linearly over a bandwidth $B$ during a duration $T_c$.  
+\indent The IWR6843AOP operates as a Frequency-Modulated Continuous Wave (FMCW) radar, transmitting chirps whose frequency increases linearly over a bandwidth $B$ during a duration $T_c$.  
 Reflected signals return with a frequency shift that encodes target range, while Doppler shifts across successive chirps provide relative velocity.  
-The key design parameters include start frequency $f_0$ [GHz], slope $S$ [Hz/s], chirp duration $T_c$ [s], idle time $T_{\text{idle}}$ [s], sampling rate $f_s$ [Hz], and resulting bandwidth $B = S \cdot T_c$ [Hz].
 
-From these parameters, the radar capabilities are determined as:
+The chirp is defined by:
+\begin{itemize}
+    \item Start frequency $f_0$ [GHz]
+    \item Frequency slope $S$ [MHz/$\mu$s]
+    \item Chirp duration $T_c$ [$\mu$s]
+    \item Idle time between chirps $T_{\text{idle}}$ [$\mu$s]
+    \item Sampling rate $f_s$ [Msps]
+    \item Bandwidth $B = S \cdot T_c$ [MHz]
+\end{itemize}
+From these parameters, the sensing performance is determined as:
 \[
-    \Delta R = \frac{c}{2B} \quad [\text{m}], \qquad
-    R_{\max} = \frac{c f_s}{2S} \quad [\text{m}],
+    \Delta R = \frac{c}{2B} \ [\text{m}], \qquad
+    R_{\max} = \frac{c f_s}{2S} \ [\text{m}],
 \]
 \[
-    \Delta v = \frac{\lambda}{2 N_c T_c} \quad [\text{m/s}], \qquad
-    v_{\max} = \frac{\lambda}{4 T_c} \quad [\text{m/s}]
+    \Delta v = \frac{\lambda}{2 N_c T_c} \ [\text{m/s}], \qquad
+    v_{\max} = \frac{\lambda}{4 T_c} \ [\text{m/s}],
 \]
-where $\Delta R$ is the range resolution, $R_{\max}$ the maximum unambiguous range, $\Delta v$ the velocity resolution, and $v_{\max}$ the maximum unambiguous velocity.
+where $\Delta R$ is \textbf{range resolution}, $R_{\max}$ the \textbf{maximum unambiguous range}, $\Delta v$ the \textbf{velocity resolution}, and $v_{\max}$ the \textbf{maximum unambiguous velocity}.  
 
-In a dual-radar configuration, chirp design must also address mutual interference.  
-If both devices transmit wideband chirps simultaneously, spectral overlap can generate ghost detections and degraded signal quality.  
-To mitigate this, strategies such as non-overlapping frequency allocations, interleaved chirps, or slope diversity are used.  
-This ensures orthogonality between radars, preserving the integrity of fused point clouds.
+\textbf{Full-Bandwidth Chirp (Single 4 GHz Sweep)}, shown in Fig.~\ref{fig:profile4GHz}, provides the finest possible range resolution by sweeping the entire 4~GHz spectrum in a single chirp.  
+This configuration is well suited for precise spatial localization but requires high ADC sampling rates and is more prone to interference, making it practical mainly for single-radar setups.  
 
-For this work, the chirp profiles were derived using the TI Radar Estimator tool, which balances range precision and velocity resolution while ensuring feasible hardware constraints.  
-Wide-band sweeps provided fine range resolution, while multiple chirps per frame ensured adequate Doppler resolution for ego-motion estimation.  
-The resulting configuration supported robust operation in the dual-radar setup without excessive interference.
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.7\linewidth]{images/profile_full_4GHz.png}
+    \caption{Full-bandwidth chirp (single 4~GHz sweep).  
+    \textit{Source: Texas Instruments, available in mmWave Demo Visualizer \cite{mmwave_demo_doc}}}
+    \label{fig:profile4GHz}
+\end{figure}
 
+\textbf{Divided-Bandwidth Chirps (Two 2~GHz Sweeps)}, shown in Fig.~\ref{fig:profile2GHz}, split the 4~GHz spectrum into two 2~GHz chirps.  
+Although this reduces range resolution compared to a full-band sweep, it lowers ADC requirements and enables reliable operation of dual-radar systems.  
+
+In this setup, one chirp configuration was assigned to each radar (Config~A $\rightarrow$ Radar~A, Config~B $\rightarrow$ Radar~B).  
+By operating on distinct frequency ranges, the radars avoided spectral overlap, preventing ghost targets and preserving point cloud quality.  
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.7\linewidth]{images/profile_two_2GHz.png}
+    \caption{Divided-band chirps (two 2~GHz sweeps).  
+    \textit{Source: Texas Instruments, available in mmWave Demo Visualizer \cite{mmwave_demo_doc}}}
+    \label{fig:profile2GHz}
+\end{figure}
+
+The final parameters were derived using the \textit{mmWave Sensing Estimator} tool \cite{mmwave_demo_output}.  
+The divided-band strategy provided a balanced trade-off between resolution and robustness, ensuring stable dual-radar operation while avoiding the interference issues inherent to full-bandwidth sweeps.
 
 \hfill
 \\

@@ -1,7 +1,8 @@
-
+\vspace{0.5em}
 \subsubsection{Mechanical Integration}
-
-The mechanical design and integration of the sensing suite were crucial to ensure stable operation, accurate data alignment, and reproducibility across experiments. 
+\hfill
+\\
+\indent The mechanical design and integration of the sensing suite were crucial to ensure stable operation, accurate data alignment, and reproducibility across experiments. 
 This subsection is divided into three parts:
 \begin{itemize}
     \item 3D printed mounts for flexible radar positioning.  
@@ -9,11 +10,14 @@ This subsection is divided into three parts:
     \item Geometric placement of radars and corresponding coordinate transformations.  
 \end{itemize}
 
+\vspace{0.5em}
 \paragraph{Radar Mounting Design}
+\hfill
+\\
 % -- Explain the custom 3D-printed designs that allowed adjustable yaw/pitch positioning of the radars.
 % -- Show figures of the mounts and describe their role in fine-tuning sensor orientation.
 % -- Emphasize stability and repeatability.
-A standard mounting bracket is provided by the manufacturer for the IWR6843AOP sensor, as shown in Figure~\ref{fig:IWR6843AOP_mount}. 
+\indent A standard mounting bracket is provided by the manufacturer for the IWR6843AOP sensor, as shown in Figure~\ref{fig:IWR6843AOP_mount}. 
 While suitable for simple setups, this bracket only allows a fixed mounting position without the possibility of adjusting yaw or pitch. 
 Such limitations restrict the ability to optimize the radar field of view for different vehicle placements and test scenarios.  
 
@@ -38,7 +42,7 @@ By introducing this adjustable design, the system achieved both mechanical robus
     \begin{subfigure}[t]{0.48\linewidth}
         \centering
         \includegraphics[width=\linewidth]{images/IWR6843Mount.png}
-        \caption{Manufacturer-provided mount for the IWR6843AOP sensor. This design fixes the sensor in place without tilt or yaw adjustment, limiting flexibility.\\
+        \caption{Manufacturer-provided mount for the IWR6843AOP sensor. This design fixes the sensor in place without tilt adjustment, limiting flexibility.\\
         \textit{Source: amicus engineering, available at \href{https://amicus.com.sg/products/iwr6843aop-evaluation-module-for-single-chip-60ghz-antenna-on-package-aop-mmwave-sensor/}{amicus.com.sg}}}
         \label{fig:IWR6843AOP_mount}
     \end{subfigure}
@@ -46,10 +50,10 @@ By introducing this adjustable design, the system achieved both mechanical robus
     \begin{subfigure}[t]{0.48\linewidth}
         \centering
         \includegraphics[width=\linewidth]{images/3DModelSensorMount.png}
-        \caption{Custom 3D-printed mount designed in this work. It enables controlled tilt adjustments, ensuring repeatable alignment and optimized field of view.}
+        \caption{Custom 3D-printed mount designed. It enables controlled tilt adjustments, ensuring repeatable alignment and optimized field of view.}
         \label{fig:IWR6843AOP_3D_sensorMount}
     \end{subfigure}
-    \caption{Comparison of sensor mounting options for the IWR6843AOP radar: (a) fixed manufacturer mount and (b) adjustable 3D-printed design. The custom bracket provides greater stability and alignment flexibility, improving calibration for dual-radar operation.}
+    \caption{Comparison of sensor mounting options for the IWR6843AOP radar: (a) fixed manufacturer mount and (b) adjustable 3D-printed design. The custom bracket provides alignment flexibility and stability, improving calibration for dual-radar operation.}
     \label{fig:IWR6843AOP_mounts_comparison}
 \end{figure}
 
@@ -86,9 +90,11 @@ By introducing this adjustable design, the system achieved both mechanical robus
 While the 3D model (Figures~\ref{fig:IWR6843AOP_mounts_comparison}-\ref{fig:IWR6843AOP_3D_mounts}) illustrates the intended mounting geometry, Figure~\ref{fig:SensorInVehicle} shows an intermediate real-world implementation.
 This prototype installation provided a practical check of sensor tilt and positioning but was later replaced by the custom 3D-printed bracket, which ensured stability, repeatability, and precise control over yaw and pitch adjustments.
 
-
+\vspace{0.5em}
 \paragraph{IMU Mounting Design}
-The MTi-G710 IMU required a stable and horizontally aligned installation point to ensure that its quaternion orientation output could be directly mapped to the vehicle reference frame without introducing additional correction.  
+\hfill
+\\
+\indent The MTi-G710 IMU required a stable and horizontally aligned installation point to ensure that its quaternion orientation output could be directly mapped to the vehicle reference frame without introducing additional correction.  
 To achieve this, a custom mounting solution was developed, illustrated in Figure~\ref{fig:MTi3DModel}.  
 
 The 3D design, shown in Figure~\ref{fig:MTi3DModel}, highlights the three main elements of the assembly:  

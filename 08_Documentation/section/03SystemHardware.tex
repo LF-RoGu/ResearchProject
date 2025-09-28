@@ -3,14 +3,16 @@
 The hardware setup combines mmWave radars, an inertial sensor, and auxiliary components into a compact test platform.  
 In this section, we describe the role of each element, how they were mechanically integrated, and how the radar configuration was selected for odometry tasks.  
 
-\subsubsection{Sensors}
+\vspace{0.5em}
+\subsubsection{System Sensors}
 \hfill
 \\
 The sensors that are implemented and used in this project are the following:
+\vspace{0.5em}
 \subsubsubsection{mmWave Radar (IWR6843AOP)}
 \hfill
 \\
-The IWR6843AOPEVM development board from Texas Instruments features the IWR6843AOP, a high performance 4D mmWave FMCW sensor with Antenna On Package (AOP) design.
+\indent The IWR6843AOPEVM development board from Texas Instruments features the IWR6843AOP, a high performance 4D mmWave FMCW sensor with Antenna On Package (AOP) design.
 Although IWR6843AOP is intended for industrial applications and its complementary chip, AWR6843AOP, for automotive applications, IWR6843AOP was used in this project because it is available in the form of this development board and the two chips are identical in terms of their functionalities, only differing in compliance with automotive  industry \cite{iwr_awr_diff}.
 Its small physical size, due to its AOP design, makes it an optimal choice for the desired mounting position, the go-kart's steering column.
 \begin{figure}[!htbp]
@@ -34,16 +36,12 @@ It offers a wide range of communication interfaces including SPI, I2C, CAN-FD, U
 \end{figure}
 
 \begin{comment}
-    Here create a connecto to the calibratio of the sensor
+    Here create a connecto to the calibration of the sensor
 \end{comment}
 
 As some operating parameters influence each other, their selection must be done carefully while observing the influence of the trade-offs involved.
 This could be referred to as "sensor tuning" and is a critical step because it directly impacts the system's accuracy and performance.
-\\
-\newline
-\newline
-\newline
-\newline
+
 The following operating parameters can be tuned:
 \begin{itemize}
     \item Frame rate
@@ -82,11 +80,11 @@ The resulting overall accuracy of the velocity and distance measurements is agai
 \item \textbf{Distance accuracy:} Optimizing range resolution and maximum range ensures that detected objects are positioned accurately within the environment. Increasing range often sacrifices resolution, leading to potential inaccuracies in close-range detections.
 \item \textbf{Signal processing considerations:} The FFT calculation parameters directly affect both range and Doppler calculations, influencing the ability to distinguish between objects and detect small velocity variations.
 \end{itemize}
-
+\vspace{0.5em}
 \subsubsubsection{Inertial Measurement Unit (IMU)}  
 \hfill
 \\
-The MTi-G-710 from Xsens is a high-performance GNSS/INS module that integrates a 3D accelerometer, 3D gyroscope, 3D magnetometer, and barometer with an onboard GNSS receiver.  
+\indent The MTi-G-710 from Xsens is a high-performance GNSS/INS module that integrates a 3D accelerometer, 3D gyroscope, 3D magnetometer, and barometer with an onboard GNSS receiver.  
 Although designed as a complete navigation unit capable of delivering position and velocity estimates, in this project it was used specifically for its orientation outputs, provided in the form of quaternions, Euler angles, or rotation matrices \cite{mti710_manual}.  
 Its compact form factor and proven sensor-fusion engine made it a suitable choice for integration into the test platform, complementing the radar subsystem by supplying real-time orientation references.  
 
@@ -99,7 +97,7 @@ This repository enabled robust packet parsing and quaternion extraction in Pytho
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=1.0\linewidth]{images/mti_g710.png}
+    \includegraphics[width=0.65\linewidth]{images/mti_g710.png}
     \caption{MTi-G710 high-performance inertial navigation system (INS).\\
     \textit{Source: Movella, available at \url{https://www.movella.com/sensor-modules/xsens-mti-7-gnss-ins}}}
     \label{fig:MTi-G710 sensor}
@@ -108,10 +106,6 @@ This repository enabled robust packet parsing and quaternion extraction in Pytho
 \subsubsubsection{Webcam}
 \hfill
 \\
-A Logitech C270 HD webcam was included in the experimental platform for the sole purpose of video recording.  
+\indent A Logitech C270 HD webcam was included in the experimental platform for the sole purpose of video recording.  
 Unlike the radar and IMU, the camera was not integrated into the sensing or processing pipeline and did not contribute any data to the odometry estimation system.  
 Its role was limited to providing visual documentation of the test environment, allowing experiments to be reviewed and contextualized with synchronized video footage.  
-
-The Logitech C270 is a consumer-grade USB webcam capable of capturing video at a resolution of \SI{1280}{\times}\SI{720}{\text{pixels}} and \SI{30}{\hertz}.  
-Its compact design and ease of deployment made it a practical choice for recording without interfering with the radar sensors or mechanical mounts.  
-The resulting video logs were used as qualitative references to better understand the test scenarios and to visually verify environmental conditions during system validation.  
