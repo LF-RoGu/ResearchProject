@@ -43,6 +43,10 @@ Figure~\ref{fig:mmwave_sensing_estimator} illustrates the chirp design interface
     \textit{Source: Texas Instruments, available at \href{https://dev.ti.com/gallery/view/mmwave/mmWaveSensingEstimator/ver/2.5.1/}{dev.ti.com}}}
     \label{fig:mmwave_sensing_estimator}
 \end{figure}
+\begin{comment}
+    This section should be deleted, as it is about sensor transform.
+    Data processing not about using the sensor!
+\end{comment}
 \vspace{0.5em}
 \paragraph{Sensor Transformations}
 \hfill
@@ -51,9 +55,9 @@ Each radar sensor in the dual-radar configuration was mounted with a yaw offset 
 To ensure all detections could be expressed in a coherent vehicle-centric frame, the following extrinsic corrections were applied in sequence:
 
 \begin{enumerate}
-    \item \textbf{Yaw rotation} $R_{\text{yaw}}$: compensates for the $\pm30^\circ$ mounting angle around the Z-axis.  
-    \item \textbf{Pitch rotation} $R_{\text{pitch}}$: corrects the $15^\circ$ upward tilt by rotating around the X-axis.  
-    \item \textbf{Translation} $\vec{T}$: shifts the point clouds by the physical offsets of each radar ($x=-0.32$ m for left, $x=-0.28$ m for right).
+    \item \textbf{Yaw rotation} $R_{\text{yaw}}$: compensates for the mounting angle around the Z-axis.  
+    \item \textbf{Pitch rotation} $R_{\text{pitch}}$: corrects the upward tilt by rotating around the X-axis.  
+    \item \textbf{Translation} $\vec{T}$: shifts the point clouds by the physical offsets of each radar.
 \end{enumerate}
 
 The transformation from radar to vehicle coordinates is expressed as:

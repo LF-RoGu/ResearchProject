@@ -86,7 +86,7 @@ The complete processing chain is summarized in Figure~\ref{fig:dual_radar_pipeli
             \node[block, right=of merge] (frame_aggr) {Frame\\Aggregator};
             \node[block, right=of frame_aggr] (coord_filter) {Filter\\$x,y,z$\\$\phi$, SNR};
             \node[block, right=of coord_filter] (ransac) {RANSAC};
-            \node[block, right=of ransac] (doppler_filter) {Filter\\Zero Doppler};
+            \node[block, right=of ransac] (doppler_filter) {Filter\\Dynamic Objects};
             \node[block, right=of doppler_filter] (clustering) {Clustering};
             \node[block, right=of clustering] (icp) {ICP};
             \node[block, right=of icp] (ego) {Ego-motion};

@@ -510,8 +510,8 @@ class ClusterViewer(QWidget):
 
         # Build UI
         main_layout = QVBoxLayout(self)
-        #pg.setConfigOption('background', 'w')   # White background
-        #pg.setConfigOption('foreground', 'k')   # Black axis/labels for readability
+        pg.setConfigOption('background', 'w')   # White background
+        pg.setConfigOption('foreground', 'k')   # Black axis/labels for readability
         self.plot_widget = pg.GraphicsLayoutWidget()
         main_layout.addWidget(self.plot_widget)
         self.plots = {}
@@ -616,7 +616,7 @@ class ClusterViewer(QWidget):
         pointCloud = pointFilter.filterDoppler(rawPointCloud, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
         #pointCloud = pointFilter.filterSNRmin( rawPointCloud, FILTER_SNR_MIN)
         #pointCloud = pointFilter.filterCartesianZ(pointCloud, FILTER_Z_MIN, FILTER_Z_MAX)
-        pointCloud = pointFilter.filterCartesianY(pointCloud, FILTER_Y_MIN, FILTER_Y_MAX)
+        #pointCloud = pointFilter.filterCartesianY(pointCloud, FILTER_Y_MIN, FILTER_Y_MAX)
         #pointCloud = pointFilter.filterSphericalPhi(pointCloud, FILTER_PHI_MIN, FILTER_PHI_MAX)
         
         
