@@ -1,0 +1,128 @@
+\section{Odometry Results}
+\label{sec:odometry_results}
+
+\begin{comment}
+    Brief comment regarding odometry and connecting the work done to achieve this
+\end{comment}
+
+This section presents the result of the implemented pipeline as shown in Section~\ref{sec:processing_pipeline} with the dual-radar setup.
+Two experimental environments were selected: a controlled laboratory environment and an outdoor scenario. 
+
+\subsection{Laboratory Environment}
+\subsubsection{Scenario Description}
+
+The first experiments were conducted in an underground laboratory space (Fig.~\ref{fig:lab_setup}), which provided a controlled but reflective environment.  
+The room contained multiple devices and metallic structures from other projects, which acted as additional landmarks.  
+
+The main obstacle was created using a set of modular cushions arranged into a wall (black and orange blocks in Fig.~\ref{fig:lab_setup}).  
+This configuration allowed us to test both straight-line odometry and more complex trajectories involving more complex set of trajectories.  
+
+Two tests were performed:
+\begin{itemize}
+    \item \textbf{Straight-line test:} The vehicle was driven directly toward the cushion wall, covering a distance of approximately 10--11~m from the start point to the wall.  
+    \item \textbf{Obstacle-avoidance test:} The vehicle followed a path around the cushion wall and returned to its starting location, introducing turning maneuvers that add stress to the tested system and additional opportunities for clutter-induced reflections.  
+\end{itemize}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.75\linewidth]{images/labSetup.png}
+    \caption{Laboratory environment setup. The cushion wall (black and orange) served as the main obstacle, while surrounding equipment contributed additional reflective surfaces.}
+    \label{fig:lab_setup}
+\end{figure}
+
+\subsection{Outdoors Scenario}
+\subsubsection{Scenario Description}
+The second evaluation environment was the outdoor parking lot of Fachhochschule Dortmund (see Fig.~\ref{fig:parking_lot_overview}).  
+The tests were conducted shortly after rainfall, which introduced additional radar clutter from wet ground reflections, making this a challenging stress test for the pipeline.  
+
+The test area corresponds to a rectangular section of the parking lot, bounded by the building facades and a row of parked vehicles.  
+Key dimensions were measured as shown in Fig.~\ref{fig:parkinglot_measurements}, with the vertical segment $L_1 \approx \SI{10.7}{\meter}$ and the horizontal segment $L_2 \approx \SI{54.1}{\meter}$.  
+Combined, these form an L-shaped trajectory of approximately $\SI{62.3}{\meter}$ (Fig.~\ref{fig:parkinglot_totaldistance}).  
+
+During the experiments, between 6 and 10 vehicles were parked in the area, providing strong reflective structures that contributed to odometry alignment.  
+
+Two trajectories were tested:
+\begin{itemize}
+    \item \textbf{L-shape:} Starting along $L_2$, followed by a turn into $L_1$.
+    \item \textbf{L-shape with return:} Same as above, but including a U-turn to return to the starting point.
+\end{itemize}
+
+All tests were driven exclusively in forward motion, as Doppler-based differentiation between forward and reverse trajectories was not implemented at this stage.
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.9\linewidth]{images/FH_ParkingLot.png}
+    \caption{Overview of the outdoor parking lot test environment at Fachhochschule Dortmund.\\
+    \textit{Source: Google Maps, available at \url{https://maps.google.com} \cite{googlemaps_fhdo}}}
+    \label{fig:parking_lot_overview}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \begin{subfigure}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/FH_ParkingLotL1.png}
+        \caption{Vertical segment $L_1 \approx 10.7$ m.}
+        \label{fig:parkinglot_l1}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/FH_ParkingLotL2.png}
+        \caption{Horizontal segment $L_2 \approx 54.1$ m.}
+        \label{fig:parkinglot_l2}
+    \end{subfigure}
+    \caption{Measured distances of the parking lot test area used for defining the L-shaped trajectory.\\
+    \textit{Source: Google Maps, available at \url{https://maps.google.com} \cite{googlemaps_fhdo}}}
+    \label{fig:parkinglot_measurements}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.9\linewidth]{images/FH_ParkingLot_TotalDistance.png}
+    \caption{Combined L-shaped trajectory of approximately 62.3 m ($L_1 + L_2$).\\
+    \textit{Source: Google Maps, available at \url{https://maps.google.com} \cite{googlemaps_fhdo}}}
+    \label{fig:parkinglot_totaldistance}
+\end{figure}
+
+\subsubsection{Odometry Results}
+Trajectory plots from the outdoor runs are shown in Fig.~\ref{fig:parking_lot_results}.  
+The L-shaped run demonstrates the system's ability to handle turns while maintaining general trajectory consistency.  
+In the return test, the U-turn was successfully captured, though drift accumulation became more visible over the full \SI{62}{\meter} path.
+
+\begin{comment}
+    Add here the results of the odometry
+\end{comment}
+
+\subsubsection{Observations}
+The outdoor experiments highlighted the following:
+\begin{itemize}
+    \item Wet ground introduced additional clutter, especially near the dead zone, reinforcing the relevance of $y$-axis filtering.
+    \item Parked vehicles provided strong static references that stabilized ICP alignment, particularly during turning maneuvers.
+    \item Drift accumulation was more noticeable over the longer \SI{62}{\meter} trajectory, especially in the return run, consistent with ICP-based odometry limitations.
+\end{itemize}
+
+Overall, the parking lot tests confirmed the pipeline's robustness in real-world outdoor conditions with environmental noise and complex reflectors, while also exposing drift-related challenges over extended distances.
+
+
+\subsection{Discussion}
+The two evaluation environments highlight different strengths and weaknesses of the proposed odometry pipeline.  
+
+In the \textbf{laboratory environment}, performing ICP directly on the full point cloud delivered more stable results.  
+The confined space, with multiple reflective surfaces and repeatable landmarks, produced a dense and consistent set of static detections.  
+In this context, using all available points allowed ICP to maximize geometric alignment and minimize drift, even without the need for aggressive filtering of dynamic elements.  
+
+In contrast, the \textbf{outdoor parking lot scenario} posed greater challenges.  
+Non-ideal environmental conditions, such as recent rainfall, made this setting an effective stress test for the system.  
+Sparse long-range detections and the presence of moving vehicles further contributed to a less consistent point cloud.  
+Applying ICP on the entire point set in this environment led to instability and drift, as spurious or dynamic points distorted the alignment process.  
+Instead, the clustered ICP approach—selecting the most consistent tracked cluster as the alignment reference—proved more effective.  
+By anchoring to a reliable static object, the system achieved better trajectory consistency across extended distances.  
+
+This comparison underlines a fundamental trade-off:
+\begin{itemize}
+    \item \textbf{Full point cloud ICP} excels in structured, controlled environments with dense and reliable landmarks.
+    \item \textbf{Cluster-based ICP} provides robustness in unstructured or outdoor environments, where clutter and dynamics reduce the reliability of the full point cloud.
+\end{itemize}
+
+Although improvements are possible in both settings (e.g., more refined filtering, adaptive ICP weighting), the experiments suggest that cluster-based ICP is more suited for outdoor odometry, while full point cloud ICP can be leveraged indoors where landmark consistency is higher.
