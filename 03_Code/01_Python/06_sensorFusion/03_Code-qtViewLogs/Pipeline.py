@@ -72,11 +72,11 @@ imu_heading_rad = None
 T_global = np.eye(3)  # initial pose at origin
 
 
-folderName = "13_dualSensorTest/02_RPi5"  # Folder where CSV files are stored
-testType = "driveAround1.csv"  # Type of test data
+folderName = "12_calibTesting"  # Folder where CSV files are stored
+testType = "calibStraightWallSameConfig.csv"  # Type of test data
 # Instantiate readers and global aggregators
-radarLoaderA = RadarCSVReader("radarA_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
-radarLoaderB = RadarCSVReader("radarB_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
+radarLoaderA = RadarCSVReader("radarLeft_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
+radarLoaderB = RadarCSVReader("radarRight_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 imuLoader   = ImuCSVReader("imu_" + testType, folderName) if ENABLE_SENSORS in (2, 3) else None
 _radarA_Agg         = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
 _radarB_Agg         = FrameAggregator(FRAME_AGGREGATOR_NUM_PAST_FRAMES)
