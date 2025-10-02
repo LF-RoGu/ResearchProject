@@ -694,10 +694,10 @@ class ClusterViewer(QWidget):
                 plot3(plot_item, rawPointCloud, ransac_output)
             
             if name == "plot4":
-                plot_trajectory(plot_widget=plot_item, plot_title="EgoMotion Cluster", trajectory1=trajectory_cluster_imu, label1="Rotation Cluster", color1='g')
+                plot_trajectory(plot_widget=plot_item, plot_title="EgoMotion Cluster", trajectory1=trajectory_cluster_imu, label1="Rotation Cluster", color1='b')
 
             if name == "plot5":
-                plot_trajectory(plot_widget=plot_item, plot_title="EgoMotion Global", trajectory1=trajectory_global_imu, label1="Rotation Global", color1='g')
+                plot_trajectory(plot_widget=plot_item, plot_title="EgoMotion Global", trajectory1=trajectory_global_imu, label1="Rotation Global", color1='b')
 
             if name == "plot6":
                 # update the tracker with the fresh Stage-2 clusters
