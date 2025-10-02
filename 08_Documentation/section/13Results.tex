@@ -30,6 +30,35 @@ Two tests were performed:
     \label{fig:lab_setup}
 \end{figure}
 
+\subsubsection{Odometry Results}
+Resulting trajectories from the recordings are shown from the indoor tests in Fig.~\ref{fig:lab_setup}.
+In this scenario a \textbf{U-Turn trajectory} was performed to test the robustness of the pipeline in an enclosed environment with high reflections.
+This test provide the oportunity of a tight turning tracking of the ego-motion estimation.
+As shown in Fig.~\ref{fig:labDriveAround}, this test had 2 results, in this case the ICP operation on the whole point-cloud resulted in a more accurate ego-motion estimation.
+While the clustered one provided a trajectory not far from the one performed, it was still lacking in accuracy and consistency.
+As the total distance from the starting point to the wall that we are avoiding is around 10 meters.
+
+\begin{figure}[!htbp]
+    \centering
+    \begin{subfigure}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/labDriveAroundICP_Cluster1.png}
+        \caption{Vertical segment $L_1 \approx 10.7$ m.}
+        \label{fig:labDriveAroundClustered}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/labDriveAroundICP_Full1.png}
+        \caption{Horizontal segment $L_2 \approx 54.1$ m.}
+        \label{fig:labDriveAroundFull}
+    \end{subfigure}
+    \caption{Measured distances of the parking lot test area used for defining the L-shaped trajectory.\\
+    \textit{Source: Google Maps, available at \url{https://maps.google.com} \cite{googlemaps_fhdo}}}
+    \label{fig:labDriveAround}
+\end{figure}
+
+
 \subsection{Outdoors Scenario}
 \subsubsection{Scenario Description}
 The second evaluation environment was the outdoor parking lot of Fachhochschule Dortmund (see Fig.~\ref{fig:parking_lot_overview}).  
@@ -86,24 +115,82 @@ All tests were driven exclusively in forward motion, as Doppler-based differenti
 \end{figure}
 
 \subsubsection{Odometry Results}
-Trajectory plots from the outdoor runs are shown in Fig.~\ref{fig:parking_lot_results}.  
-The L-shaped run demonstrates the system's ability to handle turns while maintaining general trajectory consistency.  
-In the return test, the U-turn was successfully captured, though drift accumulation became more visible over the full \SI{62}{\meter} path.
+Resulting trajectories from the recordings are shown from the outdoor tests in Fig.~\ref{fig:outsideOdometry4} and in Fig.~\ref{fig:outsideOdometry7}.
+During this test the non idealistic weather allowed us to perform a perfect performance test for both of the solution in the outdoors environment.
+In this testing period light rainfall was present, however nothing to damage the hardware.
+In both scenarios an \textbf{L shape trajectory} was performed, however both where run at different lengths of the testing area.
+As shown in Fig.~\ref{fig:outsideOdometry4}, the test was stoped around the metal emergency stair, which is around of 30 meters of the L1 section.
+In Fig.~\ref{fig:outsideOdometry7} the full length was covered in which we get a pretty close estimation of the ego-motion of the vehicle converting this into a close estimation of the vehicle odometry.
 
 \begin{comment}
     Add here the results of the odometry
 \end{comment}
 
+\begin{figure}[!htbp]
+    \centering
+    \begin{subfigure}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/ICPOutside_Full4.png}
+        \caption{Vehicle full point-cloud solution ICP ego-motion estimation. $L_1 \approx 10$ m., $L_2 \approx 30$ m. }
+        \label{fig:odometryFull4}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/ICPOutside_Cluster4.png}
+        \caption{Vehicle clustered solution ICP ego-motion estimation. $L_1 \approx 10$ m., $L_2 \approx 30$ m. }
+        \label{fig:odometryCluster4}
+    \end{subfigure}
+    \caption{Outside test recording, reduced trajectory due to weather. $L_1 \approx 10$ m., $L_2 \approx 30$ m. }
+    \label{fig:outsideOdometry4}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \begin{subfigure}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/ICPOutside_Full7.png}
+        \caption{Vehicle full point-cloud solution ICP ego-motion estimation. $L_1 \approx 10$ m., $L_2 \approx 60$ m. }
+        \label{fig:odometryFull7}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/ICPOutside_Cluster7.png}
+        \caption{Vehicle clustered solution ICP ego-motion estimation. $L_1 \approx 10$ m., $L_2 \approx 60$ m. }
+        \label{fig:odometryCluster7}
+    \end{subfigure}
+    \caption{Outside test recording, full planned trajectory due to weather. $L_1 \approx 10$ m., $L_2 \approx 60$ m. }
+    \label{fig:outsideOdometry7}
+\end{figure}
+
 \subsubsection{Observations}
 The outdoor experiments highlighted the following:
 \begin{itemize}
-    \item Wet ground introduced additional clutter, especially near the dead zone, reinforcing the relevance of $y$-axis filtering.
+    \item Wet ground introduced additional clutter, especially near the dead zone as shown in Fig.~\ref{fig:outsideClutterRecording}, reinforcing the relevance of $y$-axis filtering.
     \item Parked vehicles provided strong static references that stabilized ICP alignment, particularly during turning maneuvers.
-    \item Drift accumulation was more noticeable over the longer \SI{62}{\meter} trajectory, especially in the return run, consistent with ICP-based odometry limitations.
 \end{itemize}
 
-Overall, the parking lot tests confirmed the pipeline's robustness in real-world outdoor conditions with environmental noise and complex reflectors, while also exposing drift-related challenges over extended distances.
+\begin{figure}[!htbp]
+    \centering
+    \begin{subfigure}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/sensorClutterYAxisDualSensor.png}
+        \caption{Full point-cloud of the observed clutter to aid the visualization of the whole point-cloud.}
+        \label{fig:simpleClutter}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/sensorClutterYAxisDualSensorHighlited.png}
+        \caption{Highlighted clutter in the point-cloud to aid the visualization of the clutter.}
+        \label{fig:highlightedClutter}
+    \end{subfigure}
+    \caption{Outside test recording, full planned trajectory due to weather. $L_1 \approx 10$ m., $L_2 \approx 60$ m. }
+    \label{fig:outsideClutterRecording}
+\end{figure}
 
+Overall, the parking lot tests confirmed the pipeline's robustness in real-world outdoor conditions with environmental noise and complex reflectors, while also exposing drift-related challenges over extended distances.
 
 \subsection{Discussion}
 The two evaluation environments highlight different strengths and weaknesses of the proposed odometry pipeline.  
