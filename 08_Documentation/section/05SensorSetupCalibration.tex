@@ -43,32 +43,6 @@ Figure~\ref{fig:mmwave_sensing_estimator} illustrates the chirp design interface
     \textit{Source: Texas Instruments, available at \href{https://dev.ti.com/gallery/view/mmwave/mmWaveSensingEstimator/ver/2.5.1/}{dev.ti.com}}}
     \label{fig:mmwave_sensing_estimator}
 \end{figure}
-\begin{comment}
-    This section should be deleted, as it is about sensor transform.
-    Data processing not about using the sensor!
-\end{comment}
-\vspace{0.5em}
-\paragraph{Sensor Transformations}
-\hfill
-\\
-Each radar sensor in the dual-radar configuration was mounted with a yaw offset of $\pm30^\circ$, a pitch tilt of $15^\circ$ upward, and a lateral displacement from the vehicle centerline.  
-To ensure all detections could be expressed in a coherent vehicle-centric frame, the following extrinsic corrections were applied in sequence:
-
-\begin{enumerate}
-    \item \textbf{Yaw rotation} $R_{\text{yaw}}$: compensates for the mounting angle around the Z-axis.  
-    \item \textbf{Pitch rotation} $R_{\text{pitch}}$: corrects the upward tilt by rotating around the X-axis.  
-    \item \textbf{Translation} $\vec{T}$: shifts the point clouds by the physical offsets of each radar.
-\end{enumerate}
-
-The transformation from radar to vehicle coordinates is expressed as:
-\begin{equation}
-    \vec{p}_{\text{veh}} = R_{\text{yaw}} \cdot R_{\text{pitch}} \cdot \vec{p}_{\text{radar}} + \vec{T}
-    \label{eq:radar_to_vehicle_transform_short}
-\end{equation}
-
-These corrections ensured that detections from both radars overlapped coherently, avoiding duplicated or misaligned clusters.  
-Without them, raw dual-sensor data appeared inconsistent, particularly when fusing Doppler-based velocity estimates.  
-After applying yaw, pitch, and translation adjustments, the fused point cloud served as a stable input for clustering, odometry, and tracking.
 
 \vspace{0.5em}
 \paragraph{Chirp Configuration}
@@ -125,9 +99,51 @@ By operating on distinct frequency ranges, the radars avoided spectral overlap, 
 The final parameters were derived using the \textit{mmWave Sensing Estimator} tool \cite{mmwave_demo_output}.  
 The divided-band strategy provided a balanced trade-off between resolution and robustness, ensuring stable dual-radar operation while avoiding the interference issues inherent to full-bandwidth sweeps.
 
-\hfill
-\\
-\vspace{0.5em}
+\textbf{Same-Band Chirps (Interference Case)} — Using identical chirp configurations on both radars introduced strong mutual interference, which was expected in theory but validated here through practical testing.  
+For example, in the vehicle-pushing test (Fig.~\ref{fig:dual_samechirp_pointcloud}) and in the walking-person case (Fig.~\ref{fig:dual_samechirp_cluster}), detections appeared artificially expanded or distorted compared to what was expected, with a single person spanning nearly \SI{3}{\meter}.  
+While this spatial deformation was visible in the point clouds, the RANSAC analysis (Fig.~\ref{fig:dual_samechirp_ransac}) provided clearer evidence of the interference, with estimated radial velocities reaching up to $\pm$\SI{5}{\meter\per\second} despite the slow and controlled motions.  
+This underlines that the main strength of the radar lies in the Doppler information extracted from detections, which in this case exposed the interference effects more clearly than the point cloud itself.  
+
+These inconsistencies confirm that cross-talk affects both point cloud density and Doppler-based velocity estimation, making odometry unreliable.  
+This experiment demonstrated the necessity of separating chirp frequency bands, leading to the adoption of the divided-bandwidth configuration for stable dual-radar operation.
+
+\begin{figure}[!htbp]
+    \centering
+    \begin{subfigure}{0.48\linewidth}
+        \includegraphics[width=\linewidth]{images/DualSensorSameConfigPointCloud.png}
+        \caption{Point cloud of the vehicle-pushing scenario.}
+        \label{fig:dual_samechirp_pointcloud}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\linewidth}
+        \includegraphics[width=\linewidth]{images/DualSensorSameConfigPointCloudPerson.png}
+        \caption{Point cloud of the walking-person scenario.}
+        \label{fig:dual_samechirp_cluster}
+    \end{subfigure}
+    \caption{Point clouds from dual-radar interference with same-band chirps (green = Radar~A, blue = Radar~B).  
+    Scenario (a) corresponds to pushing the vehicle, and (b) to a person walking towards the vehicle.}
+    \label{fig:dual_samechirp_results}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \begin{subfigure}{0.48\linewidth}
+        \includegraphics[width=\linewidth]{images/DualSensorSameConfigRansac.png}
+        \caption{RANSAC of scenario (a) from Fig.~\ref{fig:dual_samechirp_results}.}
+        \label{fig:dual_samechirp_ransac_vehicle}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\linewidth}
+        \includegraphics[width=\linewidth]{images/DualSensorSameConfigPersonRansac.png}
+        \caption{RANSAC of scenario (b) from Fig.~\ref{fig:dual_samechirp_results}.}
+        \label{fig:dual_samechirp_ransac_person}
+    \end{subfigure}
+    \caption{RANSAC Doppler vs.\ Azimuth for the same-band chirp cases.  
+    Both confirm that interference causes incorrect velocity estimates when both radars share the same chirp band.}
+    \label{fig:dual_samechirp_ransac}
+\end{figure}
+
+\newpage
 \noindent\textbf{IMU Setup and Calibration}
 \label{sec:imu_setup_calibration}
 

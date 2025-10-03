@@ -1,4 +1,5 @@
-\subsubsection{Cluster Tracking}
+\vspace{1\baselineskip}
+\subsection{Cluster Tracking}
 \label{subsec:cluster_tracking}
 
 Once clusters have been identified, it is necessary to track them over consecutive frames to ensure temporal consistency. 
@@ -12,33 +13,32 @@ Each tracked cluster is updated at every frame using two indices:
     \item \textbf{Miss Count ($m$):} The number of consecutive frames in which the cluster has failed to find a corresponding detection.
 \end{itemize}
 
-A cluster is considered \textit{active} if $m \leq M_{\text{max}}$, where $M_{\text{max}}$ is the maximum allowed misses before deletion. 
+A cluster is considered \textit{active} if $m \leq M_{\text{max}}$, where $M_{\text{max}}$ is the maximum allowed misses before deletion, the selection of maximum allowed misses for this project is $M_{\text{max}} = 5$. 
 This mechanism ensures that short occlusions or temporary sensor noise do not cause immediate loss of tracks.
 
 \paragraph{Geometric Association}
+In this work, a \textbf{detection} refers to the centroid of a cluster obtained after the radar point cloud has been processed and grouped.  
+Thus, each detection represents a candidate object position in the $(x,y)$ plane, rather than an individual radar point.  
+
 Let $c_t = (x_t, y_t)$ denote the centroid of a cluster at frame $t$.  
 For each existing track, association with a new detection is performed by minimizing the spatial distance:
-
 \begin{equation}
     d(c_t, c_{t+1}) = \lVert c_t - c_{t+1} \rVert_2.
 \end{equation}
 
-If a fitted motion model is available, the distance is instead evaluated relative to the predicted cluster trajectory. 
+If a fitted motion model is available, the distance is instead evaluated relative to the predicted cluster trajectory.  
 In this project, a simple line-fitting approach was applied to the history of each cluster’s centroids:
-
 \begin{equation}
     y = m x + b,
 \end{equation}
-
 where $(m,b)$ are obtained via least-squares regression over the last $N$ centroids.  
-The orthogonal distance of a new detection $(x_0, y_0)$ to this fitted line is computed as:
 
+The orthogonal distance of a new detection $(x_0, y_0)$ to this fitted line is then computed as:
 \begin{equation}
     d_{\perp}(x_0, y_0) = \frac{|m x_0 - y_0 + b|}{\sqrt{m^2 + 1}}.
 \end{equation}
 
-The detection is associated with the track if $d_{\perp} \leq d_{\text{max}}$, where $d_{\text{max}}$ is a configurable threshold.
-
+A detection is associated with the track if $d_{\perp} \leq d_{\text{max}}$, with $d_{\text{max}}$ set to \SI{1}{m} in this implementation (configurable as needed).
 \paragraph{Track Management}
 The complete tracking procedure consists of:
 \begin{enumerate}

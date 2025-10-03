@@ -11,9 +11,9 @@ The following subsections present the mathematical formulations and algorithmic 
 By combining radar Doppler measurements with orientation inputs from the IMU, the pipeline is designed to deliver robust odometry even in environments where conventional vision- or LiDAR-based methods fail.
 
 \vspace{0.5em}
-\subsubsection{Rigid-Body Transformation}  
+\subsection{Rigid-Body Transformation}  
 
-Each radar sensor in the dual-radar configuration is physically mounted with a specific orientation and tilt relative to the vehicle's forward direction. 
+Each radar sensor in the dual-radar configuration is physically mounted with a specific orientation and tilt relative to the vehicle's forward direction.
 To ensure a common frame of reference for all points, it is necessary to compensate for:
 
 \begin{itemize}
@@ -22,8 +22,18 @@ To ensure a common frame of reference for all points, it is necessary to compens
     \item \textbf{Sensor offset}: due to the physical separation of the radar sensors in the horizontal axis (X-axis).
 \end{itemize}
 
+The transformation from radar to vehicle coordinates is expressed as:
+\begin{equation}
+    \vec{p}_{\text{veh}} = R_{\text{yaw}} \cdot R_{\text{pitch}} \cdot \vec{p}_{\text{radar}} + \vec{T}
+    \label{eq:radar_to_vehicle_transform_short}
+\end{equation}
+
+These corrections ensured that detections from both radars overlapped coherently, avoiding duplicated or misaligned clusters.  
+Without them, raw dual-sensor data appeared inconsistent, particularly when fusing Doppler-based velocity estimates.  
+After applying yaw, pitch, and translation adjustments, the fused point cloud served as a stable input for clustering, odometry, and tracking.
+
 \vspace{0.5em}
-\paragraph{Yaw Correction (Z-axis Rotation)}
+\subsubsection{Yaw Correction (Z-axis Rotation)}
 The radar sensors are rotated relative to the vehicle frame:
 
 \begin{itemize}
@@ -67,7 +77,7 @@ where $\theta = \pm30^\circ$ depending on the sensor.
     \label{fig:vehicleRadarYawRotation}
 \end{figure}
 
-
+\newpage
 The yaw angles of $\pm30^\circ$ were selected through a combination of physical measurement and simulation of the sensor field of view (FOV).  
 Using the vehicle chassis centerline as a reference, the mounted sensors were visually measured to exhibit a yaw of approximately $28$--$32^\circ$ outward (see Fig.~\ref{fig:vehicleRadarYawRotation}), which confirmed the intended target of $30^\circ$ opening from the vehicle center.  
 This estimate was further cross-checked in simulation by plotting the radar FOV using the TI Demo Visualizer, which allows configuration of the theoretical horizontal FOV from its default $90^\circ$ down to $60^\circ$ or $30^\circ$ respectfully.  
@@ -79,7 +89,7 @@ Within this setting, the $\pm30^\circ$ mounting maximizes the combined coverage 
 This trade-off was deliberately accepted to ensure the widest effective overlap of both radars for odometry tasks.
 
 \vspace{0.5em}
-\paragraph{Pitch Compensation (X-axis Rotation)}
+\subsubsection{Pitch Compensation (X-axis Rotation)}
 Since the radar sensors are tilted upward by $15^\circ$, a corrective rotation around the X-axis is applied to bring the points back to a horizontal perspective: 
 
 \[
@@ -117,7 +127,7 @@ Both the yaw and pitch choices were tested through simulation and validated in r
     \label{fig:vehicleYawTilt}
 \end{figure}
 
-\paragraph{X-Axis Offset Compensation}
+\subsubsection{X-Axis Offset Compensation}
 After rotation, each sensor's point cloud was translated along the X-axis to align with the vehicle's center:
 \begin{itemize}
     \item Radar A: $x \leftarrow x - 0.32$ meters
@@ -150,7 +160,7 @@ Where:
     \item \( \vec{T} \) is the translation vector.
 \end{itemize}
 
-\paragraph{Summary of Extrinsics}
+\subsubsection{Summary of Extrinsics}
 \begin{itemize}
     \item \textbf{Left radar:} yaw $+30^\circ$, pitch $-15^\circ$, translation $(-0.32, 0, 0)$.
     \item \textbf{Right radar:} yaw $-30^\circ$, pitch $-15^\circ$, translation $(-0.28, 0, 0)$.
@@ -159,7 +169,7 @@ Where:
 This extrinsic calibration ensures that dual-radar data is expressed in a coherent vehicle-centric frame, which is critical for downstream modules such as clustering, odometry, and obstacle tracking.
 
 \vspace{0.5em}
-\subsubsection{Radar Merge}  
+\subsection{Radar Merge}  
 \indent Once each radar's detections were transformed into the common vehicle frame, the two datasets were merged into a single unified point cloud per frame.  
 This step ensured that detections from both radars contributed consistently to the pipeline.  
 
@@ -181,6 +191,6 @@ The effect of merging is visualized in Fig.~\ref{fig:radar_merge}, where the ind
         \includegraphics[width=\linewidth]{images/AFTERdualSensorCalibCluster_2mts.png}
         \caption{Unified point cloud after merging.}
     \end{subfigure}
-    \caption{Radar merge process: alignment of calibrated detections into a single dataset.}
+    \caption{Radar merge process: alignment of calibrated detections into a single dataset. (a) Radar A = blue, Radar B = green. (b) Merged point cloud.}
     \label{fig:radar_merge}
 \end{figure}

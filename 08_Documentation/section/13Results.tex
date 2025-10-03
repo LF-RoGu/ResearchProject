@@ -1,3 +1,4 @@
+\newpage
 \section{Odometry Results}
 \label{sec:odometry_results}
 
@@ -32,12 +33,25 @@ Three tests were performed:
 \end{figure}
 
 \subsubsection{Odometry Results}
-Resulting trajectories from the recordings are shown from the indoor tests in Fig.~\ref{fig:lab_setup}.
-In this scenario a \textbf{U-Turn trajectory} was performed to test the robustness of the pipeline in an enclosed environment with high reflections.
-This test provide the oportunity of a tight turning tracking of the ego-motion estimation.
-As shown in Fig.~\ref{fig:labDriveAround}, this test had 2 results, in this case the ICP operation on the whole point-cloud resulted in a more accurate ego-motion estimation.
-While the clustered one provided a trajectory not far from the one performed, it was still lacking in accuracy and consistency.
-As the total distance from the starting point to the wall that we are avoiding is around 10 meters.
+Two validation experiments were performed indoors to compare cluster-based ICP against full point cloud ICP.
+Resulting trajectories from these are decribed where the test environment is shown in Fig.~\ref{fig:lab_setup}.
+
+\begin{itemize}
+    \item \textbf{Straight wall test, Fig.~\ref{fig:straightWall_Test}}:  
+    In this scenario, the vehicle moved along a straight path of approximately 10~m.  
+    This test provides the validation that the displacement measured by the odometry pipeline corresponds to the actual distance traveled, as there is no turns and can be described as the simplest of tests.  
+    As shown in Fig.~\ref{fig:straightWall_FullICP}, the ICP alignment using the whole point-cloud produced a trajectory that closely matched the expected straight line.
+    The cluster-based ICP failed in this case, measuring nearly double the actual distance.  
+    The full point cloud ICP, however, correctly reproduced the expected 10~m trajectory, confirming its reliability for straight-line validation. 
+    
+    \item \textbf{Drive-around (U-turn) test, Fig.~\ref{fig:labDriveAround}}:  
+    In this scenario, a U-turn trajectory was performed to test the robustness of the pipeline in an enclosed environment with high reflections.  
+    This test provided the opportunity for tight-turn tracking of the ego-motion estimation.  
+    As shown in Fig.~\ref{fig:labDriveAroundFull}, ICP applied to the whole point cloud resulted in a more accurate ego-motion estimation.  
+    The clustered ICP produced a trajectory not far from the true motion but showed reduced accuracy and consistency.  
+    The total distance from the starting point to the wall being avoided was around 10~m.  
+\end{itemize}
+
 
 \begin{figure}[!htbp]
     \centering
@@ -58,6 +72,27 @@ As the total distance from the starting point to the wall that we are avoiding i
     \textit{Source: Google Maps, available at \url{https://maps.google.com} \cite{googlemaps_fhdo}}}
     \label{fig:labDriveAround}
 \end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \begin{subfigure}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/straightWallCluster_ICP.png}
+        \caption{Cluster-based ICP alignment on the straight wall test.}
+        \label{fig:straightWall_Clustered}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/straightWallFull_ICP.png}
+        \caption{Full point cloud ICP alignment on the straight wall test.}
+        \label{fig:straightWall_FullICP}
+    \end{subfigure}
+    \caption{Straight wall validation test for odometry.  
+    Both (a) cluster-based ICP and (b) full point cloud ICP were used to validate a previously measured distance, confirming correct functionality of the setup.}
+    \label{fig:straightWall_Test}
+\end{figure}
+
 
 
 \subsection{Outdoors Scenario}

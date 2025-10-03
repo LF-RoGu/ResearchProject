@@ -1,5 +1,6 @@
 
-\subsubsection{Clustering}
+\vspace{1\baselineskip}
+\subsection{Clustering}
 Clustering is a key technique for grouping similar data points based on their spatial or statistical characteristics. 
 In automotive sensing, clustering enables the detection and tracking of relevant objects such as vehicles, pedestrians, and obstacles by structuring raw radar detections into meaningful groups.
 
@@ -38,16 +39,8 @@ Agglomerative & Hierarchical & \begin{itemize}
 \end{table}
 
 DBSCAN defines a cluster based on two parameters: a neighborhood radius $\varepsilon$ and a minimum number of points $\text{MinPts}$.  
-For a given point $p_i$ with coordinates $(x_i, y_i)$, its $\varepsilon$-neighborhood is defined as
 
-\begin{equation}
-    \mathcal{N}_{\varepsilon}(p_i) = \{ p_j \mid \lVert p_j - p_i \rVert_2 \leq \varepsilon \}.
-\end{equation}
-
-A point $p_i$ is called a \textit{core point} if
-\begin{equation}
-    |\mathcal{N}_{\varepsilon}(p_i)| \geq \text{MinPts}.
-\end{equation}
+\vspace{2\baselineskip}
 
 Clusters are then formed by connecting density-reachable points, while points that do not belong to any cluster are classified as noise.  
 This density-based formulation makes DBSCAN well-suited for radar data, where detections of the same object tend to be locally dense, while clutter appears as isolated points.
