@@ -42,7 +42,7 @@ Resulting trajectories from these are decribed where the test environment is sho
     This test provides the validation that the displacement measured by the odometry pipeline corresponds to the actual distance traveled, as there is no turns and can be described as the simplest of tests.  
     As shown in Fig.~\ref{fig:straightWall_FullICP}, the ICP alignment using the whole point-cloud produced a trajectory that closely matched the expected straight line.
     The cluster-based ICP failed in this case, measuring nearly double the actual distance.  
-    The full point cloud ICP, however, correctly reproduced the expected 10~m trajectory, confirming its reliability for straight-line validation. 
+    The full point cloud ICP correctly reproduced the expected 10~m trajectory, confirming its reliability for straight-line validation. 
     
     \item \textbf{Drive-around (U-turn) test, Fig.~\ref{fig:labDriveAround}}:  
     In this scenario, a U-turn trajectory was performed to test the robustness of the pipeline in an enclosed environment with high reflections.  
@@ -50,28 +50,14 @@ Resulting trajectories from these are decribed where the test environment is sho
     As shown in Fig.~\ref{fig:labDriveAroundFull}, ICP applied to the whole point cloud resulted in a more accurate ego-motion estimation.  
     The clustered ICP produced a trajectory not far from the true motion but showed reduced accuracy and consistency.  
     The total distance from the starting point to the wall being avoided was around 10~m.  
+
+    \item \textbf{Hallway test, Fig.~\ref{fig:hallway_Test}}:  
+    This experiment was performed in a narrow indoor hallway to evaluate the behavior of the system in a confined environment with strong multipath reflections.  
+    Similar to the previous cases, both cluster-based and full point cloud ICP methods were applied.  
+    As shown in Fig.~\ref{fig:hallway_Clustered}, the cluster-based ICP struggled to maintain consistent tracking due to limited visibility and varying reflections compared to Fig.~\ref{fig:hallway_Full}, resulting in a distorted trajectory.  
+    In contrast, the full point cloud ICP produced a smoother and more reliable estimation of the path, confirming that in close or reflective environments, the full ICP approach remains superior.  
+
 \end{itemize}
-
-
-\begin{figure}[!htbp]
-    \centering
-    \begin{subfigure}{0.48\linewidth}
-        \centering
-        \includegraphics[width=\linewidth]{images/labDriveAroundICP_Cluster1.png}
-        \caption{Vertical segment $L_1 \approx 10.7$ m.}
-        \label{fig:labDriveAroundClustered}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}{0.48\linewidth}
-        \centering
-        \includegraphics[width=\linewidth]{images/labDriveAroundICP_Full1.png}
-        \caption{Horizontal segment $L_2 \approx 54.1$ m.}
-        \label{fig:labDriveAroundFull}
-    \end{subfigure}
-    \caption{Measured distances of the parking lot test area used for defining the L-shaped trajectory.\\
-    \textit{Source: Google Maps, available at \url{https://maps.google.com} \cite{googlemaps_fhdo}}}
-    \label{fig:labDriveAround}
-\end{figure}
 
 \begin{figure}[!htbp]
     \centering
@@ -93,6 +79,45 @@ Resulting trajectories from these are decribed where the test environment is sho
     \label{fig:straightWall_Test}
 \end{figure}
 
+\begin{figure}[!htbp]
+    \centering
+    \begin{subfigure}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/labDriveAroundICP_Cluster1.png}
+        \caption{Cluster-based ICP trajectory for the laboratory U-turn test.}
+        \label{fig:labDriveAroundClustered}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/labDriveAroundICP_Full1.png}
+        \caption{Full point cloud ICP trajectory for the same U-turn test.}
+        \label{fig:labDriveAroundFull}
+    \end{subfigure}
+    \caption{Indoor U-turn test scenario: the vehicle avoids a target positioned approximately \SI{10}{\meter} from the starting point and stops slightly behind its initial position.  
+    Comparison between (a) cluster-based ICP and (b) full point cloud ICP shows differences in trajectory accuracy under reflective indoor conditions.}
+    \label{fig:labDriveAround}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \begin{subfigure}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/hallwayCluster_3.png}
+        \caption{Cluster-based ICP trajectory in hallway test.}
+        \label{fig:hallway_Clustered}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/hallwayFull_3.png}
+        \caption{Full point cloud ICP trajectory in hallway test.}
+        \label{fig:hallway_Full}
+    \end{subfigure}
+    \caption{Hallway test scenario comparing (a) cluster-based ICP and (b) full point cloud ICP.  
+    The confined environment and strong reflections increased uncertainty in the clustered approach, while the full point cloud ICP maintained a stable trajectory.}
+    \label{fig:hallway_Test}
+\end{figure}
 
 
 \subsection{Outdoors Scenario}
@@ -227,6 +252,8 @@ The outdoor experiments highlighted the following:
 \end{figure}
 
 Overall, the parking lot tests confirmed the pipeline's robustness in real-world outdoor conditions with environmental noise and complex reflectors, while also exposing drift-related challenges over extended distances.
+
+\vspace{2\baselineskip}
 
 \subsection{Discussion}
 The two evaluation environments highlight different strengths and weaknesses of the proposed odometry pipeline.  
