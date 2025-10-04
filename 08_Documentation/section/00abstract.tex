@@ -1,19 +1,14 @@
 \begin{abstract}
-The employment and integration of radar technologies for the implementation of odometry has recently emerged as a promissing alternative to traditional methods, which often rely on visual or LiDAR-based systems. 
-Radar Technology is particularly advantageous due to its robustness in various environmental conditions, such as fog, rain, and dust, where other systems results may degrade.
+Radar technologies have recently emerged as a promising alternative to traditional odometry methods, which often rely on cameras, LiDAR, wheel encoders, inertial sensors, or GPS.  
+Unlike these modalities, millimeter-wave (mmWave) radar offers robustness under adverse conditions such as fog, rain, or low light, while directly providing both range and Doppler velocity measurements.  
+Previous work has demonstrated that radar can support odometry through global iterative closest point (ICP) alignment of point clouds.  
+Building on this foundation, this work focuses on ego-motion estimation using a dual mmWave radar system complemented by an inertial sensor.  
+The dual-radar configuration is designed to increase spatial coverage and reduce ambiguity in radar detections, addressing a key limitation of single-radar odometry approaches.  
 
-This work focus in the estimation of the vehicle's ego-motion using a dual mmWave radar sensor system and an inertial motion sensor.
-
-The proposed pipeline incorporates clustering techniques, point-to-point iterative closest point (ICP) optimization, and Doppler velocity augmentation to address the inherent challenges of sparse and noisy radar point clouds.
-Notably, the point-to-point ICP approach is advantageous for radar-based odometry as it does not require an initial guess of the transformation, which is often difficult to obtain due to data sparsity and noise.
-Furthermore, submap aggregation is employed to enhance registration stability across consecutive scans. 
-Experimental evaluations demonstrate that the proposed framework enables consistent ego-motion estimation and highlights the potential of mmWave radar as a cost-efficient solution for autonomous navigation and digital twin construction in complex driving environments.
-
-Related work, including radar-only odometry and multimodal sensor fusion, is discussed to contextualize the contributions of this research within the broader field of autonomous vehicle navigation
-\cite{OccupancyGrid_Mapping_Automotive}, \cite{EgoMotion_DopplerRadar}, \cite{Multimodal_Offroad}, \cite{HighSpeed_Estimation}.
+Experimental evaluations were conducted in both enclosed environments (laboratory) and open environments (university parking lot).  
+Results show that the proposed framework provides consistent and reliable ego-motion estimation, highlighting the potential of mmWave radar as a cost-efficient substitute or complement to conventional odometry sources in autonomous navigation.  
 \end{abstract}
 
 \begin{IEEEkeywords}
-Radar Odometry, mmWave Radar, ICP, Doppler Velocity, Doppler Augmentation, Ego-Motion Estimation
+Radar Odometry, mmWave Radar, Dual-Radar Configuration, Clustering, ICP, Doppler Velocity, Submap Aggregation, Ego-Motion Estimation
 \end{IEEEkeywords}
-

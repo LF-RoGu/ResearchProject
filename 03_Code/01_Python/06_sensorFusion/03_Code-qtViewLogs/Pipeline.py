@@ -74,8 +74,8 @@ imu_heading_rad = None
 T_global = np.eye(3)  # initial pose at origin
 
 
-folderName = "13_dualSensorTest/02_RPi5"  # Folder where CSV files are stored
-testType = "hallway1.csv"  # Type of test data
+folderName = "14_outside"  # Folder where CSV files are stored
+testType = "outside7.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarLoaderA = RadarCSVReader("radarA_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 radarLoaderB = RadarCSVReader("radarB_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
@@ -510,8 +510,8 @@ class ClusterViewer(QWidget):
 
         # Build UI
         main_layout = QVBoxLayout(self)
-        #pg.setConfigOption('background', 'w')   # White background
-        #pg.setConfigOption('foreground', 'k')   # Black axis/labels for readability
+        pg.setConfigOption('background', 'w')   # White background
+        pg.setConfigOption('foreground', 'k')   # Black axis/labels for readability
         self.plot_widget = pg.GraphicsLayoutWidget()
         main_layout.addWidget(self.plot_widget)
         self.plots = {}
@@ -616,7 +616,7 @@ class ClusterViewer(QWidget):
         pointCloud = pointFilter.filterDoppler(rawPointCloud, FILTER_DOPPLER_MIN, FILTER_DOPPLER_MAX)
         #pointCloud = pointFilter.filterSNRmin( rawPointCloud, FILTER_SNR_MIN)
         #pointCloud = pointFilter.filterCartesianZ(pointCloud, FILTER_Z_MIN, FILTER_Z_MAX)
-        pointCloud = pointFilter.filterCartesianY(pointCloud, FILTER_Y_MIN, FILTER_Y_MAX)
+        #pointCloud = pointFilter.filterCartesianY(pointCloud, FILTER_Y_MIN, FILTER_Y_MAX)
         #pointCloud = pointFilter.filterSphericalPhi(pointCloud, FILTER_PHI_MIN, FILTER_PHI_MAX)
         
         
@@ -694,10 +694,10 @@ class ClusterViewer(QWidget):
                 plot3(plot_item, rawPointCloud, ransac_output)
             
             if name == "plot4":
-                plot_trajectory(plot_widget=plot_item, plot_title="EgoMotion Cluster", trajectory1=trajectory_cluster_imu, label1="Rotation Cluster", color1='g')
+                plot_trajectory(plot_widget=plot_item, plot_title="EgoMotion Cluster", trajectory1=trajectory_cluster_imu, label1="Rotation Cluster", color1='b')
 
             if name == "plot5":
-                plot_trajectory(plot_widget=plot_item, plot_title="EgoMotion Global", trajectory1=trajectory_global_imu, label1="Rotation Global", color1='g')
+                plot_trajectory(plot_widget=plot_item, plot_title="EgoMotion Global", trajectory1=trajectory_global_imu, label1="Rotation Global", color1='b')
 
             if name == "plot6":
                 # update the tracker with the fresh Stage-2 clusters
