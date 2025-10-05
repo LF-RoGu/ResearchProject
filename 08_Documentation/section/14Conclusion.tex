@@ -1,19 +1,16 @@
 \newpage
 \section{Conclusion and Future Work}
+This work demonstrated a radar-based odometry system using a dual IWR6843AOP mmWave sensor setup for vehicle motion estimation.  
+The dual-radar configuration provided a significant improvement in spatial awareness compared to a single-sensor setup, enabling a wider field of view and more stable measurements.  
+A detailed calibration procedure confirmed that identical chirp configurations introduce mutual interference, resulting in ghost detections and erroneous Doppler readings.  
+Therefore, proper frequency separation between sensors is essential for stable dual-radar operation.
 
-This work presented a radar odometry framework using a dual IWR6843AOP mmWave radar setup for vehicle motion estimation.  
-The two-sensor configuration showed a clear advantage in spatial awareness copared to single sensor arrangement, as it allowed a wider field of view and more consistent data for motion estimation.  
-A detailed calibration process was carried out to configure the chirp frequencies of both radars.  
-From the tests, it was confirmed that using identical chirp configurations on both sensors caused mutual interference, producing ghost detections and inconsistent Doppler values.  
-This observation highlights the importance of proper frequency separation in multi-radar systems, since even small overlaps in frequency bands can lead to unstable measurements.
+The proposed cluster-based odometry method focused on selecting and tracking the most reliable cluster over time to estimate ego-motion, proved to be effective in outdoor environments, where radar reflections were sparse and the overall point cloud stability was reduced.  
+In contrast, indoor experiments showed that applying ICP to the full point cloud achieved higher accuracy due to the presence of dense, consistent reflections.  
+These results indicate that the optimal strategy depends on the operational environment: cluster-based ICP for open outdoor spaces, and full point cloud ICP for confined or reflective indoor areas.
 
-The proposed cluster-based odometry approach focused on selecting the most reliable tracked cluster over time to estimate ego-motion.  
-This method worked effectively in outdoor environments such as the parking lot tests, where radar reflections were sparse and the overall point cloud was less stable.  
-In contrast, indoor experiments showed that performing ICP on the full point cloud resulted in higher accuracy, as the denser reflections provided better point correspondences.  
-These results suggest that both methods are useful depending on the environment: the cluster-based ICP is better suited for open outdoor areas, while the full point cloud ICP performs better in confined indoor spaces.
-
-Overall, this project validated that mmWave radar sensors can be used successfully for odometry when supported by proper signal configuration and cluster tracking.  
-The results demonstrate the feasibility of radar-based odometry as a foundation for more advanced applications such as SLAM.
+Overall, the experiments validated that mmWave radar sensors can reliably support vehicle odometry when properly configured and calibrated, for the right environment and application.
+The presented approach establishes a solid foundation for future work toward radar-based SLAM, where the identified static clusters may serve as persistent landmarks for map generation and localization.
 
 \subsection{Future Work}
 
