@@ -3,7 +3,7 @@
 
 The raw radar point cloud exhibited systematic clutter in the region directly in front of the sensors, primarily due to reflections from the driver's feet and the ground.  
 These unwanted detections were consistently observed up to approximately \SI{1.5}{\meter} and persisted even when the vehicle was stationary.  
-If left unfiltered, such clutter propagated through the pipeline, degrading clustering and motion estimation.  
+If left unfiltered, such clutter propagated through the pipeline, degrading clustering and ego-motion estimation.  
 
 To address this, a static filtering stage was implemented with two criteria:
 \begin{enumerate}
@@ -14,7 +14,7 @@ To address this, a static filtering stage was implemented with two criteria:
 \end{enumerate}
 
 \noindent
-This filtering approach significantly reduced spurious reflections (Fig.~\ref{fig:filter_example}), producing a cleaner point cloud for downstream modules.  
+This filtering approach significantly reduced clutter (Fig.~\ref{fig:filter_example}), producing a cleaner point cloud for downstream modules.  
 The trade-off is that genuine obstacles appearing within the \SI{1.5}{\meter} dead zone are excluded.  
 Although this removes potentially useful information in very close range, the region is dominated by ground clutter and considered less critical for the odometry pipeline.  
 

@@ -7,7 +7,7 @@ Static reflections observed by a moving radar follow a predictable Doppler patte
 \[
 v_d = v_e \cos(\theta),
 \]
-where $v_e$ is the vehicle’s forward velocity and $\theta$ the azimuth angle relative to the vehicle heading.  
+where $v_e$ is the vehicle ego-velocity and $\theta$ the azimuth angle relative to the vehicle heading.  
 Objects directly ahead or behind ($\theta = 0^\circ, 180^\circ$) show the maximum Doppler shift ($v_d \approx \pm v_e$), while objects at $90^\circ$ yield $v_d \approx 0$.  
 This results in a cosine-shaped distribution of radial velocities across azimuth.  
 
@@ -77,14 +77,14 @@ Inliers are classified as static reflections and provide a reliable basis for eg
 \end{figure}
 
 \newpage
-\paragraph{Pipeline Role}
-As illustrated in the system pipeline (Fig.~\ref{fig:dual_radar_pipeline}), the RANSAC filter is positioned after static thresholding and before ego-velocity estimation.  
+As illustrated in the system pipeline (Fig.~\ref{fig:dual_radar_pipeline}), the RANSAC filter is positioned after static thresholding and before clustering method.  
 Its primary purpose at this stage is to separate dynamic objects from static landmarks, ensuring that subsequent modules operate only on consistent and reliable data.  
 
 Without this step, moving objects would propagate through clustering and ICP, corrupting the estimation of ego-motion.  
 By filtering out dynamic outliers, RANSAC guarantees that only stable reflections are retained for trajectory alignment and speed estimation.  
 \vspace{0.5em}
-The output of this stage is therefore two-fold:
+\\
+The output of this stage is therefore:
 \begin{itemize}
     \item A refined set of static landmarks, which serve as input for clustering and ICP-based odometry,
     \item A clean separation of dynamic actors, preventing them from biasing ego-motion estimation.

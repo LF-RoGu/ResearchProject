@@ -14,7 +14,7 @@ The sensors that are implemented and used in this project are the following:
 \\
 \indent The IWR6843AOPEVM development board from Texas Instruments features the IWR6843AOP, a high performance 4D mmWave FMCW sensor with Antenna On Package (AOP) design.
 Although IWR6843AOP is intended for industrial applications and its complementary chip, AWR6843AOP, for automotive applications, IWR6843AOP was used in this project because it is available in the form of this development board and the two chips are identical in terms of their functionalities, only differing in compliance with automotive  industry \cite{iwr_awr_diff}.
-Its small physical size, due to its AOP design, makes it an optimal choice for the desired mounting position, the go-kart's steering column.
+Its small physical size, due to its AOP design, makes it an optimal choice for the desired mounting position.
 \begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.7\linewidth]{images/iwr6843aopevm-angled.png}
@@ -23,6 +23,7 @@ Its small physical size, due to its AOP design, makes it an optimal choice for t
     \label{fig:IWR6843AOP sensor}
 \end{figure}
 
+\vspace{3\baselineskip}
 \par
 The IWR6843AOP radar sensor operates within the frequency range of \SIrange{60}{64}{\giga\hertz} and integrates 4 receive (RX) and 3 transmit (TX) antennas, radio frequency (RF) front-end stages, analog signal processing, and digital signal processing (DSP).
 It offers a wide range of communication interfaces including SPI, I2C, CAN-FD, UART and LVDS for raw data access and an Arm Cortex-R4F microcontroller for user-applications as shown in the Figure~\ref{fig:IWR6843AOP_internal} \cite{dev_board_page}.
@@ -51,7 +52,8 @@ The following operating parameters can be tuned:
     \item Radial velocity resolution
 \end{itemize}
 
-Tuning these operating parameters introduces trade-offs by influencing each other in the following ways:
+\newpage
+Tuning these operating parameters introduces trade-offs (see Table~\ref{tab:mmWave_Sensor_Parameters}) by influencing each other in the following ways:
 \begin{table}[h]
     \centering
     \resizebox{\columnwidth}{!}{
@@ -74,6 +76,7 @@ Tuning these operating parameters introduces trade-offs by influencing each othe
     \caption{Radar System Tuning Parameters and Trade-offs}
     \label{tab:mmWave_Sensor_Parameters}
 \end{table}
+
 The resulting overall accuracy of the velocity and distance measurements is again dependent on these operating parameters:
 \begin{itemize}
 \item \textbf{Radial velocity accuracy:} A fine balance between velocity resolution and frame rate must be maintained to ensure precise Doppler shift measurements. Lower resolution results in rounded velocity values, while an excessively high frame rate may introduce computational bottlenecks.

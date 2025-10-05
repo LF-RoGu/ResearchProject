@@ -7,7 +7,7 @@
 \end{comment}
 
 This section presents the result of the implemented pipeline as shown in Section~\ref{sec:processing_pipeline} with the dual-radar setup.
-Two experimental environments were selected: a controlled laboratory environment and an outdoor scenario. 
+Two experimental environments were selected: a controlled laboratory scenario and an outdoor scenario. 
 
 \subsection{Laboratory Environment}
 \subsubsection{Scenario Description}
@@ -16,13 +16,13 @@ The first experiments were conducted in an underground laboratory space (Fig.~\r
 The room contained multiple devices and metallic structures from other projects, which acted as additional landmarks.  
 
 The main obstacle was created using a set of modular cushions arranged into a wall (black and orange blocks in Fig.~\ref{fig:lab_setup}).  
-This configuration allowed us to test both straight-line odometry and more complex trajectories involving more complex set of trajectories.  
+This configuration allowed us to test both straight-line odometry and more complex set of trajectories.
 
 Three tests were performed:
 \begin{itemize}
     \item \textbf{Straight-line test:} The vehicle was driven directly toward the cushion wall, covering a distance of approximately 10--11~m from the start point to the wall.  
     \item \textbf{Obstacle-avoidance test:} The vehicle followed a path around the cushion wall and returned to its starting location, introducing turning maneuvers that add stress to the tested system and additional opportunities for clutter-induced reflections. 
-    \item \textbf{Hallway test:} The vehicle was pushed through the laboratoy hallway, which provides a highly reflective scenario in which a tight turn is possible to be tested.
+    \item \textbf{Hallway test:} The vehicle was pushed through the laboratory hallway, which provides a highly reflective scenario in which a tight turn is possible to be tested.
 \end{itemize}
 
 \begin{figure}[!htbp]
@@ -33,8 +33,8 @@ Three tests were performed:
 \end{figure}
 
 \subsubsection{Odometry Results}
-Two validation experiments were performed indoors to compare cluster-based ICP against full point cloud ICP.
-Resulting trajectories from these are decribed where the test environment is shown in Fig.~\ref{fig:lab_setup}.
+Three validation experiments were performed indoors to compare the cluster-based ICP with the full point cloud ICP.
+The resulting trajectories and the corresponding test environment are shown in Fig.~\ref{fig:lab_setup}.
 
 \begin{itemize}
     \item \textbf{Straight wall test, Fig.~\ref{fig:straightWall_Test}}:  
@@ -122,8 +122,8 @@ Resulting trajectories from these are decribed where the test environment is sho
 
 \subsection{Outdoors Scenario}
 \subsubsection{Scenario Description}
-The second evaluation environment was the outdoor parking lot of Fachhochschule Dortmund (see Fig.~\ref{fig:parking_lot_overview}).  
-The tests were conducted shortly after rainfall, which introduced additional radar clutter from wet ground reflections, making this a challenging stress test for the pipeline.  
+The second evaluation environment was the outdoor parking lot of the Fachhochschule Dortmund (see Fig.~\ref{fig:parking_lot_overview}).  
+The tests were conducted shortly after rainfall, which introduced additional radar clutter from wet ground reflections, making this a challenging stress test for the project.  
 
 The test area corresponds to a rectangular section of the parking lot, bounded by the building facades and a row of parked vehicles.  
 Key dimensions were measured as shown in Fig.~\ref{fig:parkinglot_measurements}, with the vertical segment $L_1 \approx \SI{10.7}{\meter}$ and the horizontal segment $L_2 \approx \SI{54.1}{\meter}$.  
@@ -133,7 +133,7 @@ During the experiments, between 6 and 10 vehicles were parked in the area, provi
 
 Two trajectories were tested:
 \begin{itemize}
-    \item \textbf{L-shape:} Starting along $L_2$, followed by a turn into $L_1$.
+    \item \textbf{L-shape:} Starting along $L_1$, followed by a turn into $L_2$.
     \item \textbf{L-shape with return:} Same as above, but including a U-turn to return to the starting point.
 \end{itemize}
 
@@ -176,12 +176,12 @@ All tests were driven exclusively in forward motion, as Doppler-based differenti
 \end{figure}
 
 \subsubsection{Odometry Results}
-Resulting trajectories from the recordings are shown from the outdoor tests in Fig.~\ref{fig:outsideOdometry4} and in Fig.~\ref{fig:outsideOdometry7}.
-During this test the non idealistic weather allowed us to perform a perfect performance test for both of the solution in the outdoors environment.
-In this testing period light rainfall was present, however nothing to damage the hardware.
-In both scenarios an \textbf{L shape trajectory} was performed, however both where run at different lengths of the testing area.
-As shown in Fig.~\ref{fig:outsideOdometry4}, the test was stoped around the metal emergency stair, which is around of 30 meters of the L1 section.
-In Fig.~\ref{fig:outsideOdometry7} the full length was covered in which we get a pretty close estimation of the ego-motion of the vehicle converting this into a close estimation of the vehicle odometry.
+Resulting trajectories from the outdoor recordings are shown in Fig.~\ref{fig:outsideOdometry4} and Fig.~\ref{fig:outsideOdometry7}.
+During this test, the non-ideal weather conditions provided a useful opportunity to evaluate both solutions under realistic outdoor conditions.
+Light rainfall was present during the experiment but did not affect the hardware.
+In both scenarios, an \textbf{L-shaped trajectory} was executed, although each run covered a different portion of the testing area.
+As shown in Fig.~\ref{fig:outsideOdometry4}, the first test was stopped near the metal emergency stair, approximately \SI{30}{\meter} along the $L_1$ section.
+In Fig.~\ref{fig:outsideOdometry7}, the full path was completed, yielding an accurate estimation of the vehicle’s ego-motion and overall odometry.
 
 \begin{comment}
     Add here the results of the odometry
@@ -264,9 +264,9 @@ In this context, using all available points allowed ICP to maximize geometric al
 
 In contrast, the \textbf{outdoor parking lot scenario} posed greater challenges.  
 Non-ideal environmental conditions, such as recent rainfall, made this setting an effective stress test for the system.  
-Sparse long-range detections and the presence of moving vehicles further contributed to a less consistent point cloud.  
-Applying ICP on the entire point set in this environment led to instability and drift, as spurious or dynamic points distorted the alignment process.  
-Instead, the clustered ICP approach—selecting the most consistent tracked cluster as the alignment reference—proved more effective.  
+Sparse long-range detections and the presence of vehicles further contributed to a less consistent point cloud.  
+Applying ICP on the entire point set in this environment led to instability and drift, as clutter distorted the alignment process.  
+Instead, the clustered ICP approach selecting the most consistent tracked cluster as the alignment reference proved more effective.  
 By anchoring to a reliable static object, the system achieved better trajectory consistency across extended distances.  
 
 This comparison underlines a fundamental trade-off:

@@ -5,7 +5,7 @@ Accurate and reliable ego-motion estimation is a fundamental requirement for mob
 It is the basis for localization, mapping, and navigation, and errors in this stage directly affect the overall performance of autonomous systems.  
 
 Traditionally, odometry has been estimated using a combination of wheel encoders, inertial measurement units (IMUs), and GPS.  
-In more recent years, cameras and LiDAR have been widely used because they provide dense information about the environment, enabling precise feature extraction and recognition.  
+In more recent years, cameras and LiDAR have been widely used as they provide dense information about the environment, enabling precise feature extraction and recognition.  
 However, these vision-based and LiDAR-based methods have significant drawbacks.  
 Cameras are highly sensitive to illumination changes.  
 LiDAR systems are costly, and their performance can degrade in adverse weather conditions such as fog, rain, or snow.  
@@ -25,10 +25,9 @@ Radar also has lower angular resolution compared to LiDAR or cameras.
 These limitations make it difficult to directly apply traditional scan-matching techniques, which are usually designed for dense LiDAR point clouds.  
 Previous work has shown that radar-only odometry and multimodal fusion can improve robustness, but challenges remain when dealing with sparsity, clutter, and the stability of scan registration.  
 
-This work investigates the use of mmWave radar sensors mounted on a Ninebot Go-Kart test platform.  
+This work investigates the use of mmWave radar sensors mounted on a Ninebot Go-Kart \cite{ninebot_product_page} test platform.  
 The system also integrates an IMU and an embedded processing unit.  
 A visual overview of the setup, including sensor placement, is shown in Figure~\ref{fig:Ninebot_system}.  
-This figure highlights the main components without going into detailed descriptions, which are provided later in the hardware description section.  
 
 \begin{figure}[!htbp]
     \centering
@@ -40,9 +39,9 @@ This figure highlights the main components without going into detailed descripti
 \newpage
 The contributions of this work can be summarized as follows:  
 \begin{enumerate}
-    \item A radar ego-motion pipeline using mmWave sensors and an IMU for rotation, minimizing hardware cost and system complexity.
+    \item A radar ego-motion pipeline using mmWave sensors for displacement measurements and an IMU for rotation, minimizing hardware cost and system complexity.
     \item Integration of Doppler velocity and RANSAC filtering to improve the separation of static and dynamic objects.
     \item Submap aggregation to mitigate point cloud sparsity and improve alignment stability.
     \item Object tracking via clusters to identify and filter dynamic objects from the ego-motion estimation.
-    \item Experimental validation using real-world data collected from a vehicle-mounted mmWave radar sensor.  
+    \item Experimental validation using real-world data collected from a vehicle-mounted mmWave radar system.  
 \end{enumerate}
