@@ -72,7 +72,7 @@ From these parameters, the sensing performance is determined as:
 where $\Delta R$ is \textbf{range resolution}, $R_{\max}$ the \textbf{maximum unambiguous range}, $\Delta v$ the \textbf{velocity resolution}, and $v_{\max}$ the \textbf{maximum unambiguous velocity}.  
 
 \textbf{Full-Bandwidth Chirp (Single 4 GHz Sweep)}, shown in Fig.~\ref{fig:profile4GHz}, provides the finest possible range resolution by sweeping the entire 4~GHz spectrum in a single chirp.  
-This configuration is well suited for precise spatial localization but requires high ADC sampling rates and is more prone to interference, making it practical mainly for single-radar setups.  
+This configuration is well suited for precise spatial localization but requires high ADC sampling rates, making it practical mainly for single-radar setups.  
 
 \begin{figure}[!htbp]
     \centering
@@ -82,11 +82,11 @@ This configuration is well suited for precise spatial localization but requires 
     \label{fig:profile4GHz}
 \end{figure}
 
-\textbf{Divided-Bandwidth Chirps (Two 2~GHz Sweeps)}, shown in Fig.~\ref{fig:profile2GHz}, split the 4~GHz spectrum into two 2~GHz chirps.  
+\textbf{Divided-Bandwidth Chirps (Two 2~GHz Sweeps)}, shown in Fig.~\ref{fig:profile2GHz}, split the 4~GHz spectrum available for the IWR6843AOP into two 2~GHz chirps.  
 Although this reduces range resolution compared to a full-band sweep, it lowers ADC requirements and enables reliable operation of dual-radar systems.  
 
 In this setup, one chirp configuration was assigned to each radar (Config~A $\rightarrow$ Radar~A, Config~B $\rightarrow$ Radar~B).  
-By operating on distinct frequency ranges, the radars avoided spectral overlap, preventing ghost targets and preserving point cloud quality.  
+By operating on distinct frequency ranges, the radars avoided spectral overlap, preventing ghost targets and preserving sensor detections quality.  
 
 \begin{figure}[!htbp]
     \centering
@@ -100,11 +100,10 @@ The final parameters were derived using the \textit{mmWave Sensing Estimator} to
 The divided-band strategy provided a balanced trade-off between resolution and robustness, ensuring stable dual-radar operation while avoiding the interference issues inherent to full-bandwidth sweeps.
 
 \textbf{Same-Band Chirps (Interference Case)} — Using identical chirp configurations on both radars introduced strong mutual interference, which was expected in theory but validated here through practical testing.  
-For example, in the vehicle-pushing test (Fig.~\ref{fig:dual_samechirp_pointcloud}) and in the walking-person case (Fig.~\ref{fig:dual_samechirp_cluster}), detections appeared artificially expanded or distorted compared to what was expected, with a single person spanning nearly \SI{3}{\meter}.  
+For example, in the vehicle-pushing test (Fig.~\ref{fig:dual_samechirp_pointcloud}) and in the walking-person case (Fig.~\ref{fig:dual_samechirp_cluster}), detections appeared expanded or distorted compared to what was expected, with a single person spanning nearly \SI{3}{\meter}.  
 While this spatial deformation was visible in the point clouds, the RANSAC analysis (Fig.~\ref{fig:dual_samechirp_ransac}) provided clearer evidence of the interference, with estimated radial velocities reaching up to $\pm$\SI{5}{\meter\per\second} despite the slow and controlled motions.  
 This underlines that the main strength of the radar lies in the Doppler information extracted from detections, which in this case exposed the interference effects more clearly than the point cloud itself.  
 
-These inconsistencies confirm that cross-talk affects both point cloud density and Doppler-based velocity estimation, making odometry unreliable.  
 This experiment demonstrated the necessity of separating chirp frequency bands, leading to the adoption of the divided-bandwidth configuration for stable dual-radar operation.
 
 \begin{figure}[!htbp]
@@ -120,7 +119,7 @@ This experiment demonstrated the necessity of separating chirp frequency bands, 
         \caption{Point cloud of the walking-person scenario.}
         \label{fig:dual_samechirp_cluster}
     \end{subfigure}
-    \caption{Point clouds from dual-radar interference with same-band chirps (green = Radar~A, blue = Radar~B).  
+    \caption{Point clouds, same-band chirps (green = Radar A, blue = Radar B).  
     Scenario (a) corresponds to pushing the vehicle, and (b) to a person walking towards the vehicle.}
     \label{fig:dual_samechirp_results}
 \end{figure}
@@ -138,8 +137,7 @@ This experiment demonstrated the necessity of separating chirp frequency bands, 
         \caption{RANSAC of scenario (b) from Fig.~\ref{fig:dual_samechirp_results}.}
         \label{fig:dual_samechirp_ransac_person}
     \end{subfigure}
-    \caption{RANSAC Doppler vs.\ Azimuth for the same-band chirp cases.  
-    Both confirm that interference causes incorrect velocity estimates when both radars share the same chirp band.}
+    \caption{RANSAC Doppler vs.\ Azimuth for the same frequency-band chirp cases.}
     \label{fig:dual_samechirp_ransac}
 \end{figure}
 
@@ -152,7 +150,7 @@ This experiment demonstrated the necessity of separating chirp frequency bands, 
 \paragraph{Configuration Tools}
 \hfill
 \\
-The MTi-G-710 was first evaluated with \textit{Xsens MT Manager} to understand the sensor outputs and axis conventions.  
+The MTi-G-710 was first evaluated with \textit{Xsens MT Manager} to understand the sensor outputs and axis conventions \cite{xsens_mt_manager_video}.  
 Using the tool, quaternion orientation was visualized in real time while the unit was held still and under gentle rotations to verify stability and drift.  
 Reference frames were checked so that the IMU heading and gravity vector aligned with the vehicle-centric frame used in the radar pipeline.  
 Output rate, message content, and quaternion format were confirmed in this stage before any integration work.  

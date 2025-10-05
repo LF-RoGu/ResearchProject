@@ -1,4 +1,3 @@
-\vspace{0.5em}
 \subsection{Frame Aggregator}  
 The frame aggregator addresses the inherent sparsity of single radar frames by combining multiple consecutive frames into a denser and more reliable point cloud.  
 While aggregation increases both useful information and noise, it ultimately improves object reconstruction, motion estimation, and detection stability.
@@ -34,6 +33,4 @@ This method increases point cloud density, reduces variance as per the Law of La
     \label{fig:multiframe}
 \end{figure}
 
-During experimentation, the number of aggregated frames was varied between 7 and 15.  
-A value of 10 frames provided the best balance: enough temporal density to reduce noise and reveal stable structures, while minimizing the persistence of outdated points.  
-This configuration was therefore adopted for all subsequent pipeline stages.
+During experimentation, different aggregation window sizes were tested, revealing that around 7-12 frames offered the best balance, enough temporal density to reduce noise while avoiding outdated data, so this value was used in later stages.
