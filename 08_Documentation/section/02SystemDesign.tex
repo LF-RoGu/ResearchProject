@@ -93,10 +93,6 @@ The complete processing chain is summarized in Figure~\ref{fig:dual_radar_pipeli
             \node[block, right=of clustering] (icp) {ICP};
             \node[block, right=of icp] (ego) {Ego-motion};
 
-            % Self-speed estimator (below RANSAC)
-            \node[block, below=1.5cm of ransac] (self_speed_estim) {Self-speed Estimator};
-            \node[block, right=of self_speed_estim] (self_speed_kalman) {Kalman Filter};
-
             % Connections
             \draw[->] (radar1) -- (transform1);
             \draw[->] (radar2) -- (transform2);
@@ -114,10 +110,6 @@ The complete processing chain is summarized in Figure~\ref{fig:dual_radar_pipeli
             \draw[->] (doppler_filter) -- (clustering);
             \draw[->] (clustering) -- (icp);
             \draw[->] (icp) -- (ego);
-
-            % Self-speed estimator branch
-            \draw[->] (ransac.south) -- (self_speed_estim.north);
-            \draw[->] (self_speed_estim) -- (self_speed_kalman);
 
             % Bottom brace under radar2 (dual radar inputs only)
             \draw [decorate, decoration = {brace, mirror, raise=8pt}] 
