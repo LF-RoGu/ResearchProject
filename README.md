@@ -56,4 +56,3 @@ To complement the directory overview, the following snapshots provide quick visu
 3. **Open the Qt visualization tools** in `03_Code/03_QTFramework`—particularly `01_pointCloudVisualizer` and the Python-based `03_Code-qtViewLogs` utilities—to replay and inspect logs from `04_Logs`.
 4. **Reference documentation and presentations** in `06_PresentationUpdates` and `08_Documentation` for context when presenting or extending the system.
 
-Feel free to extend this structure as the project evolves. Keeping new assets aligned with these directories will preserve the workflow from planning to deployment.
