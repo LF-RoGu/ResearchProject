@@ -43,7 +43,7 @@ DBSCAN defines a cluster based on two parameters: a neighborhood radius $\vareps
 \vspace{2\baselineskip}
 
 Clusters are then formed by connecting density-reachable points, while points that do not belong to any cluster are classified as noise.  
-This density-based formulation makes DBSCAN well-suited for radar data, where detections of the same object tend to be locally dense, while clutter appears as isolated points \cite{Radar_Object_Detection_From_Point_Clouds}.
+This density-based formulation makes DBSCAN well-suited for radar data, where detections of the same object tend to be locally dense, while clutter appears as isolated points \cite{OccupancyGrid_Mapping_Automotive}.
 
 \paragraph{Two-Stage DBSCAN Rationale}
 In practice, a single parameter set for $(\varepsilon, \text{MinPts})$ is insufficient because:

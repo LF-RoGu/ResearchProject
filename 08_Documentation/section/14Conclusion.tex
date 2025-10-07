@@ -1,25 +1,27 @@
 \newpage
 \section{Conclusion and Future Work}
-This work demonstrated a radar-based odometry system using a dual IWR6843AOP mmWave sensor setup for vehicle motion estimation.  
-The dual-radar configuration provided a significant improvement in spatial awareness compared to a single-sensor setup, enabling a wider field of view and more stable measurements.  
-A detailed calibration procedure confirmed that identical chirp configurations introduce mutual interference, resulting in ghost detections and erroneous Doppler readings.  
+This work demonstrated a radar-based system using a dual IWR6843AOP mmWave sensor setup for vehicle ego-motion estimation.  
+The dual-radar configuration provided a significant improvement in spatial awareness compared to a single-sensor setup, enabling a wider field of view.  
+A detailed calibration procedure confirmed that identical chirp configurations introduce mutual interference, resulting in distorted detections and erroneous Doppler readings.  
 Therefore, proper frequency separation between sensors is essential for stable dual-radar operation.
 
 The proposed cluster-based odometry method focused on selecting and tracking the most reliable cluster over time to estimate ego-motion, proved to be effective in outdoor environments, where radar reflections were sparse and the overall point cloud stability was reduced.  
-In contrast, indoor experiments showed that applying ICP to the full point cloud achieved higher accuracy due to the presence of dense, consistent reflections.  
-These results indicate that the optimal strategy depends on the operational environment: cluster-based ICP for open outdoor spaces, and full point cloud ICP for confined or reflective indoor areas.
+In contrast, indoor experiments showed that employing the full point cloud achieved higher accuracy due to the presence of dense and consistent reflections.  
+The results indicate that the optimal strategy depends on the operational environment: cluster-based ICP for open outdoor spaces, and full point cloud ICP for confined or reflective indoor areas.
 
 Overall, the experiments validated that mmWave radar sensors can reliably support vehicle odometry when properly configured and calibrated, for the right environment and application.
-The presented approach establishes a solid foundation for future work toward radar-based SLAM, where the identified static clusters may serve as persistent landmarks for map generation and localization.
+The presented approach establishes a solid foundation for future work toward radar-based SLAM.
 
 \subsection{Future Work}
 
-Future improvements will focus on refining the cluster tracking and data association process.  
+Future improvements can be done on refining the cluster tracking and data association process.  
 A deeper analysis of the Doppler and angle-of-arrival information, for example by incorporating Doppler heatmaps, could improve the identification and consistency of static clusters.  
 This would allow the system to better select stable targets and improve ego-motion estimation in more complex environments.
 
 Another major step forward will be the integration of SLAM algorithms into the current framework.  
 Since the cluster tracking system already distinguishes static objects and maintains their identities over time, these can be treated as landmarks for mapping.  
-Combining radar odometry with SLAM would enable global localization, allowing the system to recognize and re-use previously observed landmarks even after they leave the radar’s field of view.  
+Combining radar odometry with SLAM would enable global localization, allowing the system to recognize observed landmarks even after they leave the radar’s field of view.  
 
-Finally, future work will also include improving the visualization tool to support continuous frame processing instead of discrete jumps, ensuring smoother playback and more accurate analysis between frames.
+Finally, future work must include improving the visualization tool to support continuous frame processing instead of discrete jumps, ensuring smoother playback and more accurate analysis between frames.
+This also allowing the possibility to enable real-time visualization during data collection.  
+These enhancements will facilitate better debugging and performance evaluation of the radar odometry system.
