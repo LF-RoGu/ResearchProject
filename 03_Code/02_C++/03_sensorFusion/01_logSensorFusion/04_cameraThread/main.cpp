@@ -111,7 +111,7 @@ static IWR6843     radarSensorA;
 static IWR6843     radarSensorB;
 static XsensMti710 imuSensor;
 
-const string fileSuffix = "presentationTest";  // << Change this only once
+const string fileSuffix = "presentationTest2";  // << Change this only once
 #if ENABLE_VIDEO
 static atomic<bool>       videoStopSignal = false;
 static const string       videoOutputPath = "_outFiles/video/output_10fps_" + fileSuffix + ".avi";
