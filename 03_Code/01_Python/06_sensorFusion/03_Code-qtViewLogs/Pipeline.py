@@ -75,7 +75,7 @@ T_global = np.eye(3)  # initial pose at origin
 
 
 folderName = "16_presentation/01_backupPresentation"  # Folder where CSV files are stored
-testType = "presentationTest.csv"  # Type of test data
+testType = "presentationTest2.csv"  # Type of test data
 # Instantiate readers and global aggregators
 radarLoaderA = RadarCSVReader("radarA_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
 radarLoaderB = RadarCSVReader("radarB_" + testType, folderName) if ENABLE_SENSORS in (1, 3) else None
