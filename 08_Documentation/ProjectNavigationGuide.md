@@ -30,15 +30,15 @@ The main code tree is grouped by implementation language so you can pick the sta
     - `01_Code-log/`: Scripts used on the vehicle to log synchronized radar/IMU sessions.
     - `02_Code-readLogs/`: Offline readers that parse captured binary logs into analyzable formats.
     - `03_Code-liveViewLogs/`: Live streaming utilities for on-vehicle monitoring.
-    - `03_Code-qtViewLogs/`: Python Qt viewers mirroring the desktop C++ tools.
+    - `03_Code-qtViewLogs/`: Python Qt viewers that power the final visualization workflow—open runs such as [`labDriveAroundICP_Full1`](images/labDriveAroundICP_Full1.png) to see the fused radar/IMU output.
     - `test/`: Scratch area for quick experiments against sample data.
   - `07_chirpConfig/`: Radar chirp configuration JSON/TOML files for the IWR6843.
-- `02_C++/`: Production-quality services that run on the Raspberry Pi 5.
+- `02_C++/`: Production-quality services that run on the Raspberry Pi 5 and handle all on-vehicle data acquisition.
   - `01_mmWave-IWR6843/`: Low-level sensor interface for capturing raw radar frames.
   - `02_MTi-G-710/`: IMU acquisition module handling synchronization with radar timestamps.
   - `03_sensorFusion/`: Fusion engine combining radar and IMU measurements into ego-motion estimates.
   - `04_C270HD/`: Logitech C270 HD camera integration for visual context during testing.
-- `03_QTFramework/01_pointCloudVisualizer/`: Desktop Qt application for replaying logs, visualizing fused clouds, and overlaying sensor diagnostics.
+- `03_QTFramework/01_pointCloudVisualizer/`: Early Qt experiments kept for reference; use them only when you need to revisit the original prototypes.
 - `04_C#/`: Legacy utilities retained for reference when porting older tooling.
 
 ### Data and Logs
@@ -50,7 +50,7 @@ The main code tree is grouped by implementation language so you can pick the sta
 
 ### Presentations and Documentation
 - `06_PresentationUpdates/`: Slide decks (PPTX/ODP) documenting milestone reviews and live demos.
-- `08_Documentation/`: LaTeX sources (`main.tex`, section files) and final PDF reports (`RadarOdometry.pdf`).
+- `08_Documentation/`: LaTeX sources (`main.tex`, section files) and final PDF reports (`RadarOdometry.pdf`); start with `08_Documentation/README.md` for a quick orientation when entering the folder.
   - `images/`: Figures referenced by the report and README (block diagrams, vehicle photos, point-cloud examples).
   - `ProjectNavigationGuide.md` (this document): High-level orientation for new contributors.
 - `09_Images/`: Standalone media assets not yet incorporated into the LaTeX report.
