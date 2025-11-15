@@ -4,66 +4,47 @@ This repository documents the complete development pipeline—from early plannin
 
 ## Repository Structure
 
-### 01_Planning
-Project schedules, research notes, and early design materials that shaped the implementation roadmap.
+- [01_Planning](01_Planning/): Project planning artefacts, schedules, and research that guided the implementation roadmap.
 
-### 02_Models
-3D and CAD assets for the hardware layout. A summary is available in `02_Models/README.md`.
+- [02_Models](02_Models/): 3D models and CAD resources created for the hardware layout (summarized in [02_Models/README.md](02_Models/README.md)).
 
-### 03_Code
-All experimental and production software.
+- [03_Code](03_Code/): Source code for experiments, embedded services, and visualization tools.
+  - [01_Python](03_Code/01_Python/): Prototype scripts and data-processing experiments used during development—the final visualization dashboards also live here.
+    - [06_sensorFusion](03_Code/01_Python/06_sensorFusion/): Focused notebooks and scripts for validating sensor fusion logic prior to deployment.
+      - [03_Code-qtViewLogs](03_Code/01_Python/06_sensorFusion/03_Code-qtViewLogs/): Final Qt-based views for replaying and inspecting recorded sensor logs (see the `labDriveAroundICP_Full1` visualization).
+      - [03_Code-liveViewLogs](03_Code/01_Python/06_sensorFusion/03_Code-liveViewLogs/): Utilities for streaming fused data live during test sessions.
+  - [02_C++](03_Code/02_C++/): Production modules compiled for the Raspberry Pi 5, organized by sensor subsystem; these services handle the on-vehicle data acquisition that feeds the shared logs.
+    - [01_mmWave-IWR6843](03_Code/02_C++/01_mmWave-IWR6843/): Interfaces with the mmWave radar to capture and stream radar data.
+    - [02_MTi-G-710](03_Code/02_C++/02_MTi-G-710/): Handles IMU data acquisition and synchronization.
+    - [03_sensorFusion](03_Code/02_C++/03_sensorFusion/): Combines individual sensor feeds into a unified view used in the live system.
+    - [04_C270HD](03_Code/02_C++/04_C270HD/): Manages the Logitech C270 HD camera for visual context.
+  - [03_QTFramework](03_Code/03_QTFramework/): Early Qt experiments retained for reference (they are not part of the final toolchain).
+    - [01_pointCloudVisualizer](03_Code/03_QTFramework/01_pointCloudVisualizer/): Prototype GUI for log visualization; compare it against the polished Python `03_Code-qtViewLogs` utilities above.
+  - [04_C#](03_Code/04_C#/): Legacy utilities retained for reference.
 
-- **01_Python**  
-  Prototypes, data-processing experiments, and the final visualization tools.  
-  - **06_sensorFusion**  
-    Notebooks and scripts used to validate fusion logic.  
-    - **03_Code-qtViewLogs**  
-      Final Qt-based log-replay and inspection tools (example: `labDriveAroundICP_Full1.png`).  
-    - **03_Code-liveViewLogs**  
-      Utilities for live streaming fused data during tests.
+- [04_Logs](04_Logs/): Raw recordings and datasets captured during testing and validation (see the dedicated [folder README](04_Logs/README.md) for naming conventions).
+  - [01_sensorFusion](04_Logs/01_sensorFusion/): Multi-sensor captures aligned for fusion analysis.
+  - [02_IWR6843-standAlone](04_Logs/02_IWR6843-standAlone/): Radar-only sessions for algorithm calibration.
+  - [03_mti-standAlone](04_Logs/03_mti-standAlone/): IMU-focused recordings for sensor characterization.
 
-- **02_C++**  
-  Raspberry Pi 5 production modules, organized by sensor subsystem.  
-  - **01_mmWave-IWR6843** – Radar data acquisition.  
-  - **02_MTi-G-710** – IMU data capture and synchronization.  
-  - **03_sensorFusion** – Real-time fusion of all sensor feeds.  
-  - **04_C270HD** – Camera acquisition for visual context.
+- [05_test](05_test/): Sandbox area for temporary experiments and files that are safe to remove.
 
-- **03_QTFramework**  
-  Early Qt prototypes kept for historical reference.  
-  - **01_pointCloudVisualizer** – Initial log-visualization GUI.
+- [06_PresentationUpdates](06_PresentationUpdates/): Iterative presentation decks documenting project progress and milestones.
 
-- **04_C#**  
-  Legacy utilities preserved for completeness.
+- [07_Literature](07_Literature/): Research papers, notes, and references that informed the system design.
 
-### 04_Logs
-Datasets captured during testing. See `04_Logs/README.md` for naming conventions.  
-- **01_sensorFusion** – Multi-sensor aligned logs.  
-- **02_IWR6843-standAlone** – Radar-only calibration sessions.  
-- **03_mti-standAlone** – IMU-only characterization runs.
-
-### 05_test
-Temporary experiments and disposable work.
-
-### 06_PresentationUpdates
-Progress presentations and milestone decks.
-
-### 07_Literature
-Research papers and notes used throughout system design.
-
-### 08_Documentation
-Complete written report and supporting documents.  
-- **ProjectNavigationGuide.md** – High-level introduction to project goals, sensing hardware, and directory layout.  
-- **images** – Figures used throughout the report.
+- [08_Documentation](08_Documentation/): Final report and supplementary documentation describing the full project (start with the concise [folder README](08_Documentation/README.md)).
+  - [ProjectNavigationGuide.md](08_Documentation/ProjectNavigationGuide.md): A narrative overview of the project goals, sensing hardware, and directory structure to help new contributors ramp up quickly.
+  - [images](08_Documentation/images/): Reference figures illustrating the hardware layout, calibration process, and data products described in the report (see previews below).
 
 ## Visual Highlights
 
-The images below (stored in `09_Images/`) provide a quick overview of the system. You can replace or update them at any time; see `09_Images/README.md` for details.
+The images below (stored in `09_Images/`) provide a quick overview of the system. You can replace or update them at any time; see [`09_Images/README.md`](09_Images/README.md) for details.
 
 <div align="center">
 
 ![Block diagram summarizing how each sensor integrates with the Raspberry Pi 5](09_Images/ProjectSummaryIntegration.png)  
-*System integration overview showing how radar units, IMU, and camera connect to the Raspberry Pi pipeline.*
+*System integration overview showing how the radars, IMU, and camera connect to the Raspberry Pi pipeline.*
 
 ![Annotated photo calling out every sensor installed on the go-kart](09_Images/ProjectSensorHighlights.png)  
 *Annotated platform view identifying all mounted sensors.*
@@ -78,7 +59,7 @@ The images below (stored in `09_Images/`) provide a quick overview of the system
 
 ## How to Navigate the Code
 
-1. Start with the Python prototypes in `03_Code/01_Python`, especially the `06_sensorFusion` folder, to see how sensor data was explored and validated before deployment.  
-2. Explore the Raspberry Pi services under `03_Code/02_C++` to understand the production system and how each sensor’s data enters the fusion pipeline.  
-3. Use the Qt visualization tools in `03_Code/01_Python/06_sensorFusion/03_Code-qtViewLogs` for reviewing logs. For comparison, the early Qt experiments are archived in `03_Code/03_QTFramework`.  
-4. Consult `06_PresentationUpdates` and `08_Documentation` for broader system explanations, figures, and presentation-ready material.
+1. Review Python prototypes in `03_Code/01_Python`, especially the `06_sensorFusion` folder, to understand how sensor data was processed during early experimentation.  
+2. Explore the Raspberry Pi services in `03_Code/02_C++` to see how each sensor’s data enters the production fusion pipeline.  
+3. Use the Qt visualization tools in `03_Code/01_Python/06_sensorFusion/03_Code-qtViewLogs` when inspecting recorded logs. For comparison, the early Qt experiments are archived in `03_Code/03_QTFramework`.  
+4. Reference `06_PresentationUpdates` and `08_Documentation` for broader explanations, system context, and presentation materials.
