@@ -27,6 +27,7 @@ This repository captures the full lifecycle of the project—from the early plan
 - [06_PresentationUpdates](06_PresentationUpdates/): Iterative presentation decks documenting project progress and milestones.
 - [07_Literature](07_Literature/): Research papers, notes, and references that informed the system design.
 - [08_Documentation](08_Documentation/): Final report and supplementary documentation describing the full project.
+  - [ProjectNavigationGuide.md](08_Documentation/ProjectNavigationGuide.md): A narrative overview of the project goals, sensing hardware, and directory structure to help new contributors ramp up quickly.
   - [images](08_Documentation/images/): Reference figures illustrating the hardware layout, calibration process, and data products described in the report (see previews below).
 
 ## Visual Highlights
@@ -35,17 +36,23 @@ To complement the directory overview, the following snapshots provide quick visu
 
 <div align="center">
 
-![System Block Diagram showing sensor fusion data flow](08_Documentation/images/blockdiagram.png)
+![Block diagram summarizing how each sensor integrates with the Raspberry Pi 5](09_Images/ProjectSummaryIntegration.svg)
 
-*System block diagram outlining how radar, IMU, and vision data flow through the fusion pipeline.*
+*Project integration summary showing how the dual radars, IMU, and optional camera feed into merge, fusion, and odometry services (placeholder artwork stored in `09_Images`).*
 
-![Vehicle mounting locations for radar and IMU sensors](08_Documentation/images/vehicleSystem.png)
+![Annotated photo calling out every sensor installed on the go-kart](09_Images/ProjectSensorHighlights.svg)
 
-*Vehicle mounting layout depicting where each sensor is installed for data collection.*
+*Sensor highlights on the platform, reinforcing where the IMU, dual mmWave units, and optional camera reside (placeholder artwork stored in `09_Images`).*
 
-![Example fused point cloud log visualized in the Qt tools](08_Documentation/images/driveAroundCluster_ICP.png)
+![3D CAD of the combined radar/IMU enclosure](09_Images/3DModelFullSensor.PNG)
 
-*Representative fused point cloud log that can be replayed with the Qt visualization utilities.*
+![3D CAD of the MTi G-710 mounting bracket](09_Images/3DModelSensorMount.PNG)
+
+*3D model references that detail the mechanical mounts for the radar and IMU assemblies.*
+
+![Pipeline overview describing the C++ processing stages](09_Images/CppImplementationOverview.svg)
+
+*High-level view of the C++ implementation flow—from raw sensor frames and fusion through encoding, visualization, and logging (placeholder artwork stored in `09_Images`).*
 
 </div>
 
