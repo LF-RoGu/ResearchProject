@@ -47,7 +47,7 @@ under `09_Images/` so you can swap in updated artwork at any time (see [`09_Imag
 
 ![3D CAD of the combined radar/IMU enclosure](09_Images/3DModelFullSensor.PNG)
 
-![3D CAD of the MTi G-710 mounting bracket](09_Images/MTi3DModel.PNG)
+![3D CAD of the MTi G-710 mounting bracket](09_Images/MTi3DModel.png)
 
 *3D model references that detail the mechanical mounts for the radar and IMU assemblies.*
 
