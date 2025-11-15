@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540">
+  <rect width="960" height="540" fill="#f0f7ff" />
+  <text x="480" y="180" font-size="36" font-weight="bold" text-anchor="middle" fill="#1c3d5a">Project Sensor Highlights</text>
+  <text x="480" y="300" font-size="22" text-anchor="middle" fill="#123247">Callouts showing each implemented sensor and its</text>
+  <text x="480" y="330" font-size="22" text-anchor="middle" fill="#123247">mounting location on the vehicle.</text>
+  <text x="480" y="430" font-size="18" text-anchor="middle" fill="#335b7a">Placeholder visual – replace with the annotated photo when available.</text>
+</svg>
