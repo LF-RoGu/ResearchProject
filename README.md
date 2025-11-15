@@ -46,8 +46,6 @@ To complement the directory overview, the following snapshots provide quick visu
 
 ![3D CAD of the combined radar/IMU enclosure](09_Images/3DModelFullSensor.PNG)
 
-![3D CAD of the MTi G-710 mounting bracket](09_Images/3DModelSensorMount.PNG)
-
 *3D model references that detail the mechanical mounts for the radar and IMU assemblies.*
 
 ![Pipeline overview describing the C++ processing stages](09_Images/CppImplementationOverview.png)
