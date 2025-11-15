@@ -36,11 +36,11 @@ To complement the directory overview, the following snapshots provide quick visu
 
 <div align="center">
 
-![Block diagram summarizing how each sensor integrates with the Raspberry Pi 5](09_Images/ProjectSummaryIntegration.svg)
+![Block diagram summarizing how each sensor integrates with the Raspberry Pi 5](09_Images/ProjectSummaryIntegration.png)
 
 *Project integration summary showing how the dual radars, IMU, and optional camera feed into merge, fusion, and odometry services (placeholder artwork stored in `09_Images`).*
 
-![Annotated photo calling out every sensor installed on the go-kart](09_Images/ProjectSensorHighlights.svg)
+![Annotated photo calling out every sensor installed on the go-kart](09_Images/ProjectSensorHighlights.png)
 
 *Sensor highlights on the platform, reinforcing where the IMU, dual mmWave units, and optional camera reside (placeholder artwork stored in `09_Images`).*
 
@@ -50,7 +50,7 @@ To complement the directory overview, the following snapshots provide quick visu
 
 *3D model references that detail the mechanical mounts for the radar and IMU assemblies.*
 
-![Pipeline overview describing the C++ processing stages](09_Images/CppImplementationOverview.svg)
+![Pipeline overview describing the C++ processing stages](09_Images/CppImplementationOverview.png)
 
 *High-level view of the C++ implementation flow—from raw sensor frames and fusion through encoding, visualization, and logging (placeholder artwork stored in `09_Images`).*
 
